@@ -9,7 +9,6 @@ import { colors } from '../src/theme';
 function Initializer({ children }: { children: React.ReactNode }) {
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<Error | null>(null);
-  const onboardingCompleted = useUserStore((s) => s.settings.onboardingCompleted);
 
   useEffect(() => {
     async function init() {
@@ -54,7 +53,12 @@ function RootNavigator() {
     if (redirected) return;
 
     // Don't redirect if already on onboarding or auth routes
-    if (pathname.startsWith('/onboarding') || pathname.startsWith('/(auth)')) {
+    if (
+      pathname.startsWith('/onboarding') ||
+      pathname.startsWith('/(auth)') ||
+      pathname.startsWith('/accounts') ||
+      pathname.startsWith('/add-account')
+    ) {
       return;
     }
 

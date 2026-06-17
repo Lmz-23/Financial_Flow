@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { PocketRepository } from '../database/repositories/pocketRepository';
+import { AccountRepository } from '../database/repositories/accountRepository';
 import { useUserId } from '../store/useUserStore';
-import type { Pocket } from '../database/schema';
+import type { Pocket, Account } from '../database/schema';
 
 // =============================================================================
 // USE POCKETS HOOK
@@ -14,6 +15,10 @@ interface PocketWithBalance extends Pocket {
 interface PocketsWithImplicit {
   explicit: PocketWithBalance[];
   implicit: { name: string; balance: number };
+}
+
+interface AccountWithPockets extends Account {
+  pockets: PocketsWithImplicit;
 }
 
 interface UsePocketsState {
@@ -96,4 +101,52 @@ export function usePocketsByAccount(accountId: string | null): {
   }, [accountId]);
 
   return { data, loading, error };
+}
+
+// Hook for all pockets grouped by account (for the pockets overview screen)
+export function usePocketsGroupedByAccount(): {
+  accounts: AccountWithPockets[];
+  loading: boolean;
+  error: Error | null;
+  refetch: () => Promise<void>;
+} {
+  const userId = useUserId();
+  const [accounts, setAccounts] = useState<AccountWithPockets[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  const fetchAccountsWithPockets = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Get all accounts for the user
+      const allAccounts = await AccountRepository.getAll(userId);
+
+      // Get pockets with balances for each account
+      const accountsWithPockets = await Promise.all(
+        allAccounts.map(async (account) => {
+          const pocketsData = await PocketRepository.getAllByAccountWithBalances(account.id);
+          const balance = await AccountRepository.getBalance(account.id);
+          return {
+            ...account,
+            balance,
+            pockets: pocketsData,
+          };
+        })
+      );
+
+      setAccounts(accountsWithPockets);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Unknown error'));
+    } finally {
+      setLoading(false);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    fetchAccountsWithPockets();
+  }, [fetchAccountsWithPockets]);
+
+  return { accounts, loading, error, refetch: fetchAccountsWithPockets };
 }

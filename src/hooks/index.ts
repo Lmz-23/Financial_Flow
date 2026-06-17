@@ -14,8 +14,11 @@ export type { AccountWithBalance } from './useAccounts';
 // Data Hooks - Transactions
 export { useTransactions, useRecentTransactions, usePendingTransactions } from './useTransactions';
 
+// Data Hooks - Categories
+export { useCategories, useCategoriesByType } from './useCategories';
+
 // Data Hooks - Pockets
-export { usePockets, usePocketsByAccount } from './usePockets';
+export { usePockets, usePocketsByAccount, usePocketsGroupedByAccount } from './usePockets';
 
 // Data Hooks - Budget
 export { useBudget, useCurrentMonthBudget } from './useBudget';

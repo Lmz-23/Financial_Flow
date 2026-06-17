@@ -10,7 +10,7 @@ export default function TabLayout() {
         tabBarActiveTintColor: colors.accentGreen,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarStyle: {
-          backgroundColor: colors.surface,
+          backgroundColor: colors.surface1,
           borderTopColor: colors.border,
           borderTopWidth: 1,
           paddingTop: 4,
@@ -33,29 +33,38 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="accounts"
+        options={{
+          title: 'Cuentas',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="bank" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="transactions"
         options={{
-          title: 'Movimientos',
+          title: 'Transacciones',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="swap-horizontal" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="pockets"
+        name="budget"
         options={{
-          title: 'Bolsillos',
+          title: 'Presupuesto',
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="wallet" size={size} color={color} />
+            <MaterialCommunityIcons name="chart-pie" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="settings"
+        name="more"
         options={{
-          title: 'Ajustes',
+          title: 'Más',
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="cog" size={size} color={color} />
+            <MaterialCommunityIcons name="dots-horizontal" size={size} color={color} />
           ),
         }}
       />
