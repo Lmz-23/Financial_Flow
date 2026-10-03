@@ -41,3 +41,7 @@ example
 # generated native folders
 /ios
 /android
+
+# AIEOS / herramientas locales
+.opencode/
+.claude/pipeline-state.json
