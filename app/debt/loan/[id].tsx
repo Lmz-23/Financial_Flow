@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Card, ProgressBar, Divider, Button } from '../../src/components/ui';
-import { colors, spacing, typography } from '../../src/theme';
-import { useUserStore } from '../../src/store/useUserStore';
-import { DebtLoanRepository } from '../../src/database/repositories/debtLoanRepository';
-import type { DebtLoan } from '../../src/database/schema';
+import { Card, ProgressBar, Divider, Button } from '../../../src/components/ui';
+import { colors, spacing, typography } from '../../../src/theme';
+import { useUserStore } from '../../../src/store/useUserStore';
+import { DebtLoanRepository } from '../../../src/database/repositories/debtLoanRepository';
+import type { DebtLoan } from '../../../src/database/schema';
 
 export default function LoanDetailScreen() {
   const router = useRouter();

@@ -10,7 +10,6 @@ import { colors, spacing, typography } from '../../src/theme';
 import { useBudget } from '../../src/hooks/useBudget';
 import { useUserStore } from '../../src/store/useUserStore';
 import { useCategories } from '../../src/hooks';
-import { BudgetRepository } from '../../src/database/repositories/budgetRepository';
 import { getSpendingByCategory } from '../../src/domain/services/BudgetService';
 import { database } from '../../src/database';
 import { transactions, categories as categoriesTable } from '../../src/database/schema';
@@ -85,15 +84,9 @@ export default function BudgetScreen() {
     if (!newBudget.name.trim() || newBudget.amount <= 0) return;
 
     try {
-      await BudgetRepository.create({
-        userId,
-        name: newBudget.name.trim(),
-        amount: newBudget.amount,
-        period: 'MONTHLY',
-        categoryId: null,
-        walletId: null,
-        alertThreshold: 80,
-      });
+      // Stub: BudgetRepository was removed (ticket C-01). Per-category budget
+      // entity has no schema/service equivalent in the codebase yet.
+      console.warn('[stub] BudgetRepository.create not implemented — see ticket C-01');
 
       setNewBudget({ name: '', amount: 0 });
       setBudgetModalVisible(false);

@@ -9,15 +9,15 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Button, Card } from '../../src/components/ui';
-import { AmountInput, FrequencyPicker, AccountPicker } from '../../src/components/forms';
-import { Input } from '../../src/components/ui';
-import { colors, spacing, typography } from '../../src/theme';
-import { useUserId } from '../../src/store/useUserStore';
-import { RecurringItemRepository } from '../../src/database/repositories/recurringRepository';
-import { useAccounts } from '../../src/hooks';
-import type { Frequency } from '../../src/domain/utils/date';
-import type { RecurringItem } from '../../src/database/schema';
+import { Button, Card } from '../../../src/components/ui';
+import { AmountInput, FrequencyPicker, AccountPicker } from '../../../src/components/forms';
+import { Input } from '../../../src/components/ui';
+import { colors, spacing, typography } from '../../../src/theme';
+import { useUserId } from '../../../src/store/useUserStore';
+import { RecurringItemRepository } from '../../../src/database/repositories/recurringRepository';
+import { useAccounts } from '../../../src/hooks';
+import type { Frequency } from '../../../src/domain/utils/date';
+import type { RecurringItem } from '../../../src/database/schema';
 
 interface IncomeForm {
   id: string;

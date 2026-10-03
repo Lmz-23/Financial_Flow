@@ -9,13 +9,13 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Button, Card, Input } from '../../src/components/ui';
-import { AmountInput } from '../../src/components/forms';
-import { colors, spacing, typography } from '../../src/theme';
-import { useUserId } from '../../src/store/useUserStore';
-import { AccountRepository } from '../../src/database/repositories/accountRepository';
-import { TransactionRepository } from '../../src/database/repositories/transactionRepository';
-import type { Account } from '../../src/database/schema';
+import { Button, Card, Input } from '../../../src/components/ui';
+import { AmountInput } from '../../../src/components/forms';
+import { colors, spacing, typography } from '../../../src/theme';
+import { useUserId } from '../../../src/store/useUserStore';
+import { AccountRepository } from '../../../src/database/repositories/accountRepository';
+import { TransactionRepository } from '../../../src/database/repositories/transactionRepository';
+import type { Account } from '../../../src/database/schema';
 
 const ACCOUNT_TYPES = [
   { value: 'CHECKING', label: 'Nómina/Corriente', icon: 'bank' },

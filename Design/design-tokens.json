@@ -1,0 +1,153 @@
+{
+  "name": "Financial Flow",
+  "version": 1,
+  "color": {
+    "themes": [
+      { "id": "light", "name": "Light" },
+      { "id": "dark", "name": "Dark" }
+    ],
+    "tokens": [
+      {
+        "name": "surface-page",
+        "value": { "light": "#F3F6F4", "dark": "#0B1512" },
+        "usage": "Fondo general de la app, detrás de todos los widgets."
+      },
+      {
+        "name": "surface-card",
+        "value": { "light": "#FFFFFF", "dark": "#121F1A" },
+        "usage": "Fondo de un widget o tarjeta individual del dashboard."
+      },
+      {
+        "name": "surface-raised",
+        "value": { "light": "#E9EFEC", "dark": "#182A23" },
+        "usage": "Secciones agrupadas dentro de una pantalla (p. ej. un grupo de filtros), y la jerarquía entre widgets en vez de usar sombra."
+      },
+      {
+        "name": "border-subtle",
+        "value": { "light": "#D7E0DB", "dark": "#27392F" },
+        "usage": "Bordes de inputs, separadores entre filas de transacciones, y el contorno de las tarjetas de invitación de widgets opcionales no activados."
+      },
+      {
+        "name": "ink-primary",
+        "value": { "light": "#0E211C", "dark": "#EAF2EE" },
+        "usage": "Texto principal: montos, títulos de widgets, nombres de transacciones."
+      },
+      {
+        "name": "ink-secondary",
+        "value": { "light": "#51645D", "dark": "#9EB3AB" },
+        "usage": "Texto secundario: fechas, categorías, etiquetas de apoyo. Reservado para texto de 14px o más por su contraste más bajo."
+      },
+      {
+        "name": "ink-on-brand",
+        "value": { "light": "#F3FBF8", "dark": "#0B1512" },
+        "usage": "Texto o íconos sobre un fondo brand-primary (botón principal, header)."
+      },
+      {
+        "name": "brand-primary",
+        "value": { "light": "#0B3B36", "dark": "#4FC9A8" },
+        "usage": "Color de marca: botón principal, navegación activa, el widget hero del Índice de Flujo de Caja. Transmite estabilidad y confianza."
+      },
+      {
+        "name": "signal-growth",
+        "value": { "light": "#1E8F5D", "dark": "#4FD399" },
+        "usage": "Ingreso pasivo, crecimiento, montos positivos del cashflow, progreso de metas de ahorro. Nunca se usa para decoración, solo para dato financiero real."
+      },
+      {
+        "name": "signal-debt",
+        "value": { "light": "#B5472E", "dark": "#E08465" },
+        "usage": "Deuda, gasto, montos negativos. Se distingue de signal-growth por tono (verde vs. terracota), no solo por matiz, para quien no distingue bien rojo/verde."
+      },
+      {
+        "name": "signal-goal",
+        "value": { "light": "#A97723", "dark": "#D9A94E" },
+        "usage": "Metas de ahorro, hitos, distribución automática de ingresos. El color de 'construir patrimonio'."
+      },
+      {
+        "name": "focus-ring",
+        "value": { "light": "{brand-primary}", "dark": "{brand-primary}" },
+        "usage": "Contorno de foco de teclado en todo control interactivo."
+      }
+    ]
+  },
+  "shadow": {
+    "tokens": [
+      {
+        "name": "shadow-sheet",
+        "value": {
+          "light": "0 -8px 24px rgba(14,33,28,0.14)",
+          "dark": "none"
+        },
+        "usage": "Únicamente para hojas inferiores (bottom sheets) y modales que flotan sobre el contenido. Los widgets del dashboard NUNCA llevan sombra: su jerarquía se expresa con surface-raised y border-subtle, para mantener el tablero sobrio."
+      }
+    ]
+  },
+  "type": {
+    "families": {
+      "sans": "\"IBM Plex Sans\", \"Helvetica Neue\", Arial, sans-serif",
+      "mono": "\"IBM Plex Mono\", \"SFMono-Regular\", Consolas, monospace"
+    },
+    "groups": [
+      {
+        "name": "Display",
+        "family": "sans",
+        "styles": [
+          { "name": "display-lg", "fontSize": "40px", "lineHeight": "44px", "fontWeight": 600, "usage": "Título de bienvenida en onboarding." },
+          { "name": "display-md", "fontSize": "28px", "lineHeight": "34px", "fontWeight": 600, "usage": "Título de pantalla principal." }
+        ]
+      },
+      {
+        "name": "Heading",
+        "family": "sans",
+        "styles": [
+          { "name": "h1", "fontSize": "22px", "lineHeight": "28px", "fontWeight": 600, "usage": "Título de sección." },
+          { "name": "h2", "fontSize": "18px", "lineHeight": "24px", "fontWeight": 600, "usage": "Título de widget del dashboard." },
+          { "name": "h3", "fontSize": "16px", "lineHeight": "22px", "fontWeight": 600, "usage": "Subtítulo dentro de un widget." }
+        ]
+      },
+      {
+        "name": "Body",
+        "family": "sans",
+        "styles": [
+          { "name": "body", "fontSize": "15px", "lineHeight": "22px", "fontWeight": 400, "usage": "Texto de párrafo, descripciones." },
+          { "name": "body-sm", "fontSize": "13px", "lineHeight": "18px", "fontWeight": 400, "usage": "Texto de apoyo, ayudas contextuales." }
+        ]
+      },
+      {
+        "name": "Label",
+        "family": "sans",
+        "styles": [
+          { "name": "label", "fontSize": "12px", "lineHeight": "16px", "fontWeight": 500, "usage": "Etiquetas de campo, categorías, chips. Siempre en minúsculas/sentence case, nunca mayúsculas sostenidas." }
+        ]
+      },
+      {
+        "name": "Numeric",
+        "family": "mono",
+        "styles": [
+          { "name": "amount-lg", "fontSize": "28px", "lineHeight": "32px", "fontWeight": 500, "usage": "El monto hero de un widget: balance total, Índice de Flujo de Caja." },
+          { "name": "amount-md", "fontSize": "18px", "lineHeight": "24px", "fontWeight": 500, "usage": "Montos secundarios: saldo por cuenta, meta de ahorro." },
+          { "name": "amount-sm", "fontSize": "14px", "lineHeight": "20px", "fontWeight": 400, "usage": "Montos en listas de transacciones. La fuente monoespaciada alinea las cifras en columna para escanear rápido, como un estado de cuenta." }
+        ]
+      }
+    ]
+  },
+  "spacing": {
+    "tokens": [
+      { "name": "space-1", "value": "4px", "usage": "Separación entre un ícono y su etiqueta." },
+      { "name": "space-2", "value": "8px", "usage": "Padding interno de chips y controles pequeños." },
+      { "name": "space-3", "value": "12px", "usage": "Separación entre elementos dentro de un widget." },
+      { "name": "space-4", "value": "16px", "usage": "Padding estándar de una tarjeta o widget." },
+      { "name": "space-5", "value": "24px", "usage": "Separación entre widgets del dashboard." },
+      { "name": "space-6", "value": "32px", "usage": "Separación entre secciones de una pantalla." },
+      { "name": "space-7", "value": "48px", "usage": "Margen superior de pantalla, respiro en onboarding." }
+    ]
+  },
+  "radius": {
+    "tokens": [
+      { "name": "radius-xs", "value": "4px", "usage": "Chips pequeños, bordes de input." },
+      { "name": "radius-sm", "value": "8px", "usage": "Botones, inputs, tarjetas de invitación de widgets opcionales." },
+      { "name": "radius-md", "value": "14px", "usage": "Widgets estándar del dashboard." },
+      { "name": "radius-lg", "value": "22px", "usage": "Hojas inferiores, modales, y el widget hero (Índice de Flujo de Caja) para darle peso visual propio." },
+      { "name": "radius-full", "value": "999px", "usage": "Avatares, píldoras de estado, botón flotante de agregar transacción." }
+    ]
+  }
+}
