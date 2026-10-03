@@ -11,7 +11,6 @@ import { usePockets } from '../../src/hooks/usePockets';
 import { useBudget } from '../../src/hooks/useBudget';
 import { useDebts } from '../../src/hooks/useDebts';
 import { useIntegrityCheck } from '../../src/hooks/useIntegrityCheck';
-import { BudgetRepository } from '../../src/database/repositories/budgetRepository';
 
 export default function SettingsScreen() {
   const user = useUserStore((s) => s.user);
@@ -37,15 +36,9 @@ export default function SettingsScreen() {
   const handleCreateBudget = async () => {
     if (!newBudget.name.trim() || newBudget.amount <= 0 || !user) return;
 
-    await BudgetRepository.create({
-      userId: user.id,
-      name: newBudget.name.trim(),
-      amount: newBudget.amount,
-      period: 'MONTHLY',
-      categoryId: null,
-      walletId: null,
-      alertThreshold: 80,
-    });
+    // Stub: BudgetRepository was removed (ticket C-01). Per-category budget
+    // entity has no schema/service equivalent in the codebase yet.
+    console.warn('[stub] BudgetRepository.create not implemented — see ticket C-01');
 
     setNewBudget({ name: '', amount: 0 });
     setBudgetModal(false);

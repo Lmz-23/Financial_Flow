@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { View, Text, StyleSheet, SafeAreaView } from 'react-native';
-import { Button } from '../../src/components/ui/Button';
-import { colors, spacing, typography } from '../../src/theme';
+import { Button } from '../../../src/components/ui/Button';
+import { colors, spacing, typography } from '../../../src/theme';
 
 export default function WelcomeScreen() {
   const router = useRouter();

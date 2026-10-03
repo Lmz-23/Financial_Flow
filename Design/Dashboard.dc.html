@@ -1,0 +1,1637 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Financial Flow — App</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  body { margin: 0; background: #F3F6F4; }
+  a { text-decoration: none; }
+  input::placeholder { color: #9FADA7; }
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; font-family: 'IBM Plex Sans', Arial, sans-serif; color: #0E211C; background: #F3F6F4;">
+
+  <!-- ===================== DASHBOARD ===================== -->
+  <sc-if value="{{onDashboard}}" hint-placeholder-val="{{true}}">
+    <div style="position: relative; width: 100%; height: 100%; display: flex; flex-direction: column;">
+
+      <div style="display: flex; align-items: flex-start; justify-content: space-between; padding: 24px 20px 8px;">
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 13px; color: #51645D;">Hola</span>
+          <h1 style="margin: 0; font-size: 22px; line-height: 28px; font-weight: 600;">Tu panorama</h1>
+        </div>
+        <button type="button" onClick="{{goAjustes}}" aria-label="Ajustes" style="width: 44px; height: 44px; border-radius: 999px; border: 1px solid #D7E0DB; background: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+            <path d="M3 5.5H15M3 9H15M3 12.5H15" stroke="#51645D" stroke-width="1.5" stroke-linecap="round"/>
+            <circle cx="7" cy="5.5" r="1.6" fill="#51645D"/><circle cx="12" cy="9" r="1.6" fill="#51645D"/><circle cx="9" cy="12.5" r="1.6" fill="#51645D"/>
+          </svg>
+        </button>
+      </div>
+
+      <div style="flex: 1; overflow-y: auto; padding: 16px 20px 110px; display: flex; flex-direction: column; gap: 20px;">
+
+        <!-- Resumen de cuentas -->
+        <section style="background: #FFFFFF; border: 1px solid #D7E0DB; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 14px;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <h2 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600;">Resumen de cuentas</h2>
+            <button type="button" onClick="{{goAgregarCuenta}}" aria-label="Agregar cuenta" style="width: 26px; height: 26px; border-radius: 999px; border: 1px solid #D7E0DB; background: transparent; display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer;">
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M6.5 2V11M2 6.5H11" stroke="#51645D" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 28px; line-height: 32px; font-weight: 500;">{{totalBalanceLabel}}</span>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <sc-for list="{{accounts}}" as="acc" hint-placeholder-count="2">
+              <button type="button" onClick="{{acc.open}}" style="width: 100%; box-sizing: border-box; background: transparent; border: none; padding: 6px 0; display: flex; align-items: center; justify-content: space-between; cursor: pointer; font-family: 'IBM Plex Sans', Arial, sans-serif; text-align: left;">
+                <span style="font-size: 14px; color: #51645D;">{{acc.name}}</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #0E211C;">{{acc.balanceLabel}}</span>
+              </button>
+            </sc-for>
+          </div>
+        </section>
+
+        <!-- Flujo del mes -->
+        <section style="background: #FFFFFF; border: 1px solid #D7E0DB; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 14px;">
+          <h2 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600;">Flujo del mes</h2>
+          <div style="display: flex; align-items: center; gap: 4px; height: 8px; border-radius: 999px; overflow: hidden;">
+            <div style="{{flowBarIngresoStyle}}"></div>
+            <div style="{{flowBarGastoStyle}}"></div>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; flex-direction: column; gap: 2px;">
+              <span style="font-size: 12px; color: #1E8F5D; font-weight: 500;">Ingresos</span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 16px;">{{ingresoMesLabel}}</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 2px; align-items: flex-end;">
+              <span style="font-size: 12px; color: #B5472E; font-weight: 500;">Gastos</span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 16px;">{{gastoMesLabel}}</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Últimos movimientos -->
+        <section style="background: #FFFFFF; border: 1px solid #D7E0DB; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 14px;">
+          <h2 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600;">Últimos movimientos</h2>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <sc-for list="{{recentTx}}" as="tx" hint-placeholder-count="3">
+              <button type="button" onClick="{{tx.open}}" style="width: 100%; box-sizing: border-box; background: transparent; border: none; padding: 8px 0; display: flex; align-items: center; justify-content: space-between; cursor: pointer; font-family: 'IBM Plex Sans', Arial, sans-serif; text-align: left;">
+                <span style="display: flex; flex-direction: column; gap: 1px;">
+                  <span style="font-size: 14px; color: #0E211C;">{{tx.label}}</span>
+                  <span style="font-size: 12px; color: #51645D;">{{tx.date}}</span>
+                </span>
+                <span style="{{tx.amountStyle}}">{{tx.amountLabel}}</span>
+              </button>
+            </sc-for>
+          </div>
+          <button type="button" onClick="{{goTransacciones}}" style="align-self: flex-start; background: transparent; border: none; padding: 0; font-size: 13px; font-weight: 600; color: #0B3B36; cursor: pointer; font-family: 'IBM Plex Sans', Arial, sans-serif;">Ver todas</button>
+        </section>
+
+        <!-- Próximos pagos -->
+        <section style="background: #FFFFFF; border: 1px solid #D7E0DB; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 14px;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <h2 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600;">Próximos pagos</h2>
+            <button type="button" onClick="{{goAgregarRecurrente}}" aria-label="Agregar pago o ingreso recurrente" style="width: 26px; height: 26px; border-radius: 999px; border: 1px solid #D7E0DB; background: transparent; display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer;">
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M6.5 2V11M2 6.5H11" stroke="#51645D" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <sc-for list="{{payments}}" as="pmt" hint-placeholder-count="2">
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <button type="button" onClick="{{pmt.toggle}}" aria-pressed="{{pmt.ariaPressed}}" aria-label="{{pmt.toggleLabel}}" style="{{pmt.dotStyle}}">
+                    <sc-if value="{{pmt.paid}}" hint-placeholder-val="{{false}}">
+                      <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true"><path d="M2 5.5L4.5 8L9 3" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </sc-if>
+                  </button>
+                  <div style="flex: 1; display: flex; align-items: center; justify-content: space-between;">
+                    <span style="{{pmt.labelStyle}}">{{pmt.name}}</span>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                      <span style="{{pmt.dueStyle}}">{{pmt.dueLabel}}</span>
+                      <span style="{{pmt.amountStyle}}">{{pmt.amountLabel}}</span>
+                    </div>
+                  </div>
+                  <button type="button" onClick="{{pmt.toggleEdit}}" aria-label="Editar" style="width: 26px; height: 26px; border-radius: 999px; border: none; background: transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M9.5 2L12 4.5L5 11.5H2.5V9L9.5 2Z" stroke="#9FADA7" stroke-width="1.3" stroke-linejoin="round"/></svg>
+                  </button>
+                </div>
+                <sc-if value="{{pmt.editing}}" hint-placeholder-val="{{false}}">
+                  <div style="display: flex; flex-direction: column; gap: 8px; padding: 10px; background: #F3F6F4; border-radius: 10px;">
+                    <input type="text" value="{{pmt.draftName}}" onChange="{{pmt.onDraftName}}" style="height: 38px; border-radius: 8px; border: 1px solid #D7E0DB; background: #FFFFFF; padding: 0 12px; font-size: 13px; font-family: 'IBM Plex Sans', Arial, sans-serif; color: #0E211C; box-sizing: border-box;">
+                    <input type="text" value="{{pmt.draftAmount}}" onChange="{{pmt.onDraftAmount}}" style="height: 38px; border-radius: 8px; border: 1px solid #D7E0DB; background: #FFFFFF; padding: 0 12px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #0E211C; box-sizing: border-box;">
+                    <input type="date" value="{{pmt.draftDate}}" onChange="{{pmt.onDraftDate}}" style="height: 38px; border-radius: 8px; border: 1px solid #D7E0DB; background: #FFFFFF; padding: 0 12px; font-size: 13px; font-family: 'IBM Plex Sans', Arial, sans-serif; color: #0E211C; box-sizing: border-box;">
+                    <div style="display: flex; gap: 8px;">
+                      <button type="button" onClick="{{pmt.saveEdit}}" style="flex: 1; height: 36px; border-radius: 8px; border: none; background: #0B3B36; color: #F3FBF8; font-size: 13px; font-weight: 600; font-family: 'IBM Plex Sans', Arial, sans-serif; cursor: pointer;">Guardar</button>
+                      <button type="button" onClick="{{pmt.toggleEdit}}" style="flex: 1; height: 36px; border-radius: 8px; border: 1px solid #D7E0DB; background: transparent; color: #51645D; font-size: 13px; font-family: 'IBM Plex Sans', Arial, sans-serif; cursor: pointer;">Cancelar</button>
+                    </div>
+                    <button type="button" onClick="{{pmt.remove}}" style="height: 32px; border-radius: 8px; border: 1px solid #B5472E; background: transparent; color: #B5472E; font-size: 12px; font-weight: 600; font-family: 'IBM Plex Sans', Arial, sans-serif; cursor: pointer;">Eliminar</button>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+          <p style="margin: 0; font-size: 12px; line-height: 16px; color: #51645D;">Te avisamos 2 días antes y el día del vencimiento te preguntamos si ya pagaste. También puedes marcarlo tú mismo cuando quieras.</p>
+        </section>
+
+        <!-- Cashflow activado -->
+        <sc-if value="{{cashflowActive}}" hint-placeholder-val="{{false}}">
+          <section style="background: #FFFFFF; border: 1px solid #D7E0DB; border-radius: 22px; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <h2 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600;">Índice de Flujo de Caja</h2>
+              <button type="button" onClick="{{deactivateCashflow}}" aria-label="Desactivar" style="width: 28px; height: 28px; border-radius: 999px; border: none; background: transparent; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M3 3L11 11M11 3L3 11" stroke="#51645D" stroke-width="1.4" stroke-linecap="round"/></svg>
+              </button>
+            </div>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 40px; line-height: 44px; font-weight: 500; color: #0B3B36;">{{cashflowPctLabel}}</span>
+            <p style="margin: 0; font-size: 13px; line-height: 18px; color: #51645D;">{{cashflowHint}}</p>
+            <button type="button" onClick="{{goVerCashflow}}" style="align-self: flex-start; background: transparent; border: none; padding: 0; font-size: 13px; font-weight: 600; color: #0B3B36; cursor: pointer; font-family: 'IBM Plex Sans', Arial, sans-serif;">Ver detalle</button>
+          </section>
+        </sc-if>
+
+        <!-- Deudas activado -->
+        <sc-if value="{{debtActive}}" hint-placeholder-val="{{false}}">
+          <section style="background: #FFFFFF; border: 1px solid #D7E0DB; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <h2 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600;">Deudas</h2>
+              <button type="button" onClick="{{deactivateDebt}}" aria-label="Desactivar" style="width: 28px; height: 28px; border-radius: 999px; border: none; background: transparent; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M3 3L11 11M11 3L3 11" stroke="#51645D" stroke-width="1.4" stroke-linecap="round"/></svg>
+              </button>
+            </div>
+            <sc-if value="{{hasDebts}}" hint-placeholder-val="{{false}}">
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 22px; font-weight: 500;">{{totalDeudaLabel}}</span>
+              <button type="button" onClick="{{goVerDeudas}}" style="align-self: flex-start; background: transparent; border: none; padding: 0; font-size: 13px; font-weight: 600; color: #0B3B36; cursor: pointer; font-family: 'IBM Plex Sans', Arial, sans-serif;">Ver todas</button>
+            </sc-if>
+            <sc-if value="{{noDebts}}" hint-placeholder-val="{{true}}">
+              <p style="margin: 0; font-size: 13px; line-height: 18px; color: #51645D;">Aún no has agregado ninguna.</p>
+              <button type="button" onClick="{{goAgregarDeuda}}" style="display: flex; align-items: center; justify-content: center; gap: 8px; height: 48px; border-radius: 8px; border: 1.5px dashed #D7E0DB; background: transparent; color: #51645D; font-size: 14px; font-family: 'IBM Plex Sans', Arial, sans-serif; cursor: pointer;">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2.5V13.5M2.5 8H13.5" stroke="#51645D" stroke-width="1.6" stroke-linecap="round"/></svg>
+                Agregar deuda
+              </button>
+            </sc-if>
+          </section>
+        </sc-if>
+
+        <!-- Metas activado -->
+        <sc-if value="{{goalActive}}" hint-placeholder-val="{{false}}">
+          <section style="background: #FFFFFF; border: 1px solid #D7E0DB; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <h2 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600;">Metas de ahorro</h2>
+              <button type="button" onClick="{{deactivateGoal}}" aria-label="Desactivar" style="width: 28px; height: 28px; border-radius: 999px; border: none; background: transparent; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M3 3L11 11M11 3L3 11" stroke="#51645D" stroke-width="1.4" stroke-linecap="round"/></svg>
+              </button>
+            </div>
+            <sc-if value="{{hasGoals}}" hint-placeholder-val="{{false}}">
+              <span style="font-size: 13px; color: #51645D;">{{goalsCountLabel}}</span>
+              <button type="button" onClick="{{goVerMetas}}" style="align-self: flex-start; background: transparent; border: none; padding: 0; font-size: 13px; font-weight: 600; color: #0B3B36; cursor: pointer; font-family: 'IBM Plex Sans', Arial, sans-serif;">Ver todas</button>
+            </sc-if>
+            <sc-if value="{{noGoals}}" hint-placeholder-val="{{true}}">
+              <p style="margin: 0; font-size: 13px; line-height: 18px; color: #51645D;">Aún no tienes ninguna meta.</p>
+              <button type="button" onClick="{{goCrearMeta}}" style="display: flex; align-items: center; justify-content: center; gap: 8px; height: 48px; border-radius: 8px; border: 1.5px dashed #D7E0DB; background: transparent; color: #51645D; font-size: 14px; font-family: 'IBM Plex Sans', Arial, sans-serif; cursor: pointer;">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2.5V13.5M2.5 8H13.5" stroke="#51645D" stroke-width="1.6" stroke-linecap="round"/></svg>
+                Crear meta
+              </button>
+            </sc-if>
+          </section>
+        </sc-if>
+
+        <!-- Más opciones -->
+        <sc-if value="{{hasInactive}}" hint-placeholder-val="{{true}}">
+          <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 4px;">
+            <span style="font-size: 12px; font-weight: 500; color: #51645D;">Más opciones</span>
+            <sc-for list="{{inactiveWidgets}}" as="w" hint-placeholder-count="3">
+              <button type="button" onClick="{{w.activate}}" style="width: 100%; box-sizing: border-box; text-align: left; font-family: 'IBM Plex Sans', Arial, sans-serif; background: transparent; border: 1px solid #D7E0DB; border-radius: 8px; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                <span style="display: flex; align-items: center; gap: 10px;">
+                  <span style="width: 8px; height: 8px; border-radius: 999px; background: {{w.color}}; flex-shrink: 0;"></span>
+                  <span style="font-size: 14px; color: #0E211C;">{{w.label}}</span>
+                </span>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 3.5L11 8L6 12.5" stroke="#51645D" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+            </sc-for>
+          </div>
+        </sc-if>
+
+      </div>
+
+      <button type="button" onClick="{{goAgregarTx}}" aria-label="Agregar transacción" style="position: absolute; right: 20px; bottom: 24px; width: 56px; height: 56px; border-radius: 999px; border: none; background: #0B3B36; color: #F3FBF8; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true"><path d="M11 4V18M4 11H18" stroke="#F3FBF8" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+  </sc-if>
+
+  <!-- ===================== CASHFLOW DETALLE ===================== -->
+  <sc-if value="{{onCashflow}}" hint-placeholder-val="{{false}}">
+    <div style="width: 100%; height: 100%; display: flex; flex-direction: column;">
+      <div style="display: flex; align-items: center; gap: 12px; padding: 20px 16px 8px 16px;">
+        <button type="button" onClick="{{goDashboard}}" aria-label="Volver al panel" style="width: 44px; height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: transparent; border: none; cursor: pointer;">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M12.5 15L7.5 10L12.5 5" stroke="#0E211C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <h1 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600;">Índice de Flujo de Caja</h1>
+      </div>
+      <div style="flex: 1; overflow-y: auto; padding: 20px 20px 32px; display: flex; flex-direction: column; gap: 24px;">
+        <div style="background: #FFFFFF; border: 1px solid #D7E0DB; border-radius: 22px; padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 56px; line-height: 60px; font-weight: 500; color: #0B3B36;">{{cashflowPctLabel}}</span>
+          <div style="width: 100%; height: 10px; border-radius: 999px; background: #D7E0DB; overflow: hidden;">
+            <div style="{{cashflowBarStyle}}"></div>
+          </div>
+          <p style="margin: 0; font-size: 13px; line-height: 18px; color: #51645D;">{{cashflowHint}}</p>
+        </div>
+        <div style="background: #FFFFFF; border: 1px solid #D7E0DB; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 14px;">
+          <h2 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600;">Cómo se calcula</h2>
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-size: 14px; color: #1E8F5D; font-weight: 500;">Ingreso pasivo</span>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 15px;">{{passiveIncomeLabel}}</span>
+          </div>
+          <div style="height: 1px; background: #D7E0DB;"></div>
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-size: 14px; color: #51645D; font-weight: 500;">Gasto total del mes</span>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 15px;">{{gastoMesLabel}}</span>
+          </div>
+        </div>
+        <button type="button" onClick="{{goAgregarTxPasivo}}" style="display: flex; align-items: center; justify-content: center; height: 52px; border-radius: 8px; border: none; background: #0B3B36; color: #F3FBF8; font-size: 16px; font-weight: 600; font-family: 'IBM Plex Sans', Arial, sans-serif; cursor: pointer;">Marcar otro ingreso como pasivo</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ===================== DEUDAS ===================== -->
+  <sc-if value="{{onDeudas}}" hint-placeholder-val="{{false}}">
+    <div style="width: 100%; height: 100%; display: flex; flex-direction: column;">
+      <div style="display: flex; align-items: center; gap: 12px; padding: 20px 16px 8px 16px;">
+        <button type="button" onClick="{{goDashboard}}" aria-label="Volver al panel" style="width: 44px; height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: transparent; border: none; cursor: pointer;">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M12.5 15L7.5 10L12.5 5" stroke="#0E211C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <h1 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600;">Deudas</h1>
+      </div>
+      <div style="flex: 1; overflow-y: auto; padding: 20px 20px 32px; display: flex; flex-direction: column; gap: 20px;">
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 32px; line-height: 36px; font-weight: 500;">{{totalDeudaLabel}}</span>
+          <span style="font-size: 13px; color: #51645D;">{{debtsCountLabel}}</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <sc-for list="{{debts}}" as="d" hint-placeholder-count="2">
+            <div style="background: #FFFFFF; border: 1px solid #D7E0DB; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+              <button type="button" onClick="{{d.toggle}}" aria-expanded="{{d.ariaExpanded}}" style="width: 100%; background: transparent; border: none; padding: 0; font-family: 'IBM Plex Sans', Arial, sans-serif; cursor: pointer; display: flex; flex-direction: column; gap: 10px; text-align: left;">
+                <span style="display: flex; align-items: center; justify-content: space-between;">
+                  <span style="font-size: 15px; font-weight: 500; color: #0E211C;">{{d.name}}</span>
+                  <span style="{{d.chevronStyle}}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6L8 10L12 6" stroke="#51645D" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                </span>
+                <span style="display: flex; align-items: center; justify-content: space-between;">
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 18px; color: #0E211C;">{{d.balanceLabel}}</span>
+                  <span style="font-size: 12px; color: #51645D; background: #E9EFEC; padding: 3px 8px; border-radius: 999px;">{{d.dueLabel}}</span>
+                </span>
+              </button>
+              <sc-if value="{{d.expanded}}" hint-placeholder-val="{{false}}">
+                <div style="display: flex; flex-direction: column; gap: 10px; padding-top: 4px; border-top: 1px solid #D7E0DB;">
+                  <sc-if value="{{d.notEditing}}" hint-placeholder-val="{{true}}">
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 10px;">
+                      <span style="font-size: 13px; color: #51645D;">Tasa de interés</span>
+                      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px;">{{d.rate}}</span>
+                    </div>
+                    <div style="width: 100%; height: 6px; border-radius: 999px; background: #D7E0DB; overflow: hidden;"><div style="{{d.progressBarStyle}}"></div></div>
+                    <span style="font-size: 12px; color: #51645D;">{{d.progressLabel}}</span>
+                    <p style="margin: 0; font-size: 13px; line-height: 18px; color: #0E211C;">{{d.projection}}</p>
+                    <button type="button" onClick="{{d.goPagarDeuda}}" style="margin-top: 4px; display: flex; align-items: center; justify-content: center; height: 44px; border-radius: 8px; border: none; background: #0B3B36; color: #F3FBF8; font-size: 13px; font-weight: 600; font-family: 'IBM Plex Sans', Arial, sans-serif; cursor: pointer;">Registrar un pago</button>
+                    <div style="display: flex; gap: 16px; padding-top: 4px;">
+                      <button type="button" onClick="{{d.startEdit}}" style="background: transparent; border: none; padding: 0; font-size: 13px; font-weight: 600; color: #0B3B36; cursor: pointer; font-family: 'IBM Plex Sans', Arial, sans-serif;">Editar</button>
+                      <button type="button" onClick="{{d.remove}}" style="background: transparent; border: none; padding: 0; font-size: 13px; font-weight: 600; color: #B5472E; cursor: pointer; font-family: 'IBM Plex Sans', Arial, sans-serif;">Eliminar</button>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{d.editing}}" hint-placeholder-val="{{false}}">
+                    <div style="display: flex; flex-direction: column; gap: 10px; padding-top: 10px;">
+                      <input type="text" value="{{d.draftName}}" onChange="{{d.onDraftName}}" style="height: 40px; border-radius: 8px; border: 1px solid #D7E0DB; background: #FFFFFF; padding: 0 12px; font-size: 13px; font-family: 'IBM Plex Sans', Arial, sans-serif; color: #0E211C; box-sizing: border-box;">
+                      <input type="text" value="{{d.draftBalance}}" onChange="{{d.onDraftBalance}}" style="height: 40px; border-radius: 8px; border: 1px solid #D7E0DB; background: #FFFFFF; padding: 0 12px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #0E211C; box-sizing: border-box;">
+                      <div style="display: flex; gap: 8px;">
+                        <button type="button" onClick="{{d.saveEdit}}" style="flex: 1; height: 38px; border-radius: 8px; border: none; background: #0B3B36; color: #F3FBF8; font-size: 13px; font-weight: 600; font-family: 'IBM Plex Sans', Arial, sans-serif; cursor: pointer;">Guardar</button>
+                        <button type="button" onClick="{{d.cancelEdit}}" style="flex: 1; height: 38px; border-radius: 8px; border: 1px solid #D7E0DB; background: transparent; color: #51645D; font-size: 13px; font-family: 'IBM Plex Sans', Arial, sans-serif; cursor: pointer;">Cancelar</button>
+                      </div>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+        <button type="button" onClick="{{goAgregarDeuda}}" style="display: flex; align-items: center; justify-content: center; gap: 8px; height: 52px; border-radius: 8px; border: 1.5px dashed #D7E0DB; background: transparent; color: #51645D; font-size: 15px; font-family: 'IBM Plex Sans', Arial, sans-serif; cursor: pointer;">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="M9 3V15M3 9H15" stroke="#51645D" stroke-width="1.6" stroke-linecap="round"/></svg>
+          Agregar deuda
+        </button>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ===================== METAS ===================== -->
+  <sc-if value="{{onMetas}}" hint-placeholder-val="{{false}}">
+    <div style="width: 100%; height: 100%; display: flex; flex-direction: column;">
+      <div style="display: flex; align-items: center; gap: 12px; padding: 20px 16px 8px 16px;">
+        <button type="button" onClick="{{goDashboard}}" aria-label="Volver al panel" style="width: 44px; height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: transparent; border: none; cursor: pointer;">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M12.5 15L7.5 10L12.5 5" stroke="#0E211C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <h1 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600;">Metas de ahorro</h1>
+      </div>
+      <div style="flex: 1; overflow-y: auto; padding: 20px 20px 32px; display: flex; flex-direction: column; gap: 14px;">
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          <sc-for list="{{goals}}" as="g" hint-placeholder-count="2">
+            <div style="background: #FFFFFF; border: 1px solid #D7E0DB; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+              <sc-if value="{{g.notEditing}}" hint-placeholder-val="{{true}}">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="width: 8px; height: 8px; border-radius: 999px; background: #A97723; flex-shrink: 0;"></span>
+                  <h2 style="margin: 0; font-size: 15px; font-weight: 600;">{{g.name}}</h2>
+                </div>
+                <div style="width: 100%; height: 8px; border-radius: 999px; background: #D7E0DB; overflow: hidden;"><div style="{{g.barStyle}}"></div></div>
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #1E8F5D;">{{g.savedLabel}}</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #51645D;">{{g.targetLabel}}</span>
+                </div>
+                <span style="font-size: 12px; color: #51645D;">{{g.pctLabel}}</span>
+
+                <sc-if value="{{g.complete}}" hint-placeholder-val="{{false}}">
+                  <div style="background: #E9EFEC; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 10px; margin-top: 4px;">
+                    <span style="font-size: 13px; font-weight: 600; color: #1E8F5D;">¡Meta cumplida! Ese dinero ya salió de tus cuentas cuando lo apartaste — esto solo registra que ya lo usaste.</span>
+                    <button type="button" onClick="{{g.closeGoal}}" style="height: 40px; border-radius: 8px; border: none; background: #1E8F5D; color: #F3FBF8; font-size: 13px; font-weight: 600; font-family: 'IBM Plex Sans', Arial, sans-serif; cursor: pointer;">Cerrar meta</button>
+                  </div>
+                </sc-if>
+                <sc-if value="{{g.notComplete}}" hint-placeholder-val="{{true}}">
+                  <button type="button" onClick="{{g.goAportar}}" style="margin-top: 4px; display: flex; align-items: center; justify-content: center; height: 44px; border-radius: 8px; border: none; background: #0B3B36; color: #F3FBF8; font-size: 13px; font-weight: 600; font-family: 'IBM Plex Sans', Arial, sans-serif; cursor: pointer;">Agregar dinero</button>
+                </sc-if>
+
+                <div style="display: flex; gap: 16px; padding-top: 2px;">
+                  <button type="button" onClick="{{g.startEdit}}" style="background: transparent; border: none; padding: 0; font-size: 13px; font-weight: 600; color: #0B3B36; cursor: pointer; font-family: 'IBM Plex Sans', Arial, sans-serif;">Editar</button>
+                  <button type="button" onClick="{{g.remove}}" style="background: transparent; border: none; padding: 0; font-size: 13px; font-weight: 600; color: #B5472E; cursor: pointer; font-family: 'IBM Plex Sans', Arial, sans-serif;">Eliminar</button>
+                </div>
+              </sc-if>
+              <sc-if value="{{g.editing}}" hint-placeholder-val="{{false}}">
+                <input type="text" value="{{g.draftName}}" onChange="{{g.onDraftName}}" style="height: 40px; border-radius: 8px; border: 1px solid #D7E0DB; background: #FFFFFF; padding: 0 12px; font-size: 13px; font-family: 'IBM Plex Sans', Arial, sans-serif; color: #0E211C; box-sizing: border-box;">
+                <input type="text" value="{{g.draftTarget}}" onChange="{{g.onDraftTarget}}" placeholder="Monto objetivo" style="height: 40px; border-radius: 8px; border: 1px solid #D7E0DB; background: #FFFFFF; padding: 0 12px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #0E211C; box-sizing: border-box;">
+                <input type="text" value="{{g.draftSaved}}" onChange="{{g.onDraftSaved}}" placeholder="Monto ahorrado" style="height: 40px; border-radius: 8px; border: 1px solid #D7E0DB; background: #FFFFFF; padding: 0 12px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #0E211C; box-sizing: border-box;">
+                <div style="display: flex; gap: 8px;">
+                  <button type="button" onClick="{{g.saveEdit}}" style="flex: 1; height: 38px; border-radius: 8px; border: none; background: #0B3B36; color: #F3FBF8; font-size: 13px; font-weight: 600; font-family: 'IBM Plex Sans', Arial, sans-serif; cursor: pointer;">Guardar</button>
+                  <button type="button" onClick="{{g.cancelEdit}}" style="flex: 1; height: 38px; border-radius: 8px; border: 1px solid #D7E0DB; background: transparent; color: #51645D; font-size: 13px; font-family: 'IBM Plex Sans', Arial, sans-serif; cursor: pointer;">Cancelar</button>
+                </div>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+        <button type="button" onClick="{{goCrearMeta}}" style="display: flex; align-items: center; justify-content: center; gap: 8px; height: 52px; border-radius: 8px; border: 1.5px dashed #D7E0DB; background: transparent; color: #51645D; font-size: 15px; font-family: 'IBM Plex Sans', Arial, sans-serif; cursor: pointer; margin-top: 4px;">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="M9 3V15M3 9H15" stroke="#51645D" stroke-width="1.6" stroke-linecap="round"/></svg>
+          Crear meta
+        </button>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ===================== CREAR META ===================== -->
+  <sc-if value="{{onCrearMeta}}" hint-placeholder-val="{{false}}">
+    <div style="width: 100%; height: 100%; display: flex; flex-direction: column;">
+      <div style="display: flex; align-items: center; gap: 12px; padding: 20px 16px 8px 16px;">
+        <button type="button" onClick="{{goMetasBack}}" aria-label="Volver" style="width: 44px; height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: transparent; border: none; cursor: pointer;">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M12.5 15L7.5 10L12.5 5" stroke="#0E211C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <h1 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600;">Crear meta</h1>
+      </div>
+      <div style="flex: 1; overflow-y: auto; padding: 20px 20px 24px; display: flex; flex-direction: column; gap: 20px;">
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <label for="goal-name" style="font-size: 12px; font-weight: 500; color: #51645D;">Nombre de la meta</label>
+          <input id="goal-name" type="text" value="{{newGoalName}}" onChange="{{onGoalName}}" placeholder="Ej. Vacaciones, carro nuevo" style="height: 48px; border-radius: 8px; border: 1px solid #D7E0DB; background: #FFFFFF; padding: 0 14px; font-size: 15px; font-family: 'IBM Plex Sans', Arial, sans-serif; color: #0E211C; box-sizing: border-box;">
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <label for="goal-target" style="font-size: 12px; font-weight: 500; color: #51645D;">Monto objetivo</label>
+          <input id="goal-target" type="text" value="{{newGoalTarget}}" onChange="{{onGoalTarget}}" placeholder="$0" style="height: 48px; border-radius: 8px; border: 1px solid #D7E0DB; background: #FFFFFF; padding: 0 14px; font-family: 'IBM Plex Mono', monospace; font-size: 16px; color: #0E211C; box-sizing: border-box;">
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <label for="goal-saved" style="font-size: 12px; font-weight: 500; color: #51645D;">¿Ya tienes algo ahorrado? (opcional)</label>
+          <input id="goal-saved" type="text" value="{{newGoalSaved}}" onChange="{{onGoalSaved}}" placeholder="$0" style="height: 48px; border-radius: 8px; border: 1px solid #D7E0DB; background: #FFFFFF; padding: 0 14px; font-family: 'IBM Plex Mono', monospace; font-size: 16px; color: #0E211C; box-sizing: border-box;">
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <span style="font-size: 12px; font-weight: 500; color: #51645D;">Si ya tienes algo ahorrado, ¿de qué cuenta sale?</span>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <sc-for list="{{newGoalAccounts}}" as="a" hint-placeholder-count="2">
+              <button type="button" onClick="{{a.pick}}" style="{{a.style}}">{{a.label}}</button>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+      <div style="padding: 16px 20px 28px 20px;">
+        <button type="button" onClick="{{saveGoal}}" style="width: 100%; display: flex; align-items: center; justify-content: center; height: 52px; border-radius: 8px; border: none; background: #0B3B36; color: #F3FBF8; font-size: 16px; font-weight: 600; font-family: 'IBM Plex Sans', Arial, sans-serif; cursor: pointer;">Guardar meta</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ===================== AGREGAR DEUDA ===================== -->
+  <sc-if value="{{onAgregarDeuda}}" hint-placeholder-val="{{false}}">
+    <div style="width: 100%; height: 100%; display: flex; flex-direction: column;">
+      <div style="display: flex; align-items: center; gap: 12px; padding: 20px 16px 8px 16px;">
+        <button type="button" onClick="{{goDeudasBack}}" aria-label="Volver" style="width: 44px; height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: transparent; border: none; cursor: pointer;">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M12.5 15L7.5 10L12.5 5" stroke="#0E211C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <h1 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600;">Agregar deuda</h1>
+      </div>
+      <div style="flex: 1; overflow-y: auto; padding: 20px 20px 24px; display: flex; flex-direction: column; gap: 20px;">
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <label for="debt-name" style="font-size: 12px; font-weight: 500; color: #51645D;">Nombre</label>
+          <input id="debt-name" type="text" value="{{newDebtName}}" onChange="{{onDebtName}}" placeholder="Ej. Tarjeta Visa, Préstamo auto" style="height: 48px; border-radius: 8px; border: 1px solid #D7E0DB; background: #FFFFFF; padding: 0 14px; font-size: 15px; font-family: 'IBM Plex Sans', Arial, sans-serif; color: #0E211C; box-sizing: border-box;">
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <label for="debt-balance" style="font-size: 12px; font-weight: 500; color: #51645D;">Saldo actual</label>
+          <input id="debt-balance" type="text" value="{{newDebtSaldo}}" onChange="{{onDebtSaldo}}" placeholder="$0" style="height: 48px; border-radius: 8px; border: 1px solid #D7E0DB; background: #FFFFFF; padding: 0 14px; font-family: 'IBM Plex Mono', monospace; font-size: 16px; color: #0E211C; box-sizing: border-box;">
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 12px; font-weight: 500; color: #51645D;">¿Sabes la tasa de interés?</span>
+          <div style="display: flex; gap: 4px; background: #E9EFEC; border-radius: 10px; padding: 4px;">
+            <button type="button" onClick="{{setKnows}}" style="{{knowsRateTabStyle}}">Conozco la tasa</button>
+            <button type="button" onClick="{{setDoesntKnow}}" style="{{doesntKnowTabStyle}}">No sé la tasa</button>
+          </div>
+        </div>
+        <sc-if value="{{debtKnowsRate}}" hint-placeholder-val="{{true}}">
+          <div style="display: flex; flex-direction: column; gap: 16px;">
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <label for="debt-rate" style="font-size: 12px; font-weight: 500; color: #51645D;">Tasa de interés mensual</label>
+              <input id="debt-rate" type="text" value="{{newDebtTasa}}" onChange="{{onDebtTasa}}" placeholder="% mensual" style="height: 48px; border-radius: 8px; border: 1px solid #D7E0DB; background: #FFFFFF; padding: 0 14px; font-family: 'IBM Plex Mono', monospace; font-size: 16px; color: #0E211C; box-sizing: border-box;">
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <label for="debt-payment-a" style="font-size: 12px; font-weight: 500; color: #51645D;">Cuota mensual</label>
+              <input id="debt-payment-a" type="text" value="{{newDebtCuota}}" onChange="{{onDebtCuota}}" placeholder="$0" style="height: 48px; border-radius: 8px; border: 1px solid #D7E0DB; background: #FFFFFF; padding: 0 14px; font-family: 'IBM Plex Mono', monospace; font-size: 16px; color: #0E211C; box-sizing: border-box;">
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{debtNotKnowsRate}}" hint-placeholder-val="{{false}}">
+          <div style="display: flex; flex-direction: column; gap: 16px;">
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <label for="debt-payment-b" style="font-size: 12px; font-weight: 500; color: #51645D;">Cuota mensual</label>
+              <input id="debt-payment-b" type="text" value="{{newDebtCuota}}" onChange="{{onDebtCuota}}" placeholder="$0" style="height: 48px; border-radius: 8px; border: 1px solid #D7E0DB; background: #FFFFFF; padding: 0 14px; font-family: 'IBM Plex Mono', monospace; font-size: 16px; color: #0E211C; box-sizing: border-box;">
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <label for="debt-months" style="font-size: 12px; font-weight: 500; color: #51645D;">Meses que te faltan</label>
+              <input id="debt-months" type="text" value="{{newDebtMeses}}" onChange="{{onDebtMeses}}" placeholder="0" style="height: 48px; border-radius: 8px; border: 1px solid #D7E0DB; background: #FFFFFF; padding: 0 14px; font-family: 'IBM Plex Mono', monospace; font-size: 16px; color: #0E211C; box-sizing: border-box;">
+            </div>
+            <div style="background: #E9EFEC; border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 4px;">
+              <span style="font-size: 14px; font-weight: 600; color: #0B3B36;">{{estimatedRateLabel}}</span>
+              <span style="font-size: 12px; color: #51645D;">Calculamos la tasa con la misma fórmula que usa el Índice de Flujo de Caja.</span>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+      <div style="padding: 16px 20px 28px 20px;">
+        <button type="button" onClick="{{saveDebt}}" style="width: 100%; display: flex; align-items: center; justify-content: center; height: 52px; border-radius: 8px; border: none; background: #0B3B36; color: #F3FBF8; font-size: 16px; font-weight: 600; font-family: 'IBM Plex Sans', Arial, sans-serif; cursor: pointer;">Guardar deuda</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ===================== AGREGAR CUENTA ===================== -->
+  <sc-if value="{{onAgregarCuenta}}" hint-placeholder-val="{{false}}">
+    <div style="width: 100%; height: 100%; display: flex; flex-direction: column;">
+      <div style="display: flex; align-items: center; gap: 12px; padding: 20px 16px 8px 16px;">
+        <button type="button" onClick="{{goDashboard}}" aria-label="Volver" style="width: 44px; height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: transparent; border: none; cursor: pointer;">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M12.5 15L7.5 10L12.5 5" stroke="#0E211C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <h1 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600;">Agregar cuenta</h1>
+      </div>
+      <div style="flex: 1; overflow-y: auto; padding: 20px 20px 24px; display: flex; flex-direction: column; gap: 24px;">
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <label for="acc-name" style="font-size: 12px; font-weight: 500; color: #51645D;">Nombre de la cuenta</label>
+          <input id="acc-name" type="text" value="{{newAccName}}" onChange="{{onAccName}}" placeholder="Ej. Bancolombia ahorros" style="height: 48px; border-radius: 8px; border: 1px solid #D7E0DB; background: #FFFFFF; padding: 0 14px; font-size: 15px; font-family: 'IBM Plex Sans', Arial, sans-serif; color: #0E211C; box-sizing: border-box;">
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 12px; font-weight: 500; color: #51645D;">Tipo de cuenta</span>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <sc-for list="{{accTypes}}" as="t" hint-placeholder-count="4">
+              <button type="button" onClick="{{t.pick}}" style="{{t.style}}">{{t.label}}</button>
+            </sc-for>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <label for="acc-balance" style="font-size: 12px; font-weight: 500; color: #51645D;">Saldo inicial</label>
+          <input id="acc-balance" type="text" value="{{newAccBalance}}" onChange="{{onAccBalance}}" placeholder="$0" style="height: 48px; border-radius: 8px; border: 1px solid #D7E0DB; background: #FFFFFF; padding: 0 14px; font-family: 'IBM Plex Mono', monospace; font-size: 16px; color: #0E211C; box-sizing: border-box;">
+        </div>
+      </div>
+      <div style="padding: 16px 20px 28px 20px;">
+        <button type="button" onClick="{{saveAccount}}" style="width: 100%; display: flex; align-items: center; justify-content: center; height: 52px; border-radius: 8px; border: none; background: #0B3B36; color: #F3FBF8; font-size: 16px; font-weight: 600; font-family: 'IBM Plex Sans', Arial, sans-serif; cursor: pointer;">Guardar cuenta</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ===================== DETALLE DE CUENTA ===================== -->
+  <sc-if value="{{onCuentaDetalle}}" hint-placeholder-val="{{false}}">
+    <div style="width: 100%; height: 100%; display: flex; flex-direction: column;">
+      <div style="display: flex; align-items: center; gap: 12px; padding: 20px 16px 8px 16px;">
+        <button type="button" onClick="{{goDashboard}}" aria-label="Volver al panel" style="width: 44px; height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: transparent; border: none; cursor: pointer;">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M12.5 15L7.5 10L12.5 5" stroke="#0E211C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <h1 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600;">{{acd.name}}</h1>
+      </div>
+      <div style="flex: 1; overflow-y: auto; padding: 20px 20px 24px; display: flex; flex-direction: column; gap: 24px;">
+
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 32px; line-height: 36px; font-weight: 500;">{{acd.balanceLabel}}</span>
+          <span style="font-size: 13px; color: #51645D;">Saldo actual</span>
+        </div>
+
+        <div style="background: #FFFFFF; border: 1px solid #D7E0DB; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 16px;">
+          <h2 style="margin: 0; font-size: 15px; font-weight: 600;">Editar cuenta</h2>
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <label for="acd-name" style="font-size: 12px; font-weight: 500; color: #51645D;">Nombre</label>
+            <input id="acd-name" type="text" value="{{editAccName}}" onChange="{{onEditAccName}}" style="height: 44px; border-radius: 8px; border: 1px solid #D7E0DB; background: #FFFFFF; padding: 0 14px; font-size: 14px; font-family: 'IBM Plex Sans', Arial, sans-serif; color: #0E211C; box-sizing: border-box;">
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <label for="acd-balance" style="font-size: 12px; font-weight: 500; color: #51645D;">Saldo</label>
+            <input id="acd-balance" type="text" value="{{editAccBalance}}" onChange="{{onEditAccBalance}}" style="height: 44px; border-radius: 8px; border: 1px solid #D7E0DB; background: #FFFFFF; padding: 0 14px; font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #0E211C; box-sizing: border-box;">
+          </div>
+          <button type="button" onClick="{{saveAccountEdit}}" style="display: flex; align-items: center; justify-content: center; height: 44px; border-radius: 8px; border: none; background: #0B3B36; color: #F3FBF8; font-size: 14px; font-weight: 600; font-family: 'IBM Plex Sans', Arial, sans-serif; cursor: pointer;">Guardar cambios</button>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <span style="font-size: 12px; font-weight: 500; color: #51645D;">Movimientos de esta cuenta</span>
+          <sc-if value="{{acd.hasTx}}" hint-placeholder-val="{{false}}">
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <sc-for list="{{acd.tx}}" as="tx" hint-placeholder-count="2">
+                <div style="background: #FFFFFF; border: 1px solid #D7E0DB; border-radius: 12px; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between;">
+                  <span style="display: flex; flex-direction: column; gap: 1px;">
+                    <span style="font-size: 14px;">{{tx.label}}</span>
+                    <span style="font-size: 12px; color: #51645D;">{{tx.date}}</span>
+                  </span>
+                  <span style="{{tx.amountStyle}}">{{tx.amountLabel}}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+          <sc-if value="{{acd.noTx}}" hint-placeholder-val="{{true}}">
+            <p style="margin: 0; font-size: 13px; color: #51645D;">Todavía no hay movimientos en esta cuenta.</p>
+          </sc-if>
+        </div>
+
+        <button type="button" onClick="{{deleteAccount}}" style="display: flex; align-items: center; justify-content: center; height: 48px; border-radius: 8px; border: 1px solid #B5472E; background: transparent; color: #B5472E; font-size: 14px; font-weight: 600; font-family: 'IBM Plex Sans', Arial, sans-serif; cursor: pointer;">Eliminar cuenta</button>
+
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ===================== TODAS LAS TRANSACCIONES ===================== -->
+  <sc-if value="{{onTransacciones}}" hint-placeholder-val="{{false}}">
+    <div style="width: 100%; height: 100%; display: flex; flex-direction: column;">
+      <div style="display: flex; align-items: center; gap: 12px; padding: 20px 16px 8px 16px;">
+        <button type="button" onClick="{{goDashboard}}" aria-label="Volver al panel" style="width: 44px; height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: transparent; border: none; cursor: pointer;">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M12.5 15L7.5 10L12.5 5" stroke="#0E211C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <h1 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600;">Transacciones</h1>
+      </div>
+      <div style="flex: 1; overflow-y: auto; padding: 8px 20px 24px; display: flex; flex-direction: column; gap: 4px;">
+        <sc-for list="{{allTx}}" as="tx" hint-placeholder-count="5">
+          <button type="button" onClick="{{tx.open}}" style="width: 100%; box-sizing: border-box; background: #FFFFFF; border: 1px solid #D7E0DB; border-radius: 12px; padding: 14px 16px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; font-family: 'IBM Plex Sans', Arial, sans-serif; text-align: left;">
+            <span style="display: flex; flex-direction: column; gap: 2px;">
+              <span style="font-size: 14px; color: #0E211C;">{{tx.label}}</span>
+              <span style="font-size: 12px; color: #51645D;">{{tx.date}} · {{tx.category}}</span>
+            </span>
+            <span style="{{tx.amountStyle}}">{{tx.amountLabel}}</span>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ===================== DETALLE DE TRANSACCIÓN ===================== -->
+  <sc-if value="{{onTxDetalle}}" hint-placeholder-val="{{false}}">
+    <div style="width: 100%; height: 100%; display: flex; flex-direction: column;">
+      <div style="display: flex; align-items: center; gap: 12px; padding: 20px 16px 8px 16px;">
+        <button type="button" onClick="{{goTransacciones}}" aria-label="Volver" style="width: 44px; height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: transparent; border: none; cursor: pointer;">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M12.5 15L7.5 10L12.5 5" stroke="#0E211C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <h1 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600;">Detalle</h1>
+      </div>
+      <div style="flex: 1; overflow-y: auto; padding: 20px 20px 24px; display: flex; flex-direction: column; gap: 24px;">
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 0; text-align: center;">
+          <span style="{{txd.bigAmountStyle}}">{{txd.amountLabel}}</span>
+          <span style="font-size: 15px; color: #51645D;">{{txd.label}}</span>
+          <sc-if value="{{txd.esPasivo}}" hint-placeholder-val="{{false}}">
+            <span style="margin-top: 6px; font-size: 12px; color: #1E8F5D; background: #E9EFEC; padding: 4px 10px; border-radius: 999px;">Ingreso pasivo</span>
+          </sc-if>
+        </div>
+        <div style="background: #FFFFFF; border: 1px solid #D7E0DB; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-size: 13px; color: #51645D;">Categoría</span>
+            <span style="font-size: 14px;">{{txd.category}}</span>
+          </div>
+          <div style="height: 1px; background: #D7E0DB;"></div>
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-size: 13px; color: #51645D;">Cuenta</span>
+            <span style="font-size: 14px;">{{txd.account}}</span>
+          </div>
+          <div style="height: 1px; background: #D7E0DB;"></div>
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-size: 13px; color: #51645D;">Fecha</span>
+            <span style="font-size: 14px;">{{txd.date}}</span>
+          </div>
+        </div>
+        <button type="button" onClick="{{deleteTx}}" style="display: flex; align-items: center; justify-content: center; height: 48px; border-radius: 8px; border: 1px solid #B5472E; background: transparent; color: #B5472E; font-size: 14px; font-weight: 600; font-family: 'IBM Plex Sans', Arial, sans-serif; cursor: pointer;">Eliminar transacción</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ===================== APORTAR A META ===================== -->
+  <sc-if value="{{onAportarMeta}}" hint-placeholder-val="{{false}}">
+    <div style="width: 100%; height: 100%; display: flex; flex-direction: column;">
+      <div style="display: flex; align-items: center; gap: 12px; padding: 20px 16px 8px 16px;">
+        <button type="button" onClick="{{goMetasBack}}" aria-label="Volver" style="width: 44px; height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: transparent; border: none; cursor: pointer;">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M12.5 15L7.5 10L12.5 5" stroke="#0E211C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <h1 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600;">Agregar a {{aportarGoalName}}</h1>
+      </div>
+      <div style="flex: 1; overflow-y: auto; padding: 20px 20px 24px; display: flex; flex-direction: column; gap: 20px;">
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <label for="aportar-amount" style="font-size: 12px; font-weight: 500; color: #51645D;">Monto</label>
+          <input id="aportar-amount" type="text" value="{{aportarAmount}}" onChange="{{onAportarAmount}}" placeholder="$0" style="height: 48px; border-radius: 8px; border: 1px solid #D7E0DB; background: #FFFFFF; padding: 0 14px; font-family: 'IBM Plex Mono', monospace; font-size: 16px; color: #0E211C; box-sizing: border-box;">
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <span style="font-size: 12px; font-weight: 500; color: #51645D;">¿De qué cuenta sale?</span>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <sc-for list="{{aportarAccounts}}" as="a" hint-placeholder-count="2">
+              <button type="button" onClick="{{a.pick}}" style="{{a.style}}">{{a.label}}</button>
+            </sc-for>
+          </div>
+        </div>
+        <div style="background: #E9EFEC; border-radius: 8px; padding: 14px;">
+          <span style="font-size: 12px; color: #51645D;">Este dinero sale de la cuenta que elijas — ya no aparece ahí como disponible — pero no es un gasto: sigue siendo tuyo, apartado en esta meta, hasta que la uses.</span>
+        </div>
+      </div>
+      <div style="padding: 16px 20px 28px 20px;">
+        <button type="button" onClick="{{saveAportar}}" style="width: 100%; display: flex; align-items: center; justify-content: center; height: 52px; border-radius: 8px; border: none; background: #0B3B36; color: #F3FBF8; font-size: 16px; font-weight: 600; font-family: 'IBM Plex Sans', Arial, sans-serif; cursor: pointer;">Agregar</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ===================== REGISTRAR PAGO DE DEUDA ===================== -->
+  <sc-if value="{{onPagoDeuda}}" hint-placeholder-val="{{false}}">
+    <div style="width: 100%; height: 100%; display: flex; flex-direction: column;">
+      <div style="display: flex; align-items: center; gap: 12px; padding: 20px 16px 8px 16px;">
+        <button type="button" onClick="{{goDeudasBack}}" aria-label="Volver" style="width: 44px; height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: transparent; border: none; cursor: pointer;">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M12.5 15L7.5 10L12.5 5" stroke="#0E211C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <h1 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600;">Pago de {{payDebtName}}</h1>
+      </div>
+      <div style="flex: 1; overflow-y: auto; padding: 20px 20px 24px; display: flex; flex-direction: column; gap: 20px;">
+
+        <div style="display: flex; gap: 4px; background: #E9EFEC; border-radius: 10px; padding: 4px;">
+          <button type="button" onClick="{{setPagoCuota}}" style="{{pagoCuotaTabStyle}}">Cuota</button>
+          <button type="button" onClick="{{setPagoAbono}}" style="{{pagoAbonoTabStyle}}">Abono extra</button>
+        </div>
+        <p style="margin: 0; font-size: 12px; line-height: 16px; color: #51645D;">{{pagoTipoHint}}</p>
+
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <label for="pago-amount" style="font-size: 12px; font-weight: 500; color: #51645D;">Monto</label>
+          <input id="pago-amount" type="text" value="{{payDebtAmount}}" onChange="{{onPagoAmount}}" placeholder="$0" style="height: 48px; border-radius: 8px; border: 1px solid #D7E0DB; background: #FFFFFF; padding: 0 14px; font-family: 'IBM Plex Mono', monospace; font-size: 16px; color: #0E211C; box-sizing: border-box;">
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <span style="font-size: 12px; font-weight: 500; color: #51645D;">¿De qué cuenta sale?</span>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <sc-for list="{{payDebtAccounts}}" as="a" hint-placeholder-count="2">
+              <button type="button" onClick="{{a.pick}}" style="{{a.style}}">{{a.label}}</button>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="background: #E9EFEC; border-radius: 8px; padding: 14px;">
+          <span style="font-size: 12px; color: #51645D;">Esto cuenta como gasto y reduce el saldo de la cuenta que elijas — el dinero sale de verdad.</span>
+        </div>
+
+      </div>
+      <div style="padding: 16px 20px 28px 20px;">
+        <button type="button" onClick="{{savePagoDeuda}}" style="width: 100%; display: flex; align-items: center; justify-content: center; height: 52px; border-radius: 8px; border: none; background: #0B3B36; color: #F3FBF8; font-size: 16px; font-weight: 600; font-family: 'IBM Plex Sans', Arial, sans-serif; cursor: pointer;">Registrar pago</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ===================== AJUSTES ===================== -->
+  <sc-if value="{{onAjustes}}" hint-placeholder-val="{{false}}">
+    <div style="width: 100%; height: 100%; display: flex; flex-direction: column;">
+      <div style="display: flex; align-items: center; gap: 12px; padding: 20px 16px 8px 16px;">
+        <button type="button" onClick="{{goDashboard}}" aria-label="Volver al panel" style="width: 44px; height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: transparent; border: none; cursor: pointer;">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M12.5 15L7.5 10L12.5 5" stroke="#0E211C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <h1 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600;">Ajustes</h1>
+      </div>
+      <div style="flex: 1; overflow-y: auto; padding: 20px 20px 32px; display: flex; flex-direction: column; gap: 28px;">
+
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <span style="font-size: 12px; font-weight: 500; color: #51645D;">Notificaciones</span>
+          <div style="background: #FFFFFF; border: 1px solid #D7E0DB; border-radius: 14px; display: flex; flex-direction: column;">
+            <button type="button" onClick="{{toggleNotifPagos}}" aria-pressed="{{notifPagosAria}}" style="width: 100%; box-sizing: border-box; background: transparent; border: none; border-bottom: 1px solid #D7E0DB; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; font-family: 'IBM Plex Sans', Arial, sans-serif; text-align: left;">
+              <span style="display: flex; flex-direction: column; gap: 2px;">
+                <span style="font-size: 14px; font-weight: 500; color: #0E211C;">Recordatorio de pagos</span>
+                <span style="font-size: 12px; color: #51645D;">2 días antes y el día del vencimiento</span>
+              </span>
+              <span style="{{notifPagosDotStyle}}"><span style="width: 20px; height: 20px; border-radius: 999px; background: #FFFFFF; flex-shrink: 0;"></span></span>
+            </button>
+            <button type="button" onClick="{{toggleNotifResumen}}" aria-pressed="{{notifResumenAria}}" style="width: 100%; box-sizing: border-box; background: transparent; border: none; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; font-family: 'IBM Plex Sans', Arial, sans-serif; text-align: left;">
+              <span style="display: flex; flex-direction: column; gap: 2px;">
+                <span style="font-size: 14px; font-weight: 500; color: #0E211C;">Resumen semanal</span>
+                <span style="font-size: 12px; color: #51645D;">Cómo te fue con tu flujo cada domingo</span>
+              </span>
+              <span style="{{notifResumenDotStyle}}"><span style="width: 20px; height: 20px; border-radius: 999px; background: #FFFFFF; flex-shrink: 0;"></span></span>
+            </button>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <span style="font-size: 12px; font-weight: 500; color: #51645D;">Apariencia</span>
+          <div style="background: #FFFFFF; border: 1px solid #D7E0DB; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+            <span style="font-size: 14px; font-weight: 500;">Tema</span>
+            <div style="display: flex; gap: 4px; background: #E9EFEC; border-radius: 10px; padding: 4px;">
+              <sc-for list="{{themeOptions}}" as="t" hint-placeholder-count="3">
+                <button type="button" onClick="{{t.pick}}" style="{{t.style}}">{{t.label}}</button>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <span style="font-size: 12px; font-weight: 500; color: #51645D;">Cuenta</span>
+          <button type="button" style="width: 100%; box-sizing: border-box; background: #FFFFFF; border: 1px solid #D7E0DB; border-radius: 14px; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; font-family: 'IBM Plex Sans', Arial, sans-serif; text-align: left;">
+            <span style="font-size: 14px; font-weight: 500; color: #B5472E;">Cerrar sesión</span>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 3.5L11 8L6 12.5" stroke="#B5472E" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ===================== AGREGAR RECURRENTE ===================== -->
+  <sc-if value="{{onAgregarRecurrente}}" hint-placeholder-val="{{false}}">
+    <div style="width: 100%; height: 100%; display: flex; flex-direction: column;">
+      <div style="display: flex; align-items: center; gap: 12px; padding: 20px 16px 8px 16px;">
+        <button type="button" onClick="{{goDashboard}}" aria-label="Volver" style="width: 44px; height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: transparent; border: none; cursor: pointer;">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M12.5 15L7.5 10L12.5 5" stroke="#0E211C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <h1 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600;">Nuevo recurrente</h1>
+      </div>
+      <div style="flex: 1; overflow-y: auto; padding: 20px 20px 24px; display: flex; flex-direction: column; gap: 20px;">
+
+        <div style="display: flex; gap: 4px; background: #E9EFEC; border-radius: 10px; padding: 4px;">
+          <button type="button" onClick="{{setRecPago}}" style="{{recPagoTabStyle}}">Pago</button>
+          <button type="button" onClick="{{setRecIngreso}}" style="{{recIngresoTabStyle}}">Ingreso</button>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <label for="rec-name" style="font-size: 12px; font-weight: 500; color: #51645D;">Nombre</label>
+          <input id="rec-name" type="text" value="{{newRecName}}" onChange="{{onRecName}}" placeholder="{{recNamePlaceholder}}" style="height: 48px; border-radius: 8px; border: 1px solid #D7E0DB; background: #FFFFFF; padding: 0 14px; font-size: 15px; font-family: 'IBM Plex Sans', Arial, sans-serif; color: #0E211C; box-sizing: border-box;">
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <label for="rec-amount" style="font-size: 12px; font-weight: 500; color: #51645D;">Monto</label>
+          <input id="rec-amount" type="text" value="{{newRecAmount}}" onChange="{{onRecAmount}}" placeholder="$0" style="height: 48px; border-radius: 8px; border: 1px solid #D7E0DB; background: #FFFFFF; padding: 0 14px; font-family: 'IBM Plex Mono', monospace; font-size: 16px; color: #0E211C; box-sizing: border-box;">
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 12px; font-weight: 500; color: #51645D;">Frecuencia</span>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <sc-for list="{{recFreqPills}}" as="f" hint-placeholder-count="3">
+              <button type="button" onClick="{{f.pick}}" style="{{f.style}}">{{f.label}}</button>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <label for="rec-date" style="font-size: 12px; font-weight: 500; color: #51645D;">Día de vencimiento</label>
+          <input id="rec-date" type="date" value="{{newRecDate}}" onChange="{{onRecDate}}" style="height: 48px; border-radius: 8px; border: 1px solid #D7E0DB; background: #FFFFFF; padding: 0 14px; font-size: 15px; font-family: 'IBM Plex Sans', Arial, sans-serif; color: #0E211C; box-sizing: border-box;">
+        </div>
+
+      </div>
+      <div style="padding: 16px 20px 28px 20px;">
+        <button type="button" onClick="{{saveRecurrente}}" style="width: 100%; display: flex; align-items: center; justify-content: center; height: 52px; border-radius: 8px; border: none; background: #0B3B36; color: #F3FBF8; font-size: 16px; font-weight: 600; font-family: 'IBM Plex Sans', Arial, sans-serif; cursor: pointer;">Guardar</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ===================== AGREGAR TRANSACCIÓN ===================== -->
+  <sc-if value="{{onAgregarTx}}" hint-placeholder-val="{{false}}">
+    <div style="width: 100%; height: 100%; display: flex; flex-direction: column;">
+      <div style="display: flex; align-items: center; gap: 12px; padding: 20px 16px 8px 16px;">
+        <button type="button" onClick="{{goDashboard}}" aria-label="Cerrar" style="width: 44px; height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: transparent; border: none; cursor: pointer;">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="M3.5 3.5L14.5 14.5M14.5 3.5L3.5 14.5" stroke="#0E211C" stroke-width="1.7" stroke-linecap="round"/></svg>
+        </button>
+        <h1 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600;">Nueva transacción</h1>
+      </div>
+      <div style="flex: 1; overflow-y: auto; padding: 12px 20px 24px; display: flex; flex-direction: column; gap: 24px;">
+        <div style="display: flex; gap: 4px; background: #E9EFEC; border-radius: 10px; padding: 4px;">
+          <button type="button" onClick="{{setGasto}}" style="{{gastoTabStyle}}">Gasto</button>
+          <button type="button" onClick="{{setIngreso}}" style="{{ingresoTabStyle}}">Ingreso</button>
+        </div>
+        <div style="display: flex; align-items: center; justify-content: center; padding: 12px 0;">
+          <input type="text" value="{{txAmount}}" onChange="{{onTxAmount}}" placeholder="$0" style="width: 100%; border: none; background: transparent; text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 44px; font-weight: 500; color: {{txAmountColor}};">
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 12px; font-weight: 500; color: #51645D;">Categoría</span>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <sc-for list="{{txCategories}}" as="c" hint-placeholder-count="5">
+              <button type="button" onClick="{{c.pick}}" style="{{c.style}}">{{c.label}}</button>
+            </sc-for>
+            <button type="button" onClick="{{startAddCategory}}" style="display: flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: 999px; border: 1.5px dashed #D7E0DB; background: transparent; color: #51645D; font-size: 13px; font-family: 'IBM Plex Sans', Arial, sans-serif; cursor: pointer;">
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M6.5 2V11M2 6.5H11" stroke="#51645D" stroke-width="1.5" stroke-linecap="round"/></svg>
+              Nueva categoría
+            </button>
+          </div>
+          <sc-if value="{{addingCategory}}" hint-placeholder-val="{{false}}">
+            <div style="display: flex; gap: 8px; margin-top: 4px;">
+              <input type="text" value="{{newCategoryName}}" onChange="{{onNewCategoryName}}" placeholder="Nombre de la categoría" style="flex: 1; height: 44px; border-radius: 8px; border: 1px solid #D7E0DB; background: #FFFFFF; padding: 0 14px; font-size: 14px; font-family: 'IBM Plex Sans', Arial, sans-serif; color: #0E211C; box-sizing: border-box;">
+              <button type="button" onClick="{{confirmNewCategory}}" style="width: 44px; height: 44px; border-radius: 8px; border: none; background: #0B3B36; color: #F3FBF8; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8.5L6.5 12L13 4" stroke="#F3FBF8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+            </div>
+          </sc-if>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <span style="font-size: 12px; font-weight: 500; color: #51645D;">Cuenta</span>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <sc-for list="{{txAccounts}}" as="a" hint-placeholder-count="2">
+              <button type="button" onClick="{{a.pick}}" style="{{a.style}}">{{a.label}}</button>
+            </sc-for>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <span style="font-size: 12px; font-weight: 500; color: #51645D;">Fecha</span>
+          <span style="height: 44px; border-radius: 8px; border: 1px solid #D7E0DB; background: #FFFFFF; display: flex; align-items: center; padding: 0 14px; font-size: 14px; width: fit-content; box-sizing: border-box;">Hoy</span>
+        </div>
+        <sc-if value="{{txIsIngreso}}" hint-placeholder-val="{{false}}">
+          <button type="button" onClick="{{togglePasivo}}" aria-pressed="{{pasivoAriaPressed}}" style="width: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; background: #FFFFFF; border: 1px solid #D7E0DB; border-radius: 8px; cursor: pointer; font-family: 'IBM Plex Sans', Arial, sans-serif; text-align: left;">
+            <span style="display: flex; flex-direction: column; gap: 2px;">
+              <span style="font-size: 14px; font-weight: 500; color: #0E211C;">Marcar como ingreso pasivo</span>
+              <span style="font-size: 12px; color: #51645D;">Esto alimenta tu Índice de Flujo de Caja.</span>
+            </span>
+            <span style="{{pasivoDotStyle}}">
+              <sc-if value="{{txEsPasivo}}" hint-placeholder-val="{{false}}">
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true"><path d="M2 5.5L4.5 8L9 3" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </sc-if>
+            </span>
+          </button>
+        </sc-if>
+      </div>
+      <div style="padding: 16px 20px 28px 20px;">
+        <button type="button" onClick="{{saveTx}}" style="width: 100%; display: flex; align-items: center; justify-content: center; height: 52px; border-radius: 8px; border: none; background: #0B3B36; color: #F3FBF8; font-size: 16px; font-weight: 600; font-family: 'IBM Plex Sans', Arial, sans-serif; cursor: pointer;">Guardar</button>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      screen: 'dashboard',
+      accounts: [
+        { name: 'Efectivo', balance: 340000 },
+        { name: 'Cuenta de ahorros', balance: 900000 }
+      ],
+      debts: [
+        { id: 'visa', name: 'Tarjeta Visa', balance: 1200000, dueLabel: '15 oct', rate: '2,3% mensual', cuota: 180000, paidCount: 3, totalCount: 10, expanded: true, editing: false, draftName: '', draftBalance: '' },
+        { id: 'prestamo', name: 'Préstamo personal', balance: 650000, dueLabel: '20 oct', rate: '1,8% mensual', cuota: 95000, paidCount: 2, totalCount: 6, expanded: false, editing: false, draftName: '', draftBalance: '' }
+      ],
+      goals: [
+        { id: 'emergencia', name: 'Fondo de emergencia', target: 3000000, saved: 1050000, eta: '9 meses', editing: false, draftName: '', draftTarget: '', draftSaved: '' },
+        { id: 'vacaciones', name: 'Vacaciones', target: 800000, saved: 320000, eta: '3 meses', editing: false, draftName: '', draftTarget: '', draftSaved: '' }
+      ],
+      transactions: [
+        { id: 1, label: 'Viajes de la semana', date: 'Hoy', amount: 160000, tipo: 'ingreso', category: 'Freelance', account: 'Efectivo', esPasivo: false },
+        { id: 2, label: 'Supermercado', date: 'Ayer', amount: 85000, tipo: 'gasto', category: 'Comida', account: 'Efectivo', esPasivo: false },
+        { id: 3, label: 'Recarga de datos', date: 'Lun', amount: 20000, tipo: 'gasto', category: 'Servicios', account: 'Efectivo', esPasivo: false }
+      ],
+      selectedTxId: null,
+      selectedAccountName: null,
+      editAccName: '', editAccBalance: '',
+      payments: [
+        { id: 'arriendo', name: 'Arriendo', dueLabel: '15 oct', amount: 450000, paid: false, tipo: 'pago', editing: false, draftName: '', draftAmount: '', draftDate: '' },
+        { id: 'internet', name: 'Internet', dueLabel: '21 oct', amount: 75000, paid: false, tipo: 'pago', editing: false, draftName: '', draftAmount: '', draftDate: '' }
+      ],
+      passiveIncome: 256000,
+      gastoDelMes: 610000,
+      ingresoDelMes: 980000,
+      cashflowActive: false,
+      debtActive: false,
+      goalActive: false,
+
+      newDebtName: '', newDebtSaldo: '1.200.000', newDebtCuota: '180.000', newDebtTasa: '2,3', newDebtMeses: '10', debtKnowsRate: true,
+
+      selectedDebtId: null, payDebtTipo: 'cuota', payDebtAmount: '', payDebtAccount: null,
+
+      newAccName: '', newAccType: 'Efectivo', newAccBalance: '',
+
+      newGoalName: '', newGoalTarget: '', newGoalSaved: '', newGoalAccount: null,
+      selectedGoalId: null, aportarAmount: '', aportarAccount: null, closeGoalAccount: null,
+
+      txTipo: 'gasto', txAmount: '', txCategory: null, txEsPasivo: false, txAccount: null,
+      customGasto: [], customIngreso: [], addingCategory: false, newCategoryName: '',
+
+      newRecTipo: 'pago', newRecName: '', newRecAmount: '', newRecFreq: 'Mensual', newRecDate: '',
+
+      settingsNotifPagos: true, settingsNotifResumen: true, settingsTheme: 'sistema'
+    };
+  }
+
+  fmt(n) {
+    const v = Math.round(n || 0);
+    return '$' + v.toLocaleString('es-CO');
+  }
+
+  fmtDate(iso) {
+    if (!iso) return null;
+    const parts = iso.split('-');
+    const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    const day = parseInt(parts[2], 10);
+    const month = months[parseInt(parts[1], 10) - 1];
+    return day + ' ' + month;
+  }
+
+  parseNum(s) {
+    if (!s) return 0;
+    const n = parseFloat(String(s).replace(/\./g, '').replace(/,/g, '.'));
+    return isNaN(n) ? 0 : n;
+  }
+
+  goto(screen) {
+    this.setState({ screen });
+  }
+
+  renderVals() {
+    const s = this.state;
+    const fmt = (n) => this.fmt(n);
+    const parseNum = (v) => this.parseNum(v);
+
+    const mapTx = (tx) => ({
+      label: tx.label,
+      date: tx.date,
+      category: tx.category,
+      amountLabel: (tx.tipo === 'ingreso' ? '+' : '-') + fmt(tx.amount),
+      amountStyle: "font-family:'IBM Plex Mono',monospace;font-size:14px;color:" + (tx.tipo === 'ingreso' ? '#1E8F5D' : '#B5472E') + ';',
+      open: () => this.setState({ selectedTxId: tx.id, screen: 'txDetalle' })
+    });
+
+    const totalBalance = s.accounts.reduce((a, x) => a + x.balance, 0);
+    const accounts = s.accounts.map((a) => ({
+      name: a.name,
+      balanceLabel: fmt(a.balance),
+      open: () => this.setState({ selectedAccountName: a.name, editAccName: a.name, editAccBalance: String(a.balance), screen: 'cuentaDetalle' })
+    }));
+
+    const selectedAccount = s.accounts.find((a) => a.name === s.selectedAccountName) || s.accounts[0] || null;
+    const acdTx = selectedAccount ? s.transactions.filter((t) => t.account === selectedAccount.name).map(mapTx) : [];
+    const acd = selectedAccount ? {
+      name: selectedAccount.name,
+      balanceLabel: fmt(selectedAccount.balance),
+      tx: acdTx,
+      hasTx: acdTx.length > 0,
+      noTx: acdTx.length === 0
+    } : { name: '', balanceLabel: '', tx: [], hasTx: false, noTx: true };
+
+    const totalDeuda = s.debts.reduce((a, x) => a + x.balance, 0);
+    const hasDebts = s.debts.length > 0;
+    const debts = s.debts.map((d) => {
+      const pct = d.totalCount > 0 ? Math.round((d.paidCount / d.totalCount) * 100) : 0;
+      const progressLabel = d.totalCount > 0 ? ('Llevas ' + d.paidCount + ' de ' + d.totalCount + ' pagos') : (d.paidCount > 0 ? (d.paidCount + ' pago' + (d.paidCount === 1 ? '' : 's') + ' realizado' + (d.paidCount === 1 ? '' : 's')) : 'Sin pagos registrados aún');
+      const mesesRestantes = (d.cuota > 0 && d.totalCount > 0) ? Math.max(d.totalCount - d.paidCount, Math.ceil(d.balance / d.cuota)) : (d.cuota > 0 ? Math.ceil(d.balance / d.cuota) : null);
+      const projection = d.balance <= 0
+        ? 'Esta deuda ya está liquidada.'
+        : (mesesRestantes !== null
+          ? ('Pagando ' + fmt(d.cuota) + ' al mes, la liquidas en ' + mesesRestantes + ' meses más.')
+          : 'Agrega la cuota para ver la proyección.');
+      return {
+      name: d.name,
+      balanceLabel: fmt(d.balance),
+      dueLabel: d.dueLabel,
+      rate: d.rate,
+      cuotaLabel: d.cuota > 0 ? fmt(d.cuota) : 'sin definir',
+      progressLabel,
+      progressPct: pct,
+      projection,
+      liquidada: d.balance <= 0,
+      expanded: d.expanded,
+      editing: d.editing,
+      notEditing: !d.editing,
+      draftName: d.draftName,
+      draftBalance: d.draftBalance,
+      ariaExpanded: d.expanded ? 'true' : 'false',
+      chevronStyle: 'display:flex;transition:transform .15s;transform:rotate(' + (d.expanded ? '180deg' : '0deg') + ');',
+      progressBarStyle: 'width:' + pct + '%;height:100%;background:#1E8F5D;',
+      goPagarDeuda: () => this.setState({ selectedDebtId: d.id, payDebtTipo: 'cuota', payDebtAmount: String(d.cuota || ''), payDebtAccount: null, screen: 'pagoDeuda' }),
+      toggle: () => {
+        const next = s.debts.map((x) => (x.id === d.id ? { ...x, expanded: !x.expanded } : x));
+        this.setState({ debts: next });
+      },
+      startEdit: () => {
+        const next = s.debts.map((x) => (x.id === d.id ? { ...x, editing: true, draftName: x.name, draftBalance: String(x.balance) } : x));
+        this.setState({ debts: next });
+      },
+      cancelEdit: () => {
+        const next = s.debts.map((x) => (x.id === d.id ? { ...x, editing: false } : x));
+        this.setState({ debts: next });
+      },
+      onDraftName: (e) => {
+        const val = e.target.value;
+        const next = s.debts.map((x) => (x.id === d.id ? { ...x, draftName: val } : x));
+        this.setState({ debts: next });
+      },
+      onDraftBalance: (e) => {
+        const val = e.target.value;
+        const next = s.debts.map((x) => (x.id === d.id ? { ...x, draftBalance: val } : x));
+        this.setState({ debts: next });
+      },
+      saveEdit: () => {
+        const next = s.debts.map((x) => (x.id === d.id ? { ...x, name: x.draftName || x.name, balance: parseNum(x.draftBalance), editing: false } : x));
+        this.setState({ debts: next });
+      },
+      remove: () => {
+        const next = s.debts.filter((x) => x.id !== d.id);
+        this.setState({ debts: next });
+      }
+      };
+    });
+
+    const hasGoals = s.goals.length > 0;
+    const goals = s.goals.map((g) => {
+      const pct = g.target > 0 ? Math.round((g.saved / g.target) * 100) : 0;
+      const complete = g.target > 0 && g.saved >= g.target;
+      return {
+        name: g.name,
+        savedLabel: fmt(g.saved),
+        targetLabel: 'de ' + fmt(g.target),
+        barStyle: 'width:' + Math.min(pct, 100) + '%;height:100%;background:#1E8F5D;',
+        pctLabel: complete ? '¡Cumplida!' : (pct + '% — a este ritmo, la cumples en ' + g.eta + '.'),
+        complete,
+        notComplete: !complete,
+        goAportar: () => this.setState({ selectedGoalId: g.id, aportarAmount: '', aportarAccount: null, screen: 'aportarMeta' }),
+        closeGoal: () => {
+          const amt = g.saved;
+          const newTx = { id: Date.now(), label: 'Meta cumplida: ' + g.name, date: 'Hoy', amount: amt, tipo: 'gasto', category: 'Meta de ahorro', account: 'Apartado previamente', esPasivo: false };
+          this.setState({
+            goals: s.goals.filter((x) => x.id !== g.id),
+            transactions: [newTx].concat(s.transactions),
+            gastoDelMes: s.gastoDelMes + amt
+          });
+        },
+        editing: g.editing,
+        notEditing: !g.editing,
+        draftName: g.draftName,
+        draftTarget: g.draftTarget,
+        draftSaved: g.draftSaved,
+        startEdit: () => {
+          const next = s.goals.map((x) => (x.id === g.id ? { ...x, editing: true, draftName: x.name, draftTarget: String(x.target), draftSaved: String(x.saved) } : x));
+          this.setState({ goals: next });
+        },
+        cancelEdit: () => {
+          const next = s.goals.map((x) => (x.id === g.id ? { ...x, editing: false } : x));
+          this.setState({ goals: next });
+        },
+        onDraftName: (e) => {
+          const val = e.target.value;
+          const next = s.goals.map((x) => (x.id === g.id ? { ...x, draftName: val } : x));
+          this.setState({ goals: next });
+        },
+        onDraftTarget: (e) => {
+          const val = e.target.value;
+          const next = s.goals.map((x) => (x.id === g.id ? { ...x, draftTarget: val } : x));
+          this.setState({ goals: next });
+        },
+        onDraftSaved: (e) => {
+          const val = e.target.value;
+          const next = s.goals.map((x) => (x.id === g.id ? { ...x, draftSaved: val } : x));
+          this.setState({ goals: next });
+        },
+        saveEdit: () => {
+          const next = s.goals.map((x) => (x.id === g.id ? { ...x, name: x.draftName || x.name, target: parseNum(x.draftTarget), saved: parseNum(x.draftSaved), editing: false } : x));
+          this.setState({ goals: next });
+        },
+        remove: () => {
+          const next = s.goals.filter((x) => x.id !== g.id);
+          this.setState({ goals: next });
+        }
+      };
+    });
+
+    const recentTx = s.transactions.slice(0, 4).map(mapTx);
+    const allTx = s.transactions.map(mapTx);
+
+    const selectedTx = s.transactions.find((t) => t.id === s.selectedTxId) || s.transactions[0] || null;
+    const txd = selectedTx ? {
+      label: selectedTx.label,
+      category: selectedTx.category,
+      account: selectedTx.account,
+      date: selectedTx.date,
+      esPasivo: !!selectedTx.esPasivo,
+      amountLabel: (selectedTx.tipo === 'ingreso' ? '+' : '-') + fmt(selectedTx.amount),
+      bigAmountStyle: "font-family:'IBM Plex Mono',monospace;font-size:36px;font-weight:500;color:" + (selectedTx.tipo === 'ingreso' ? '#1E8F5D' : '#B5472E') + ';'
+    } : { label: '', category: '', account: '', date: '', esPasivo: false, amountLabel: '', bigAmountStyle: '' };
+
+    const payments = s.payments.map((p) => {
+      const paid = p.paid;
+      const isRecIngreso = p.tipo === 'ingreso';
+      const doneWord = isRecIngreso ? 'Recibido' : 'Pagado';
+      const verb = isRecIngreso ? 'recibido' : 'pagado';
+      return {
+        name: p.name,
+        amountLabel: (isRecIngreso ? '+' : '') + fmt(p.amount),
+        dueLabel: paid ? doneWord : p.dueLabel,
+        paid,
+        ariaPressed: paid ? 'true' : 'false',
+        toggleLabel: paid ? ('Marcar ' + p.name + ' como pendiente') : ('Marcar ' + p.name + ' como ' + verb),
+        dotStyle: 'width:22px;height:22px;border-radius:999px;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;border:' + (paid ? '1.5px solid #1E8F5D' : '1.5px solid #D7E0DB') + ';background:' + (paid ? '#1E8F5D' : 'transparent') + ';',
+        labelStyle: 'font-size:14px;color:' + (paid ? '#9FADA7' : '#0E211C') + ';text-decoration:' + (paid ? 'line-through' : 'none') + ';',
+        dueStyle: 'font-size:12px;color:' + (paid ? '#1E8F5D' : '#51645D') + ';background:' + (paid ? 'transparent' : '#E9EFEC') + ';padding:' + (paid ? '0' : '3px 8px') + ';border-radius:999px;',
+        amountStyle: "font-family:'IBM Plex Mono',monospace;font-size:14px;color:" + (paid ? '#1E8F5D' : (isRecIngreso ? '#1E8F5D' : '#0E211C')) + ';text-decoration:' + (paid ? 'line-through' : 'none') + ';',
+        toggle: () => {
+          const next = s.payments.map((x) => (x.id === p.id ? { ...x, paid: !x.paid } : x));
+          this.setState({ payments: next });
+        },
+        editing: p.editing,
+        draftName: p.draftName,
+        draftAmount: p.draftAmount,
+        draftDate: p.draftDate,
+        toggleEdit: () => {
+          const next = s.payments.map((x) => (x.id === p.id
+            ? (x.editing ? { ...x, editing: false } : { ...x, editing: true, draftName: x.name, draftAmount: String(x.amount), draftDate: '' })
+            : x));
+          this.setState({ payments: next });
+        },
+        onDraftName: (e) => {
+          const val = e.target.value;
+          const next = s.payments.map((x) => (x.id === p.id ? { ...x, draftName: val } : x));
+          this.setState({ payments: next });
+        },
+        onDraftAmount: (e) => {
+          const val = e.target.value;
+          const next = s.payments.map((x) => (x.id === p.id ? { ...x, draftAmount: val } : x));
+          this.setState({ payments: next });
+        },
+        onDraftDate: (e) => {
+          const val = e.target.value;
+          const next = s.payments.map((x) => (x.id === p.id ? { ...x, draftDate: val } : x));
+          this.setState({ payments: next });
+        },
+        saveEdit: () => {
+          const next = s.payments.map((x) => (x.id === p.id
+            ? { ...x, name: x.draftName || x.name, amount: parseNum(x.draftAmount), dueLabel: this.fmtDate(x.draftDate) || x.dueLabel, editing: false }
+            : x));
+          this.setState({ payments: next });
+        },
+        remove: () => {
+          const next = s.payments.filter((x) => x.id !== p.id);
+          this.setState({ payments: next });
+        }
+      };
+    });
+
+    const txAccounts = s.accounts.map((a) => {
+      const selected = (s.txAccount || s.accounts[0].name) === a.name;
+      return {
+        label: a.name,
+        style: 'padding:9px 14px;border-radius:999px;font-size:13px;font-family:\'IBM Plex Sans\',Arial,sans-serif;cursor:pointer;' +
+          (selected ? 'border:1.5px solid #0B3B36;background:#0B3B36;color:#F3FBF8;' : 'border:1px solid #D7E0DB;background:#FFFFFF;color:#0E211C;'),
+        pick: () => this.setState({ txAccount: a.name })
+      };
+    });
+
+    const cashflowPct = s.gastoDelMes > 0 ? Math.round((s.passiveIncome / s.gastoDelMes) * 100) : 0;
+    const flowTotal = s.ingresoDelMes + s.gastoDelMes;
+    const ingresoPct = flowTotal > 0 ? Math.round((s.ingresoDelMes / flowTotal) * 100) : 50;
+
+    const widgetDefs = [
+      { key: 'cashflowActive', label: 'Activar Índice de Flujo de Caja', color: '#0B3B36' },
+      { key: 'debtActive', label: 'Activar Deudas', color: '#B5472E' },
+      { key: 'goalActive', label: 'Activar Metas de ahorro', color: '#A97723' }
+    ];
+    const inactiveWidgets = widgetDefs.filter((w) => !s[w.key]).map((w) => ({
+      label: w.label,
+      color: w.color,
+      activate: () => this.setState({ [w.key]: true })
+    }));
+
+    // Agregar deuda: cálculo de tasa
+    const principal = parseNum(s.newDebtSaldo);
+    const payment = parseNum(s.newDebtCuota);
+    const nMeses = parseNum(s.newDebtMeses);
+    const pv = (r) => (r === 0 ? payment * nMeses : payment * (1 - Math.pow(1 + r, -nMeses)) / r);
+    const solveRate = () => {
+      if (!(principal > 0) || !(payment > 0) || !(nMeses > 0)) return null;
+      if (payment * nMeses <= principal) return null;
+      let lo = 0.0001, hi = 1, tries = 0;
+      while (pv(hi) > principal && tries < 50) { hi = hi * 2; tries = tries + 1; }
+      for (let i = 0; i < 60; i++) {
+        const mid = (lo + hi) / 2;
+        if (pv(mid) > principal) { lo = mid; } else { hi = mid; }
+      }
+      return (lo + hi) / 2;
+    };
+    let estimatedRateLabel;
+    let estimatedRateValue = null;
+    if (!s.debtKnowsRate) {
+      const rate = solveRate();
+      if (rate === null) {
+        estimatedRateLabel = (s.newDebtSaldo && s.newDebtCuota && s.newDebtMeses)
+          ? 'Revisa los números: esa cuota no alcanza a cubrir ese saldo en esos meses.'
+          : 'Completa los 3 campos para ver la tasa estimada.';
+      } else {
+        estimatedRateValue = rate;
+        estimatedRateLabel = 'Tasa estimada: ' + (rate * 100).toFixed(1).replace('.', ',') + '% mensual';
+      }
+    } else {
+      estimatedRateLabel = '';
+    }
+
+    const tabBase = 'flex:1;padding:10px;border-radius:8px;border:none;font-size:13px;font-weight:500;font-family:\'IBM Plex Sans\',Arial,sans-serif;cursor:pointer;';
+    const tabActive = 'background:#0B3B36;color:#F3FBF8;';
+    const tabInactive = 'background:transparent;color:#51645D;';
+
+    // Agregar transacción: categorías
+    const baseGasto = ['Comida', 'Transporte', 'Servicios', 'Salud', 'Otro'];
+    const baseIngreso = ['Sueldo', 'Freelance', 'Ventas', 'Regalo', 'Otro'];
+    const isIngreso = s.txTipo === 'ingreso';
+    const catList = isIngreso ? baseIngreso.concat(s.customIngreso) : baseGasto.concat(s.customGasto);
+    const txCategories = catList.map((label) => {
+      const selected = s.txCategory === label;
+      return {
+        label,
+        style: 'padding:9px 14px;border-radius:999px;font-size:13px;font-family:\'IBM Plex Sans\',Arial,sans-serif;cursor:pointer;' +
+          (selected ? 'border:1.5px solid #0B3B36;background:#0B3B36;color:#F3FBF8;' : 'border:1px solid #D7E0DB;background:#FFFFFF;color:#0E211C;'),
+        pick: () => this.setState({ txCategory: label })
+      };
+    });
+
+    const accTypesList = ['Efectivo', 'Cuenta de ahorros', 'Cuenta corriente', 'Billetera digital'];
+    const accTypes = accTypesList.map((label) => {
+      const selected = s.newAccType === label;
+      return {
+        label,
+        style: 'padding:9px 14px;border-radius:999px;font-size:13px;font-family:\'IBM Plex Sans\',Arial,sans-serif;cursor:pointer;' +
+          (selected ? 'border:1.5px solid #0B3B36;background:#0B3B36;color:#F3FBF8;' : 'border:1px solid #D7E0DB;background:#FFFFFF;color:#0E211C;'),
+        pick: () => this.setState({ newAccType: label })
+      };
+    });
+
+    return {
+      onDashboard: s.screen === 'dashboard',
+      onCashflow: s.screen === 'cashflow',
+      onDeudas: s.screen === 'deudas',
+      onMetas: s.screen === 'metas',
+      onCrearMeta: s.screen === 'crearMeta',
+      onAgregarDeuda: s.screen === 'agregarDeuda',
+      onAgregarCuenta: s.screen === 'agregarCuenta',
+      onAgregarTx: s.screen === 'agregarTx',
+      onAgregarRecurrente: s.screen === 'agregarRecurrente',
+      onAjustes: s.screen === 'ajustes',
+      onPagoDeuda: s.screen === 'pagoDeuda',
+      onAportarMeta: s.screen === 'aportarMeta',
+      onCuentaDetalle: s.screen === 'cuentaDetalle',
+      onTransacciones: s.screen === 'transacciones',
+      onTxDetalle: s.screen === 'txDetalle',
+
+      goDashboard: () => this.goto('dashboard'),
+      goVerCashflow: () => this.goto('cashflow'),
+      goVerDeudas: () => this.goto('deudas'),
+      goVerMetas: () => this.goto('metas'),
+      goAgregarDeuda: () => this.goto('agregarDeuda'),
+      goDeudasBack: () => this.goto('deudas'),
+      goAgregarCuenta: () => this.goto('agregarCuenta'),
+      goAgregarTx: () => this.goto('agregarTx'),
+      goAgregarTxPasivo: () => this.setState({ screen: 'agregarTx', txTipo: 'ingreso', txEsPasivo: true }),
+      goCrearMeta: () => this.goto('crearMeta'),
+      goMetasBack: () => this.goto('metas'),
+      goAgregarRecurrente: () => this.goto('agregarRecurrente'),
+      goAjustes: () => this.goto('ajustes'),
+      goTransacciones: () => this.goto('transacciones'),
+
+      totalBalanceLabel: fmt(totalBalance),
+      accounts,
+      totalDeudaLabel: fmt(totalDeuda),
+      debtsCountLabel: 'en ' + s.debts.length + (s.debts.length === 1 ? ' deuda activa' : ' deudas activas'),
+      hasDebts,
+      noDebts: !hasDebts,
+      debts,
+      hasGoals,
+      noGoals: !hasGoals,
+      goalsCountLabel: s.goals.length + (s.goals.length === 1 ? ' meta activa' : ' metas activas'),
+      goals,
+      acd,
+      editAccName: s.editAccName,
+      editAccBalance: s.editAccBalance,
+      onEditAccName: (e) => this.setState({ editAccName: e.target.value }),
+      onEditAccBalance: (e) => this.setState({ editAccBalance: e.target.value }),
+      saveAccountEdit: () => {
+        if (!selectedAccount) return;
+        const oldName = selectedAccount.name;
+        const newName = s.editAccName || oldName;
+        const newBalance = parseNum(s.editAccBalance);
+        const nextAccounts = s.accounts.map((a) => a.name === oldName ? { ...a, name: newName, balance: newBalance } : a);
+        const nextTx = s.transactions.map((t) => t.account === oldName ? { ...t, account: newName } : t);
+        this.setState({ accounts: nextAccounts, transactions: nextTx, selectedAccountName: newName });
+      },
+      deleteAccount: () => {
+        if (!selectedAccount) { this.goto('dashboard'); return; }
+        this.setState({
+          accounts: s.accounts.filter((a) => a.name !== selectedAccount.name),
+          selectedAccountName: null,
+          screen: 'dashboard'
+        });
+      },
+
+      recentTx,
+      allTx,
+      txd,
+      deleteTx: () => {
+        if (!selectedTx) { this.goto('transacciones'); return; }
+        const amt = selectedTx.amount;
+        const nextAccounts = s.accounts.map((a) => a.name === selectedTx.account
+          ? { ...a, balance: a.balance - (selectedTx.tipo === 'ingreso' ? amt : -amt) }
+          : a);
+        const updates = {
+          transactions: s.transactions.filter((t) => t.id !== selectedTx.id),
+          accounts: nextAccounts,
+          screen: 'transacciones',
+          selectedTxId: null
+        };
+        if (selectedTx.tipo === 'ingreso') {
+          updates.ingresoDelMes = s.ingresoDelMes - amt;
+          if (selectedTx.esPasivo) {
+            updates.passiveIncome = s.passiveIncome - amt;
+          }
+        } else {
+          updates.gastoDelMes = s.gastoDelMes - amt;
+        }
+        this.setState(updates);
+      },
+      payments,
+
+      flowBarIngresoStyle: 'width:' + ingresoPct + '%;height:100%;background:#1E8F5D;',
+      flowBarGastoStyle: 'width:' + (100 - ingresoPct) + '%;height:100%;background:#B5472E;',
+      ingresoMesLabel: fmt(s.ingresoDelMes),
+      gastoMesLabel: fmt(s.gastoDelMes),
+
+      cashflowActive: s.cashflowActive,
+      deactivateCashflow: () => this.setState({ cashflowActive: false }),
+      cashflowPctLabel: cashflowPct + '%',
+      cashflowBarStyle: 'width:' + Math.min(cashflowPct, 100) + '%;height:100%;background:#0B3B36;',
+      cashflowHint: cashflowPct === 0
+        ? 'Aún no tienes ingreso pasivo registrado. En cuanto marques uno, este número empieza a moverse.'
+        : 'Tu ingreso pasivo cubre el ' + cashflowPct + '% de tus gastos del mes. Cuando llegue a 100%, eso es libertad financiera en el método Cashflow.',
+      passiveIncomeLabel: fmt(s.passiveIncome),
+
+      debtActive: s.debtActive,
+      deactivateDebt: () => this.setState({ debtActive: false }),
+      goalActive: s.goalActive,
+      deactivateGoal: () => this.setState({ goalActive: false }),
+      hasInactive: inactiveWidgets.length > 0,
+      inactiveWidgets,
+
+      newDebtName: s.newDebtName,
+      newDebtSaldo: s.newDebtSaldo,
+      newDebtCuota: s.newDebtCuota,
+      newDebtTasa: s.newDebtTasa,
+      newDebtMeses: s.newDebtMeses,
+      onDebtName: (e) => this.setState({ newDebtName: e.target.value }),
+      onDebtSaldo: (e) => this.setState({ newDebtSaldo: e.target.value }),
+      onDebtCuota: (e) => this.setState({ newDebtCuota: e.target.value }),
+      onDebtTasa: (e) => this.setState({ newDebtTasa: e.target.value }),
+      onDebtMeses: (e) => this.setState({ newDebtMeses: e.target.value }),
+      debtKnowsRate: s.debtKnowsRate,
+      debtNotKnowsRate: !s.debtKnowsRate,
+      setKnows: () => this.setState({ debtKnowsRate: true }),
+      setDoesntKnow: () => this.setState({ debtKnowsRate: false }),
+      knowsRateTabStyle: tabBase + (s.debtKnowsRate ? tabActive : tabInactive),
+      doesntKnowTabStyle: tabBase + (!s.debtKnowsRate ? tabActive : tabInactive),
+      estimatedRateLabel,
+      saveDebt: () => {
+        const rateLabel = s.debtKnowsRate
+          ? (parseNum(s.newDebtTasa).toFixed(1).replace('.', ',') + '% mensual')
+          : (estimatedRateValue !== null ? (estimatedRateValue * 100).toFixed(1).replace('.', ',') + '% mensual (estimada)' : 'Por calcular');
+        const newDebt = {
+          id: 'd' + Date.now(),
+          name: s.newDebtName || 'Nueva deuda',
+          balance: principal,
+          dueLabel: 'Sin definir',
+          rate: rateLabel,
+          cuota: payment,
+          paidCount: 0,
+          totalCount: s.debtKnowsRate ? 0 : nMeses,
+          expanded: false,
+          editing: false, draftName: '', draftBalance: ''
+        };
+        this.setState({
+          debts: s.debts.concat([newDebt]),
+          debtActive: true,
+          screen: 'deudas',
+          newDebtName: '', newDebtSaldo: '', newDebtCuota: '', newDebtTasa: '', newDebtMeses: '', debtKnowsRate: true
+        });
+      },
+
+      payDebtName: (s.debts.find((x) => x.id === s.selectedDebtId) || {}).name || '',
+      pagoCuotaTabStyle: tabBase + (s.payDebtTipo === 'cuota' ? tabActive : tabInactive),
+      pagoAbonoTabStyle: tabBase + (s.payDebtTipo === 'abono' ? tabActive : tabInactive),
+      setPagoCuota: () => {
+        const dd = s.debts.find((x) => x.id === s.selectedDebtId);
+        this.setState({ payDebtTipo: 'cuota', payDebtAmount: dd ? String(dd.cuota || '') : s.payDebtAmount });
+      },
+      setPagoAbono: () => this.setState({ payDebtTipo: 'abono' }),
+      pagoTipoHint: s.payDebtTipo === 'cuota'
+        ? 'Tu cuota regular del mes. Cuenta como uno de tus pagos programados.'
+        : 'Un pago extra, además o en vez de la cuota, para reducir el saldo más rápido.',
+      payDebtAmount: s.payDebtAmount,
+      onPagoAmount: (e) => this.setState({ payDebtAmount: e.target.value }),
+      payDebtAccounts: s.accounts.map((a) => ({
+        label: a.name,
+        style: 'padding:9px 14px;border-radius:999px;font-size:13px;font-family:\'IBM Plex Sans\',Arial,sans-serif;cursor:pointer;' +
+          ((s.payDebtAccount || s.accounts[0].name) === a.name ? 'border:1.5px solid #0B3B36;background:#0B3B36;color:#F3FBF8;' : 'border:1px solid #D7E0DB;background:#FFFFFF;color:#0E211C;'),
+        pick: () => this.setState({ payDebtAccount: a.name })
+      })),
+      savePagoDeuda: () => {
+        const dd = s.debts.find((x) => x.id === s.selectedDebtId);
+        if (!dd) { this.goto('deudas'); return; }
+        const amt = parseNum(s.payDebtAmount);
+        const accountName = s.payDebtAccount || s.accounts[0].name;
+        const nextDebts = s.debts.map((x) => x.id === dd.id
+          ? { ...x, balance: Math.max(x.balance - amt, 0), paidCount: s.payDebtTipo === 'cuota' ? x.paidCount + 1 : x.paidCount }
+          : x);
+        const nextAccounts = s.accounts.map((a) => a.name === accountName ? { ...a, balance: a.balance - amt } : a);
+        const newTx = { id: Date.now(), label: 'Pago ' + dd.name, date: 'Hoy', amount: amt, tipo: 'gasto', category: 'Pago de deuda', account: accountName, esPasivo: false };
+        this.setState({
+          debts: nextDebts,
+          accounts: nextAccounts,
+          transactions: [newTx].concat(s.transactions),
+          gastoDelMes: s.gastoDelMes + amt,
+          screen: 'deudas',
+          payDebtAmount: '', payDebtAccount: null, payDebtTipo: 'cuota'
+        });
+      },
+
+      newAccName: s.newAccName,
+      newAccBalance: s.newAccBalance,
+      onAccName: (e) => this.setState({ newAccName: e.target.value }),
+      onAccBalance: (e) => this.setState({ newAccBalance: e.target.value }),
+      accTypes,
+      saveAccount: () => {
+        const newAcc = { name: s.newAccName || s.newAccType, balance: parseNum(s.newAccBalance) };
+        this.setState({
+          accounts: s.accounts.concat([newAcc]),
+          screen: 'dashboard',
+          newAccName: '', newAccBalance: '', newAccType: 'Efectivo'
+        });
+      },
+
+      aportarGoalName: (s.goals.find((x) => x.id === s.selectedGoalId) || {}).name || '',
+      aportarAmount: s.aportarAmount,
+      onAportarAmount: (e) => this.setState({ aportarAmount: e.target.value }),
+      aportarAccounts: s.accounts.map((a) => ({
+        label: a.name,
+        style: 'padding:9px 14px;border-radius:999px;font-size:13px;font-family:\'IBM Plex Sans\',Arial,sans-serif;cursor:pointer;' +
+          ((s.aportarAccount || s.accounts[0].name) === a.name ? 'border:1.5px solid #0B3B36;background:#0B3B36;color:#F3FBF8;' : 'border:1px solid #D7E0DB;background:#FFFFFF;color:#0E211C;'),
+        pick: () => this.setState({ aportarAccount: a.name })
+      })),
+      saveAportar: () => {
+        const amt = parseNum(s.aportarAmount);
+        const accountName = s.aportarAccount || s.accounts[0].name;
+        const nextGoals = s.goals.map((x) => x.id === s.selectedGoalId ? { ...x, saved: x.saved + amt } : x);
+        const nextAccounts = s.accounts.map((a) => a.name === accountName ? { ...a, balance: a.balance - amt } : a);
+        this.setState({ goals: nextGoals, accounts: nextAccounts, screen: 'metas', aportarAmount: '', aportarAccount: null, selectedGoalId: null });
+      },
+      newGoalName: s.newGoalName,
+      newGoalTarget: s.newGoalTarget,
+      newGoalSaved: s.newGoalSaved,
+      onGoalName: (e) => this.setState({ newGoalName: e.target.value }),
+      onGoalTarget: (e) => this.setState({ newGoalTarget: e.target.value }),
+      onGoalSaved: (e) => this.setState({ newGoalSaved: e.target.value }),
+      newGoalAccounts: s.accounts.map((a) => ({
+        label: a.name,
+        style: 'padding:9px 14px;border-radius:999px;font-size:13px;font-family:\'IBM Plex Sans\',Arial,sans-serif;cursor:pointer;' +
+          ((s.newGoalAccount || s.accounts[0].name) === a.name ? 'border:1.5px solid #0B3B36;background:#0B3B36;color:#F3FBF8;' : 'border:1px solid #D7E0DB;background:#FFFFFF;color:#0E211C;'),
+        pick: () => this.setState({ newGoalAccount: a.name })
+      })),
+      saveGoal: () => {
+        const initialSaved = parseNum(s.newGoalSaved);
+        const accountName = s.newGoalAccount || s.accounts[0].name;
+        const newGoal = {
+          id: 'g' + Date.now(),
+          name: s.newGoalName || 'Nueva meta',
+          target: parseNum(s.newGoalTarget),
+          saved: initialSaved,
+          eta: 'por calcular'
+        };
+        const nextAccounts = initialSaved > 0
+          ? s.accounts.map((a) => a.name === accountName ? { ...a, balance: a.balance - initialSaved } : a)
+          : s.accounts;
+        this.setState({
+          goals: s.goals.concat([newGoal]),
+          accounts: nextAccounts,
+          goalActive: true,
+          screen: 'metas',
+          newGoalName: '', newGoalTarget: '', newGoalSaved: '', newGoalAccount: null
+        });
+      },
+
+      txAccounts,
+
+      recPagoTabStyle: tabBase + (s.newRecTipo === 'pago' ? tabActive : tabInactive),
+      recIngresoTabStyle: tabBase + (s.newRecTipo === 'ingreso' ? tabActive : tabInactive),
+      setRecPago: () => this.setState({ newRecTipo: 'pago' }),
+      setRecIngreso: () => this.setState({ newRecTipo: 'ingreso' }),
+      recNamePlaceholder: s.newRecTipo === 'ingreso' ? 'Ej. Arriendo que cobras, mesada' : 'Ej. Arriendo, internet, seguro',
+      newRecName: s.newRecName,
+      newRecAmount: s.newRecAmount,
+      onRecName: (e) => this.setState({ newRecName: e.target.value }),
+      onRecAmount: (e) => this.setState({ newRecAmount: e.target.value }),
+      recFreqPills: ['Semanal', 'Quincenal', 'Mensual'].map((f) => ({
+        label: f,
+        style: 'padding:9px 14px;border-radius:999px;font-size:13px;font-family:\'IBM Plex Sans\',Arial,sans-serif;cursor:pointer;' +
+          (s.newRecFreq === f ? 'border:1.5px solid #0B3B36;background:#0B3B36;color:#F3FBF8;' : 'border:1px solid #D7E0DB;background:#FFFFFF;color:#0E211C;'),
+        pick: () => this.setState({ newRecFreq: f })
+      })),
+      newRecDate: s.newRecDate,
+      onRecDate: (e) => this.setState({ newRecDate: e.target.value }),
+
+      notifPagosAria: s.settingsNotifPagos ? 'true' : 'false',
+      notifPagosDotStyle: 'width:40px;height:24px;border-radius:999px;flex-shrink:0;padding:2px;box-sizing:border-box;display:flex;align-items:center;' + (s.settingsNotifPagos ? 'background:#1E8F5D;justify-content:flex-end;' : 'background:#D7E0DB;justify-content:flex-start;') + ';' ,
+      toggleNotifPagos: () => this.setState({ settingsNotifPagos: !s.settingsNotifPagos }),
+      notifResumenAria: s.settingsNotifResumen ? 'true' : 'false',
+      notifResumenDotStyle: 'width:40px;height:24px;border-radius:999px;flex-shrink:0;padding:2px;box-sizing:border-box;display:flex;align-items:center;' + (s.settingsNotifResumen ? 'background:#1E8F5D;justify-content:flex-end;' : 'background:#D7E0DB;justify-content:flex-start;') + ';',
+      toggleNotifResumen: () => this.setState({ settingsNotifResumen: !s.settingsNotifResumen }),
+      themeOptions: ['Claro', 'Oscuro', 'Sistema'].map((label) => {
+        const key = label.toLowerCase() === 'sistema' ? 'sistema' : (label.toLowerCase() === 'claro' ? 'claro' : 'oscuro');
+        const selected = s.settingsTheme === key;
+        return {
+          label,
+          style: 'flex:1;padding:9px 0;border-radius:8px;border:none;font-size:13px;font-weight:500;font-family:\'IBM Plex Sans\',Arial,sans-serif;cursor:pointer;' +
+            (selected ? 'background:#0B3B36;color:#F3FBF8;' : 'background:transparent;color:#51645D;'),
+          pick: () => this.setState({ settingsTheme: key })
+        };
+      }),
+      saveRecurrente: () => {
+        const newItem = {
+          id: 'r' + Date.now(),
+          name: s.newRecName || (s.newRecTipo === 'ingreso' ? 'Nuevo ingreso' : 'Nuevo pago'),
+          dueLabel: this.fmtDate(s.newRecDate) || 'Sin fecha',
+          amount: parseNum(s.newRecAmount),
+          paid: false,
+          tipo: s.newRecTipo,
+          editing: false, draftName: '', draftAmount: '', draftDate: ''
+        };
+        this.setState({
+          payments: s.payments.concat([newItem]),
+          screen: 'dashboard',
+          newRecName: '', newRecAmount: '', newRecFreq: 'Mensual', newRecDate: '', newRecTipo: 'pago'
+        });
+      },
+
+      txIsIngreso: isIngreso,
+      gastoTabStyle: tabBase + (!isIngreso ? 'background:#B5472E;color:#F3FBF8;' : tabInactive),
+      ingresoTabStyle: tabBase + (isIngreso ? 'background:#1E8F5D;color:#F3FBF8;' : tabInactive),
+      setGasto: () => this.setState({ txTipo: 'gasto', txCategory: null }),
+      setIngreso: () => this.setState({ txTipo: 'ingreso', txCategory: null }),
+      txAmount: s.txAmount,
+      txAmountColor: isIngreso ? '#1E8F5D' : '#B5472E',
+      onTxAmount: (e) => this.setState({ txAmount: e.target.value }),
+      txCategories,
+      txEsPasivo: s.txEsPasivo,
+      pasivoAriaPressed: s.txEsPasivo ? 'true' : 'false',
+      pasivoDotStyle: 'width:22px;height:22px;border-radius:999px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:' + (s.txEsPasivo ? '1.5px solid #1E8F5D' : '1.5px solid #D7E0DB') + ';background:' + (s.txEsPasivo ? '#1E8F5D' : 'transparent') + ';',
+      togglePasivo: () => this.setState({ txEsPasivo: !s.txEsPasivo }),
+      addingCategory: s.addingCategory,
+      newCategoryName: s.newCategoryName,
+      startAddCategory: () => this.setState({ addingCategory: true }),
+      onNewCategoryName: (e) => this.setState({ newCategoryName: e.target.value }),
+      confirmNewCategory: () => {
+        const name = (s.newCategoryName || '').trim();
+        if (!name) { this.setState({ addingCategory: false }); return; }
+        if (isIngreso) {
+          this.setState({ customIngreso: s.customIngreso.concat([name]), txCategory: name, addingCategory: false, newCategoryName: '' });
+        } else {
+          this.setState({ customGasto: s.customGasto.concat([name]), txCategory: name, addingCategory: false, newCategoryName: '' });
+        }
+      },
+      saveTx: () => {
+        const amt = parseNum(s.txAmount);
+        const accountName = s.txAccount || s.accounts[0].name;
+        const newTx = { id: Date.now(), label: s.txCategory || (isIngreso ? 'Ingreso' : 'Gasto'), date: 'Hoy', amount: amt, tipo: s.txTipo, category: s.txCategory || (isIngreso ? 'Ingreso' : 'Gasto'), account: accountName, esPasivo: isIngreso && s.txEsPasivo };
+        const nextAccounts = s.accounts.map((a) => a.name === accountName
+          ? { ...a, balance: a.balance + (isIngreso ? amt : -amt) }
+          : a);
+        const updates = {
+          transactions: [newTx].concat(s.transactions),
+          accounts: nextAccounts,
+          screen: 'dashboard',
+          txAmount: '', txCategory: null, txEsPasivo: false
+        };
+        if (isIngreso) {
+          updates.ingresoDelMes = s.ingresoDelMes + amt;
+          if (s.txEsPasivo) {
+            updates.passiveIncome = s.passiveIncome + amt;
+            updates.cashflowActive = true;
+          }
+        } else {
+          updates.gastoDelMes = s.gastoDelMes + amt;
+        }
+        this.setState(updates);
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

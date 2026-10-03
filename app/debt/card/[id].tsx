@@ -2,14 +2,14 @@ import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Card, ProgressBar, Divider, Button } from '../../src/components/ui';
-import { colors, spacing, typography } from '../../src/theme';
-import { useUserStore } from '../../src/store/useUserStore';
-import { database } from '../../src/database';
-import { debtCards } from '../../src/database/schema';
+import { Card, ProgressBar, Divider, Button } from '../../../src/components/ui';
+import { colors, spacing, typography } from '../../../src/theme';
+import { useUserStore } from '../../../src/store/useUserStore';
+import { database } from '../../../src/database';
+import { debtCards } from '../../../src/database/schema';
 import { eq } from 'drizzle-orm';
-import { DebtCardRepository } from '../../src/database/repositories/debtCardRepository';
-import type { DebtCard } from '../../src/database/schema';
+import { DebtCardRepository } from '../../../src/database/repositories/debtCardRepository';
+import type { DebtCard } from '../../../src/database/schema';
 
 export default function CardDetailScreen() {
   const router = useRouter();

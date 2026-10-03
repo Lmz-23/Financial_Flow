@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { View, Text, StyleSheet, SafeAreaView } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Button, Card } from '../../src/components/ui';
-import { colors, spacing, typography } from '../../src/theme';
-import { useUserStore } from '../../src/store/useUserStore';
-import { AccountRepository } from '../../src/database/repositories/accountRepository';
-import { database } from '../../src/database';
-import { recurringItems } from '../../src/database/schema';
+import { Button, Card } from '../../../src/components/ui';
+import { colors, spacing, typography } from '../../../src/theme';
+import { useUserStore } from '../../../src/store/useUserStore';
+import { AccountRepository } from '../../../src/database/repositories/accountRepository';
+import { database } from '../../../src/database';
+import { recurringItems } from '../../../src/database/schema';
 import { eq } from 'drizzle-orm';
 
 export default function CompleteScreen() {
