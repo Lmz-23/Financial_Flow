@@ -4,7 +4,5 @@ export default defineConfig({
   schema: './src/database/schema.ts',
   out: './src/database/migrations',
   dialect: 'sqlite',
-  dbCredentials: {
-    url: './financial-flow.db',
-  },
+  driver: 'expo',
 });

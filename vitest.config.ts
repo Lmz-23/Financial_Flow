@@ -4,6 +4,8 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    // Fechas deterministas: la app opera en America/Bogota.
+    env: { TZ: 'America/Bogota' },
     include: ['test/**/*.test.ts'],
     coverage: {
       provider: 'v8',
