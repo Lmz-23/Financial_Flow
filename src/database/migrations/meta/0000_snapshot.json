@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "401e3345-e92d-402a-b020-b7a03afb69e1",
+  "id": "bc9afaa8-d7d6-44f6-a8a4-f7f4efa03233",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "accounts": {
@@ -35,43 +35,6 @@
           "notNull": true,
           "autoincrement": false
         },
-        "institution": {
-          "name": "institution",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "color": {
-          "name": "color",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "icon": {
-          "name": "icon",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "cashflow_class": {
-          "name": "cashflow_class",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'NEUTRAL'"
-        },
-        "is_active": {
-          "name": "is_active",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": true
-        },
         "order": {
           "name": "order",
           "type": "integer",
@@ -79,6 +42,13 @@
           "notNull": true,
           "autoincrement": false,
           "default": 0
+        },
+        "archived_at": {
+          "name": "archived_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         },
         "created_at": {
           "name": "created_at",
@@ -95,7 +65,15 @@
           "autoincrement": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_accounts_user": {
+          "name": "idx_accounts_user",
+          "columns": [
+            "user_id"
+          ],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {
         "accounts_user_id_users_id_fk": {
           "name": "accounts_user_id_users_id_fk",
@@ -107,16 +85,21 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
+          "onDelete": "restrict",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {}
+      "checkConstraints": {
+        "ck_accounts_type": {
+          "name": "ck_accounts_type",
+          "value": "\"accounts\".\"type\" IN ('CASH', 'SAVINGS', 'CHECKING', 'DIGITAL_WALLET')"
+        }
+      }
     },
-    "budgets_monthly": {
-      "name": "budgets_monthly",
+    "balance_adjustments": {
+      "name": "balance_adjustments",
       "columns": {
         "id": {
           "name": "id",
@@ -132,50 +115,57 @@
           "notNull": true,
           "autoincrement": false
         },
-        "month": {
-          "name": "month",
+        "target_type": {
+          "name": "target_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "debt_id": {
+          "name": "debt_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "goal_id": {
+          "name": "goal_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "previous_minor": {
+          "name": "previous_minor",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "year": {
-          "name": "year",
+        "new_minor": {
+          "name": "new_minor",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "total_income_expected": {
-          "name": "total_income_expected",
-          "type": "real",
+        "delta_minor": {
+          "name": "delta_minor",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "total_fixed_expenses": {
-          "name": "total_fixed_expenses",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "total_debt_payments": {
-          "name": "total_debt_payments",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "total_free_amount": {
-          "name": "total_free_amount",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "budget_config": {
-          "name": "budget_config",
+        "reason": {
+          "name": "reason",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -187,23 +177,77 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_adj_account": {
+          "name": "idx_adj_account",
+          "columns": [
+            "account_id"
+          ],
+          "isUnique": false
+        },
+        "idx_adj_debt": {
+          "name": "idx_adj_debt",
+          "columns": [
+            "debt_id"
+          ],
+          "isUnique": false
+        },
+        "idx_adj_goal": {
+          "name": "idx_adj_goal",
+          "columns": [
+            "goal_id"
+          ],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {
-        "budgets_monthly_user_id_users_id_fk": {
-          "name": "budgets_monthly_user_id_users_id_fk",
-          "tableFrom": "budgets_monthly",
+        "balance_adjustments_user_id_users_id_fk": {
+          "name": "balance_adjustments_user_id_users_id_fk",
+          "tableFrom": "balance_adjustments",
           "tableTo": "users",
           "columnsFrom": [
             "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "balance_adjustments_account_id_accounts_id_fk": {
+          "name": "balance_adjustments_account_id_accounts_id_fk",
+          "tableFrom": "balance_adjustments",
+          "tableTo": "accounts",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "balance_adjustments_debt_id_debts_id_fk": {
+          "name": "balance_adjustments_debt_id_debts_id_fk",
+          "tableFrom": "balance_adjustments",
+          "tableTo": "debts",
+          "columnsFrom": [
+            "debt_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "balance_adjustments_goal_id_goals_id_fk": {
+          "name": "balance_adjustments_goal_id_goals_id_fk",
+          "tableFrom": "balance_adjustments",
+          "tableTo": "goals",
+          "columnsFrom": [
+            "goal_id"
           ],
           "columnsTo": [
             "id"
@@ -214,7 +258,28 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {}
+      "checkConstraints": {
+        "ck_adj_target_type": {
+          "name": "ck_adj_target_type",
+          "value": "\"balance_adjustments\".\"target_type\" IN ('ACCOUNT', 'DEBT', 'GOAL')"
+        },
+        "ck_adj_reason": {
+          "name": "ck_adj_reason",
+          "value": "\"balance_adjustments\".\"reason\" IN ('OPENING', 'MANUAL', 'ARCHIVE_CLOSE')"
+        },
+        "ck_adj_single_target": {
+          "name": "ck_adj_single_target",
+          "value": "(\"balance_adjustments\".\"target_type\" = 'ACCOUNT' AND \"balance_adjustments\".\"account_id\" IS NOT NULL AND \"balance_adjustments\".\"debt_id\" IS NULL AND \"balance_adjustments\".\"goal_id\" IS NULL)\n        OR (\"balance_adjustments\".\"target_type\" = 'DEBT' AND \"balance_adjustments\".\"debt_id\" IS NOT NULL AND \"balance_adjustments\".\"account_id\" IS NULL AND \"balance_adjustments\".\"goal_id\" IS NULL)\n        OR (\"balance_adjustments\".\"target_type\" = 'GOAL' AND \"balance_adjustments\".\"goal_id\" IS NOT NULL AND \"balance_adjustments\".\"account_id\" IS NULL AND \"balance_adjustments\".\"debt_id\" IS NULL)"
+        },
+        "ck_adj_delta": {
+          "name": "ck_adj_delta",
+          "value": "\"balance_adjustments\".\"delta_minor\" = \"balance_adjustments\".\"new_minor\" - \"balance_adjustments\".\"previous_minor\""
+        },
+        "ck_adj_non_negative": {
+          "name": "ck_adj_non_negative",
+          "value": "\"balance_adjustments\".\"target_type\" = 'ACCOUNT' OR \"balance_adjustments\".\"new_minor\" >= 0"
+        }
+      }
     },
     "categories": {
       "name": "categories",
@@ -247,27 +312,13 @@
           "notNull": true,
           "autoincrement": false
         },
-        "icon": {
-          "name": "icon",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "color": {
-          "name": "color",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "is_default": {
-          "name": "is_default",
+        "order": {
+          "name": "order",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": false
+          "default": 0
         },
         "is_active": {
           "name": "is_active",
@@ -277,14 +328,6 @@
           "autoincrement": false,
           "default": true
         },
-        "order": {
-          "name": "order",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        },
         "created_at": {
           "name": "created_at",
           "type": "integer",
@@ -293,7 +336,26 @@
           "autoincrement": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "uq_categories_user_type_name": {
+          "name": "uq_categories_user_type_name",
+          "columns": [
+            "user_id",
+            "type",
+            "name"
+          ],
+          "isUnique": true
+        },
+        "uq_categories_system_type_name": {
+          "name": "uq_categories_system_type_name",
+          "columns": [
+            "type",
+            "name"
+          ],
+          "isUnique": true,
+          "where": "\"categories\".\"user_id\" IS NULL"
+        }
+      },
       "foreignKeys": {
         "categories_user_id_users_id_fk": {
           "name": "categories_user_id_users_id_fk",
@@ -311,10 +373,15 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {}
+      "checkConstraints": {
+        "ck_categories_type": {
+          "name": "ck_categories_type",
+          "value": "\"categories\".\"type\" IN ('INCOME', 'EXPENSE')"
+        }
+      }
     },
-    "debt_cards": {
-      "name": "debt_cards",
+    "debts": {
+      "name": "debts",
       "columns": {
         "id": {
           "name": "id",
@@ -337,341 +404,77 @@
           "notNull": true,
           "autoincrement": false
         },
-        "institution": {
-          "name": "institution",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "credit_limit": {
-          "name": "credit_limit",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "used_amount": {
-          "name": "used_amount",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "cutoff_day": {
-          "name": "cutoff_day",
+        "installment_minor": {
+          "name": "installment_minor",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
-        "payment_day": {
-          "name": "payment_day",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "interest_rate_monthly": {
-          "name": "interest_rate_monthly",
+        "monthly_rate": {
+          "name": "monthly_rate",
           "type": "real",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "min_payment_percent": {
-          "name": "min_payment_percent",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "is_auto_debit": {
-          "name": "is_auto_debit",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
-        },
-        "cashflow_class": {
-          "name": "cashflow_class",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'LIABILITY'"
-        },
-        "is_active": {
-          "name": "is_active",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "debt_cards_user_id_users_id_fk": {
-          "name": "debt_cards_user_id_users_id_fk",
-          "tableFrom": "debt_cards",
-          "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "debt_loans": {
-      "name": "debt_loans",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "user_id": {
-          "name": "user_id",
+        "rate_source": {
+          "name": "rate_source",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "institution": {
-          "name": "institution",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "original_amount": {
-          "name": "original_amount",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "current_balance": {
-          "name": "current_balance",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "monthly_payment": {
-          "name": "monthly_payment",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "payment_day_of_month": {
-          "name": "payment_day_of_month",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "total_installments": {
-          "name": "total_installments",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "remaining_installments": {
-          "name": "remaining_installments",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "interest_rate_monthly": {
-          "name": "interest_rate_monthly",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "interest_rate_annual": {
-          "name": "interest_rate_annual",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "start_date": {
-          "name": "start_date",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "is_auto_debit": {
-          "name": "is_auto_debit",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
-        },
-        "cashflow_class": {
-          "name": "cashflow_class",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'LIABILITY'"
-        },
-        "is_active": {
-          "name": "is_active",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "debt_loans_user_id_users_id_fk": {
-          "name": "debt_loans_user_id_users_id_fk",
-          "tableFrom": "debt_loans",
-          "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "distribution_rules": {
-      "name": "distribution_rules",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "percentage": {
-          "name": "percentage",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "target_type": {
-          "name": "target_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "target_id": {
-          "name": "target_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "is_active": {
-          "name": "is_active",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": true
-        },
-        "order": {
-          "name": "order",
+        "initial_paid_count": {
+          "name": "initial_paid_count",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
           "default": 0
         },
+        "total_count": {
+          "name": "total_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "archived_at": {
+          "name": "archived_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_debts_user": {
+          "name": "idx_debts_user",
+          "columns": [
+            "user_id"
+          ],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {
-        "distribution_rules_user_id_users_id_fk": {
-          "name": "distribution_rules_user_id_users_id_fk",
-          "tableFrom": "distribution_rules",
+        "debts_user_id_users_id_fk": {
+          "name": "debts_user_id_users_id_fk",
+          "tableFrom": "debts",
           "tableTo": "users",
           "columnsFrom": [
             "user_id"
@@ -679,16 +482,37 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
+          "onDelete": "restrict",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {}
+      "checkConstraints": {
+        "ck_debts_installment": {
+          "name": "ck_debts_installment",
+          "value": "\"debts\".\"installment_minor\" IS NULL OR \"debts\".\"installment_minor\" > 0"
+        },
+        "ck_debts_rate": {
+          "name": "ck_debts_rate",
+          "value": "\"debts\".\"monthly_rate\" IS NULL OR \"debts\".\"monthly_rate\" >= 0"
+        },
+        "ck_debts_rate_source": {
+          "name": "ck_debts_rate_source",
+          "value": "\"debts\".\"rate_source\" IN ('KNOWN', 'ESTIMATED', 'UNKNOWN')"
+        },
+        "ck_debts_initial_paid": {
+          "name": "ck_debts_initial_paid",
+          "value": "\"debts\".\"initial_paid_count\" >= 0"
+        },
+        "ck_debts_total_count": {
+          "name": "ck_debts_total_count",
+          "value": "\"debts\".\"total_count\" IS NULL OR \"debts\".\"total_count\" > 0"
+        }
+      }
     },
-    "pockets": {
-      "name": "pockets",
+    "goal_contributions": {
+      "name": "goal_contributions",
       "columns": {
         "id": {
           "name": "id",
@@ -699,6 +523,13 @@
         },
         "user_id": {
           "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "goal_id": {
+          "name": "goal_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -711,6 +542,111 @@
           "notNull": true,
           "autoincrement": false
         },
+        "amount_minor": {
+          "name": "amount_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "date": {
+          "name": "date",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "idx_contrib_goal": {
+          "name": "idx_contrib_goal",
+          "columns": [
+            "goal_id"
+          ],
+          "isUnique": false
+        },
+        "idx_contrib_account": {
+          "name": "idx_contrib_account",
+          "columns": [
+            "account_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "goal_contributions_user_id_users_id_fk": {
+          "name": "goal_contributions_user_id_users_id_fk",
+          "tableFrom": "goal_contributions",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "goal_contributions_goal_id_goals_id_fk": {
+          "name": "goal_contributions_goal_id_goals_id_fk",
+          "tableFrom": "goal_contributions",
+          "tableTo": "goals",
+          "columnsFrom": [
+            "goal_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "goal_contributions_account_id_accounts_id_fk": {
+          "name": "goal_contributions_account_id_accounts_id_fk",
+          "tableFrom": "goal_contributions",
+          "tableTo": "accounts",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "ck_contrib_amount": {
+          "name": "ck_contrib_amount",
+          "value": "\"goal_contributions\".\"amount_minor\" > 0"
+        }
+      }
+    },
+    "goals": {
+      "name": "goals",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "name": {
           "name": "name",
           "type": "text",
@@ -718,9 +654,31 @@
           "notNull": true,
           "autoincrement": false
         },
-        "goal_amount": {
-          "name": "goal_amount",
-          "type": "real",
+        "target_minor": {
+          "name": "target_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'ACTIVE'"
+        },
+        "spent_at": {
+          "name": "spent_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "spent_amount_minor": {
+          "name": "spent_amount_minor",
+          "type": "integer",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
@@ -731,36 +689,6 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
-        },
-        "color": {
-          "name": "color",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "icon": {
-          "name": "icon",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "is_active": {
-          "name": "is_active",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": true
-        },
-        "order": {
-          "name": "order",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
         },
         "created_at": {
           "name": "created_at",
@@ -777,11 +705,19 @@
           "autoincrement": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_goals_user": {
+          "name": "idx_goals_user",
+          "columns": [
+            "user_id"
+          ],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {
-        "pockets_user_id_users_id_fk": {
-          "name": "pockets_user_id_users_id_fk",
-          "tableFrom": "pockets",
+        "goals_user_id_users_id_fk": {
+          "name": "goals_user_id_users_id_fk",
+          "tableFrom": "goals",
           "tableTo": "users",
           "columnsFrom": [
             "user_id"
@@ -789,26 +725,30 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "pockets_account_id_accounts_id_fk": {
-          "name": "pockets_account_id_accounts_id_fk",
-          "tableFrom": "pockets",
-          "tableTo": "accounts",
-          "columnsFrom": [
-            "account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
+          "onDelete": "restrict",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {}
+      "checkConstraints": {
+        "ck_goals_target": {
+          "name": "ck_goals_target",
+          "value": "\"goals\".\"target_minor\" > 0"
+        },
+        "ck_goals_status": {
+          "name": "ck_goals_status",
+          "value": "\"goals\".\"status\" IN ('ACTIVE', 'SPENT')"
+        },
+        "ck_goals_spent_fields": {
+          "name": "ck_goals_spent_fields",
+          "value": "(\"goals\".\"status\" = 'SPENT' AND \"goals\".\"spent_at\" IS NOT NULL AND \"goals\".\"spent_amount_minor\" IS NOT NULL)\n        OR (\"goals\".\"status\" = 'ACTIVE' AND \"goals\".\"spent_at\" IS NULL AND \"goals\".\"spent_amount_minor\" IS NULL)"
+        },
+        "ck_goals_spent_amount": {
+          "name": "ck_goals_spent_amount",
+          "value": "\"goals\".\"spent_amount_minor\" IS NULL OR \"goals\".\"spent_amount_minor\" >= 0"
+        }
+      }
     },
     "recurring_items": {
       "name": "recurring_items",
@@ -827,13 +767,6 @@
           "notNull": true,
           "autoincrement": false
         },
-        "account_id": {
-          "name": "account_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
         "type": {
           "name": "type",
           "type": "text",
@@ -841,22 +774,52 @@
           "notNull": true,
           "autoincrement": false
         },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'STANDARD'"
+        },
+        "debt_id": {
+          "name": "debt_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "name": {
           "name": "name",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
-        "amount": {
-          "name": "amount",
-          "type": "real",
+        "amount_minor": {
+          "name": "amount_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "is_passive": {
+          "name": "is_passive",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "category_id": {
+          "name": "category_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         },
-        "income_source": {
-          "name": "income_source",
+        "default_account_id": {
+          "name": "default_account_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -869,42 +832,26 @@
           "notNull": true,
           "autoincrement": false
         },
-        "day_of_week": {
-          "name": "day_of_week",
-          "type": "integer",
+        "anchor_date": {
+          "name": "anchor_date",
+          "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "day_of_month": {
-          "name": "day_of_month",
-          "type": "integer",
+        "next_due_date": {
+          "name": "next_due_date",
+          "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "month": {
-          "name": "month",
+        "snoozed_until": {
+          "name": "snoozed_until",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
-        },
-        "is_auto_confirm": {
-          "name": "is_auto_confirm",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
-        },
-        "is_auto_debit": {
-          "name": "is_auto_debit",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
         },
         "status": {
           "name": "status",
@@ -913,20 +860,6 @@
           "notNull": true,
           "autoincrement": false,
           "default": "'ACTIVE'"
-        },
-        "next_due_date": {
-          "name": "next_due_date",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "last_executed_at": {
-          "name": "last_executed_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
         },
         "created_at": {
           "name": "created_at",
@@ -943,7 +876,37 @@
           "autoincrement": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "uq_rec_debt": {
+          "name": "uq_rec_debt",
+          "columns": [
+            "debt_id"
+          ],
+          "isUnique": true
+        },
+        "idx_rec_user_status": {
+          "name": "idx_rec_user_status",
+          "columns": [
+            "user_id",
+            "status"
+          ],
+          "isUnique": false
+        },
+        "idx_rec_category": {
+          "name": "idx_rec_category",
+          "columns": [
+            "category_id"
+          ],
+          "isUnique": false
+        },
+        "idx_rec_default_account": {
+          "name": "idx_rec_default_account",
+          "columns": [
+            "default_account_id"
+          ],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {
         "recurring_items_user_id_users_id_fk": {
           "name": "recurring_items_user_id_users_id_fk",
@@ -955,26 +918,93 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
+          "onDelete": "restrict",
           "onUpdate": "no action"
         },
-        "recurring_items_account_id_accounts_id_fk": {
-          "name": "recurring_items_account_id_accounts_id_fk",
+        "recurring_items_debt_id_debts_id_fk": {
+          "name": "recurring_items_debt_id_debts_id_fk",
           "tableFrom": "recurring_items",
-          "tableTo": "accounts",
+          "tableTo": "debts",
           "columnsFrom": [
-            "account_id"
+            "debt_id"
           ],
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "recurring_items_category_id_categories_id_fk": {
+          "name": "recurring_items_category_id_categories_id_fk",
+          "tableFrom": "recurring_items",
+          "tableTo": "categories",
+          "columnsFrom": [
+            "category_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "recurring_items_default_account_id_accounts_id_fk": {
+          "name": "recurring_items_default_account_id_accounts_id_fk",
+          "tableFrom": "recurring_items",
+          "tableTo": "accounts",
+          "columnsFrom": [
+            "default_account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {}
+      "checkConstraints": {
+        "ck_rec_type": {
+          "name": "ck_rec_type",
+          "value": "\"recurring_items\".\"type\" IN ('INCOME', 'EXPENSE')"
+        },
+        "ck_rec_kind": {
+          "name": "ck_rec_kind",
+          "value": "\"recurring_items\".\"kind\" IN ('STANDARD', 'DEBT_INSTALLMENT')"
+        },
+        "ck_rec_frequency": {
+          "name": "ck_rec_frequency",
+          "value": "\"recurring_items\".\"frequency\" IN ('WEEKLY', 'BIWEEKLY', 'MONTHLY')"
+        },
+        "ck_rec_status": {
+          "name": "ck_rec_status",
+          "value": "\"recurring_items\".\"status\" IN ('ACTIVE', 'PAUSED')"
+        },
+        "ck_rec_kind_debt": {
+          "name": "ck_rec_kind_debt",
+          "value": "(\"recurring_items\".\"kind\" = 'DEBT_INSTALLMENT') = (\"recurring_items\".\"debt_id\" IS NOT NULL)"
+        },
+        "ck_rec_debt_installment": {
+          "name": "ck_rec_debt_installment",
+          "value": "\"recurring_items\".\"kind\" <> 'DEBT_INSTALLMENT' OR (\"recurring_items\".\"type\" = 'EXPENSE' AND \"recurring_items\".\"amount_minor\" IS NULL AND \"recurring_items\".\"name\" IS NULL)"
+        },
+        "ck_rec_standard": {
+          "name": "ck_rec_standard",
+          "value": "\"recurring_items\".\"kind\" <> 'STANDARD' OR (\"recurring_items\".\"amount_minor\" IS NOT NULL AND \"recurring_items\".\"amount_minor\" > 0 AND \"recurring_items\".\"name\" IS NOT NULL)"
+        },
+        "ck_rec_passive_income": {
+          "name": "ck_rec_passive_income",
+          "value": "\"recurring_items\".\"is_passive\" = 0 OR \"recurring_items\".\"type\" = 'INCOME'"
+        },
+        "ck_rec_anchor_date": {
+          "name": "ck_rec_anchor_date",
+          "value": "\"recurring_items\".\"anchor_date\" GLOB '[0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9]'"
+        },
+        "ck_rec_next_due_date": {
+          "name": "ck_rec_next_due_date",
+          "value": "\"recurring_items\".\"next_due_date\" GLOB '[0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9]'"
+        }
+      }
     },
     "transactions": {
       "name": "transactions",
@@ -1000,13 +1030,6 @@
           "notNull": true,
           "autoincrement": false
         },
-        "pocket_id": {
-          "name": "pocket_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "type": {
           "name": "type",
           "type": "text",
@@ -1014,9 +1037,17 @@
           "notNull": true,
           "autoincrement": false
         },
-        "amount": {
-          "name": "amount",
-          "type": "real",
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'STANDARD'"
+        },
+        "amount_minor": {
+          "name": "amount_minor",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
@@ -1026,7 +1057,8 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false
+          "autoincrement": false,
+          "default": "''"
         },
         "date": {
           "name": "date",
@@ -1042,6 +1074,35 @@
           "notNull": false,
           "autoincrement": false
         },
+        "is_passive": {
+          "name": "is_passive",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "debt_id": {
+          "name": "debt_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "debt_payment_type": {
+          "name": "debt_payment_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "debt_principal_applied_minor": {
+          "name": "debt_principal_applied_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "recurring_item_id": {
           "name": "recurring_item_id",
           "type": "text",
@@ -1049,31 +1110,8 @@
           "notNull": false,
           "autoincrement": false
         },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'CONFIRMED'"
-        },
-        "is_confirmed": {
-          "name": "is_confirmed",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": true
-        },
-        "transfer_to_account_id": {
-          "name": "transfer_to_account_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "transfer_to_pocket_id": {
-          "name": "transfer_to_pocket_id",
+        "occurrence_date": {
+          "name": "occurrence_date",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -1094,7 +1132,46 @@
           "autoincrement": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_tx_user_date": {
+          "name": "idx_tx_user_date",
+          "columns": [
+            "user_id",
+            "date"
+          ],
+          "isUnique": false
+        },
+        "idx_tx_account": {
+          "name": "idx_tx_account",
+          "columns": [
+            "account_id"
+          ],
+          "isUnique": false
+        },
+        "idx_tx_debt": {
+          "name": "idx_tx_debt",
+          "columns": [
+            "debt_id"
+          ],
+          "isUnique": false
+        },
+        "idx_tx_category": {
+          "name": "idx_tx_category",
+          "columns": [
+            "category_id"
+          ],
+          "isUnique": false
+        },
+        "uq_tx_recurring_occurrence": {
+          "name": "uq_tx_recurring_occurrence",
+          "columns": [
+            "recurring_item_id",
+            "occurrence_date"
+          ],
+          "isUnique": true,
+          "where": "\"transactions\".\"recurring_item_id\" IS NOT NULL"
+        }
+      },
       "foreignKeys": {
         "transactions_user_id_users_id_fk": {
           "name": "transactions_user_id_users_id_fk",
@@ -1106,7 +1183,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
+          "onDelete": "restrict",
           "onUpdate": "no action"
         },
         "transactions_account_id_accounts_id_fk": {
@@ -1119,20 +1196,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "transactions_pocket_id_pockets_id_fk": {
-          "name": "transactions_pocket_id_pockets_id_fk",
-          "tableFrom": "transactions",
-          "tableTo": "pockets",
-          "columnsFrom": [
-            "pocket_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
+          "onDelete": "restrict",
           "onUpdate": "no action"
         },
         "transactions_category_id_categories_id_fk": {
@@ -1148,6 +1212,19 @@
           "onDelete": "set null",
           "onUpdate": "no action"
         },
+        "transactions_debt_id_debts_id_fk": {
+          "name": "transactions_debt_id_debts_id_fk",
+          "tableFrom": "transactions",
+          "tableTo": "debts",
+          "columnsFrom": [
+            "debt_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
         "transactions_recurring_item_id_recurring_items_id_fk": {
           "name": "transactions_recurring_item_id_recurring_items_id_fk",
           "tableFrom": "transactions",
@@ -1160,37 +1237,52 @@
           ],
           "onDelete": "set null",
           "onUpdate": "no action"
-        },
-        "transactions_transfer_to_account_id_accounts_id_fk": {
-          "name": "transactions_transfer_to_account_id_accounts_id_fk",
-          "tableFrom": "transactions",
-          "tableTo": "accounts",
-          "columnsFrom": [
-            "transfer_to_account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "transactions_transfer_to_pocket_id_pockets_id_fk": {
-          "name": "transactions_transfer_to_pocket_id_pockets_id_fk",
-          "tableFrom": "transactions",
-          "tableTo": "pockets",
-          "columnsFrom": [
-            "transfer_to_pocket_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {}
+      "checkConstraints": {
+        "ck_tx_amount": {
+          "name": "ck_tx_amount",
+          "value": "\"transactions\".\"amount_minor\" > 0"
+        },
+        "ck_tx_type": {
+          "name": "ck_tx_type",
+          "value": "\"transactions\".\"type\" IN ('INCOME', 'EXPENSE')"
+        },
+        "ck_tx_kind": {
+          "name": "ck_tx_kind",
+          "value": "\"transactions\".\"kind\" IN ('STANDARD', 'DEBT_PAYMENT')"
+        },
+        "ck_tx_payment_type": {
+          "name": "ck_tx_payment_type",
+          "value": "\"transactions\".\"debt_payment_type\" IN ('INSTALLMENT', 'EXTRA')"
+        },
+        "ck_tx_passive_income": {
+          "name": "ck_tx_passive_income",
+          "value": "\"transactions\".\"is_passive\" = 0 OR \"transactions\".\"type\" = 'INCOME'"
+        },
+        "ck_tx_debt_payment": {
+          "name": "ck_tx_debt_payment",
+          "value": "\"transactions\".\"kind\" <> 'DEBT_PAYMENT' OR (\"transactions\".\"type\" = 'EXPENSE' AND \"transactions\".\"debt_id\" IS NOT NULL AND \"transactions\".\"debt_payment_type\" IS NOT NULL AND \"transactions\".\"debt_principal_applied_minor\" IS NOT NULL)"
+        },
+        "ck_tx_standard_no_debt": {
+          "name": "ck_tx_standard_no_debt",
+          "value": "\"transactions\".\"kind\" <> 'STANDARD' OR (\"transactions\".\"debt_id\" IS NULL AND \"transactions\".\"debt_payment_type\" IS NULL AND \"transactions\".\"debt_principal_applied_minor\" IS NULL)"
+        },
+        "ck_tx_principal_range": {
+          "name": "ck_tx_principal_range",
+          "value": "\"transactions\".\"debt_principal_applied_minor\" IS NULL OR (\"transactions\".\"debt_principal_applied_minor\" >= 0 AND \"transactions\".\"debt_principal_applied_minor\" <= \"transactions\".\"amount_minor\")"
+        },
+        "ck_tx_occurrence_required": {
+          "name": "ck_tx_occurrence_required",
+          "value": "\"transactions\".\"recurring_item_id\" IS NULL OR \"transactions\".\"occurrence_date\" IS NOT NULL"
+        },
+        "ck_tx_occurrence_date": {
+          "name": "ck_tx_occurrence_date",
+          "value": "\"transactions\".\"occurrence_date\" GLOB '[0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9]'"
+        }
+      }
     },
     "users": {
       "name": "users",
@@ -1200,6 +1292,74 @@
           "type": "text",
           "primaryKey": true,
           "notNull": true,
+          "autoincrement": false
+        },
+        "currency": {
+          "name": "currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'COP'"
+        },
+        "theme_preference": {
+          "name": "theme_preference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'system'"
+        },
+        "notify_payment_reminders": {
+          "name": "notify_payment_reminders",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "notify_weekly_summary": {
+          "name": "notify_weekly_summary",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "reminder_hour": {
+          "name": "reminder_hour",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 9
+        },
+        "widget_cashflow": {
+          "name": "widget_cashflow",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "widget_debts": {
+          "name": "widget_debts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "widget_goals": {
+          "name": "widget_goals",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "onboarding_completed_at": {
+          "name": "onboarding_completed_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         },
         "created_at": {
@@ -1215,53 +1375,34 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
-        },
-        "theme": {
-          "name": "theme",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'dark'"
-        },
-        "currency": {
-          "name": "currency",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'COP'"
-        },
-        "notifications_enabled": {
-          "name": "notifications_enabled",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": true
-        },
-        "reminder_days_before": {
-          "name": "reminder_days_before",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 1
-        },
-        "onboarding_completed": {
-          "name": "onboarding_completed",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
         }
       },
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {}
+      "checkConstraints": {
+        "ck_users_theme": {
+          "name": "ck_users_theme",
+          "value": "\"users\".\"theme_preference\" IN ('light', 'dark', 'system')"
+        },
+        "ck_users_reminder_hour": {
+          "name": "ck_users_reminder_hour",
+          "value": "\"users\".\"reminder_hour\" BETWEEN 0 AND 23"
+        },
+        "ck_users_widget_cashflow": {
+          "name": "ck_users_widget_cashflow",
+          "value": "\"users\".\"widget_cashflow\" IN (0, 1)"
+        },
+        "ck_users_widget_debts": {
+          "name": "ck_users_widget_debts",
+          "value": "\"users\".\"widget_debts\" IN (0, 1)"
+        },
+        "ck_users_widget_goals": {
+          "name": "ck_users_widget_goals",
+          "value": "\"users\".\"widget_goals\" IN (0, 1)"
+        }
+      }
     }
   },
   "views": {},
