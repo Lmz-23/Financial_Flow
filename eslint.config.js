@@ -2,6 +2,14 @@
 const { defineConfig } = require('eslint/config');
 const expoConfig = require("eslint-config-expo/flat");
 
+// Import del `colors` estático (shim temporal de src/theme/colors.ts). Aviso para contar lo que
+// falta migrar a `useTheme()`; pasa a "error" y se borra con el shim (F6).
+const staticColorsPattern = {
+  regex: "(^|/)theme(/(index|colors))?$",
+  importNames: ["colors"],
+  message: "`colors` estático es un shim temporal (solo claro). Usa useTheme().colors de src/theme.",
+};
+
 // Fronteras de arquitectura. Nivel "warn" durante la migración; se endurecen a "error" en F6.
 module.exports = defineConfig([
   expoConfig,
@@ -30,8 +38,16 @@ module.exports = defineConfig([
         patterns: [
           { regex: "(^|/)src/database(/|$)|^@/database(/|$)|^(\\.{1,2}/)+database(/|$)", message: "app/** no debe importar src/database/**; usa la capa de servicios/hooks." },
           { regex: "^drizzle-orm(/|$)", message: "app/** no debe importar drizzle-orm." },
+          staticColorsPattern,
         ],
       }],
+    },
+  },
+  {
+    files: ["src/components/**/*.{ts,tsx,js,jsx}"],
+    ignores: ["src/components/ui/**"],
+    rules: {
+      "no-restricted-imports": ["warn", { patterns: [staticColorsPattern] }],
     },
   },
   {
