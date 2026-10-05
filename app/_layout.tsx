@@ -1,10 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Slot, useRouter, usePathname } from 'expo-router';
+import { useFonts } from 'expo-font';
+import * as SplashScreen from 'expo-splash-screen';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { initializeDatabase } from '../src/database/initialize';
 import { useUserStore } from '../src/store/useUserStore';
-import { colors } from '../src/theme';
+import { colors, ThemeProvider } from '../src/theme';
+import { fontAssets } from '../src/theme/fontAssets';
+
+// Retiene la pantalla de inicio hasta que las fuentes IBM Plex estén cargadas.
+SplashScreen.preventAutoHideAsync();
 
 function Initializer({ children }: { children: React.ReactNode }) {
   const [isReady, setIsReady] = useState(false);
@@ -77,12 +83,26 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
+  // Registra IBMPlexSans_* / IBMPlexMono_* con el mismo nombre en iOS y Android (ver src/theme/fontAssets.ts).
+  const [fontsLoaded, fontError] = useFonts(fontAssets);
+  const fontsSettled = fontsLoaded || fontError !== null;
+
+  useEffect(() => {
+    if (fontError) console.error('Failed to load fonts:', fontError);
+    if (fontsSettled) SplashScreen.hideAsync();
+  }, [fontsSettled, fontError]);
+
+  // Si una fuente falla, se continúa con la fuente del sistema en vez de dejar la app bloqueada.
+  if (!fontsSettled) return null;
+
   return (
-    <SafeAreaProvider>
-      <Initializer>
-        <RootNavigator />
-      </Initializer>
-    </SafeAreaProvider>
+    <ThemeProvider>
+      <SafeAreaProvider>
+        <Initializer>
+          <RootNavigator />
+        </Initializer>
+      </SafeAreaProvider>
+    </ThemeProvider>
   );
 }
 
