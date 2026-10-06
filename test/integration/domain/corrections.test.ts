@@ -7,7 +7,7 @@ import {
   RecurringWithoutDateError,
   ValidationError,
 } from '../../../src/domain/services';
-import { available, count, expectIntegrity, localMs, mkAccount, setup, thrown, type TestEnv } from './_helpers';
+import { available, count, expectIntegrity, localMs, mkAccount, setup, snapshot, thrown, type TestEnv } from './_helpers';
 
 function rentSetup() {
   const env = setup();
@@ -266,19 +266,28 @@ describe('Hallazgo 6a: una cuenta archivada no vuelve a cambiar de saldo', () =>
   });
 
   it('resto de caminos que cambian el disponible de una cuenta archivada (cerrados)', () => {
-    const { d, acc } = archivedWithTx();
+    const { env, d, acc } = archivedWithTx();
     const goal = d.goals.create({ name: 'G', targetMinor: 100 }).result.id;
     const debt = d.debts.create({ name: 'D', balanceMinor: 1000, rate: { known: 0 } }).result.id;
     const rec = d.recurring.create({ type: 'EXPENSE', name: 'x', amountMinor: 10, frequency: 'MONTHLY', anchorDate: '2026-03-15' }).result.id;
-    const attempts: (() => unknown)[] = [
-      () => d.transactions.create({ type: 'INCOME', accountId: acc, amountMinor: 1 }),
-      () => d.accounts.update(acc, { balanceMinor: 5 }),
-      () => d.accounts.remove(acc),
-      () => d.goals.contribute({ goalId: goal, accountId: acc, amountMinor: 1 }),
-      () => d.debts.registerPayment({ debtId: debt, accountId: acc, amountMinor: 1, type: 'EXTRA' }),
-      () => d.recurring.confirmOccurrence({ recurringId: rec, occurrenceDate: '2026-03-15', accountId: acc }),
+    const before = snapshot(env);
+    // Tipo exacto y code de cada camino. `accounts.remove` sobre una archivada es otra regla ("ya esta
+    // archivada": ValidationError), no AccountArchivedError.
+    const attempts: [string, () => unknown, new (...a: never[]) => Error, string][] = [
+      ['transactions.create', () => d.transactions.create({ type: 'INCOME', accountId: acc, amountMinor: 1 }), AccountArchivedError, 'ACCOUNT_ARCHIVED'],
+      ['accounts.update', () => d.accounts.update(acc, { balanceMinor: 5 }), AccountArchivedError, 'ACCOUNT_ARCHIVED'],
+      ['accounts.remove', () => d.accounts.remove(acc), ValidationError, 'VALIDATION'],
+      ['goals.contribute', () => d.goals.contribute({ goalId: goal, accountId: acc, amountMinor: 1 }), AccountArchivedError, 'ACCOUNT_ARCHIVED'],
+      ['debts.registerPayment', () => d.debts.registerPayment({ debtId: debt, accountId: acc, amountMinor: 1, type: 'EXTRA' }), AccountArchivedError, 'ACCOUNT_ARCHIVED'],
+      ['recurring.confirmOccurrence', () => d.recurring.confirmOccurrence({ recurringId: rec, occurrenceDate: '2026-03-15', accountId: acc }), AccountArchivedError, 'ACCOUNT_ARCHIVED'],
     ];
-    for (const attempt of attempts) expect(thrown(attempt)).toBeInstanceOf(Error);
+    for (const [name, attempt, cls, code] of attempts) {
+      const err = thrown(attempt);
+      expect(err, name).toBeInstanceOf(cls);
+      expect(err, name).toMatchObject({ code });
+      if (cls === AccountArchivedError) expect(err, name).toMatchObject({ accountId: acc });
+    }
+    expect(snapshot(env)).toBe(before);
     expect(available(d, acc)).toBe(0);
     expectIntegrity(d);
   });

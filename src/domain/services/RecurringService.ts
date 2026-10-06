@@ -245,6 +245,14 @@ export function createRecurringService(ctx: DomainContext) {
     /**
      * Confirma una ocurrencia creando una Transaction REAL. Si el recurrente es la cuota de una deuda
      * lanza `UseDebtPaymentFlow` (I4): ese camino es `DebtService.registerPayment`.
+     *
+     * ORDEN DE VALIDACIONES (fijado por tests; el primer error que aplique es el que se lanza):
+     *   1 recurrente inexistente (`NotFoundError`), 2 cuota de deuda (`UseDebtPaymentFlow`),
+     *   3 pausado (`RecurringPausedError`), 4 sin fecha/ancla NULL (`RecurringWithoutDateError`),
+     *   5 sin cuenta (`AccountRequiredError`), 6 `occurrenceDate` mal formada o con anio < 100
+     *   (`ValidationError`), 7 fuera de la serie (`OccurrenceNotInSeriesError`), 8 cuenta inexistente
+     *   (`NotFoundError`) o archivada (`AccountArchivedError`), 9 ya confirmada
+     *   (`OccurrenceAlreadyConfirmedError`), 10 monto/fecha del pago (`ValidationError`).
      */
     confirmOccurrence(input: ConfirmOccurrenceInput): OperationResult<{ transactionId: string }> {
       return runOperation(ctx, (tx, fx) => {

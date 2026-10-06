@@ -48,10 +48,14 @@ export class NotFoundError extends DomainError {
   }
 }
 
+/**
+ * Operacion que cambiaria el disponible de una cuenta archivada. La UI puede ofrecer "Desarchivar"
+ * con `AccountService.unarchive(error.accountId)` y reintentar.
+ */
 export class AccountArchivedError extends DomainError {
   readonly accountId: string;
   constructor(accountId: string) {
-    super('ACCOUNT_ARCHIVED', 'La cuenta esta archivada');
+    super('ACCOUNT_ARCHIVED', 'La cuenta está archivada. Desarchívala para modificar su saldo.');
     this.accountId = accountId;
   }
 }

@@ -84,6 +84,11 @@ export const accountRepository = {
       .run();
   },
 
+  /** Quita `archivedAt` (la cuenta vuelve a estar activa). No toca ajustes ni movimientos. */
+  unarchive(db: DbOrTx, id: string, now: number): void {
+    db.update(accounts).set({ archivedAt: null, updatedAt: toDate(now) }).where(eq(accounts.id, id)).run();
+  },
+
   delete(db: DbOrTx, id: string): void {
     db.delete(accounts).where(eq(accounts.id, id)).run();
   },
