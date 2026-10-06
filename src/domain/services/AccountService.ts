@@ -1,0 +1,162 @@
+import { accountRepository, type AccountRow, type AccountType } from '../../database/repositories/accountRepository';
+import { adjustmentRepository } from '../../database/repositories/adjustmentRepository';
+import { recurringRepository } from '../../database/repositories/recurringRepository';
+import type { DbOrTx } from '../../database/types';
+import { NotFoundError, ValidationError } from './errors';
+import {
+  assertInteger,
+  cleanName,
+  requireActiveAccount,
+  runOperation,
+  type DomainContext,
+  type EffectsCollector,
+  type OperationResult,
+} from './shared';
+
+export interface CreateAccountInput {
+  name: string;
+  type: AccountType;
+  /** Saldo inicial (puede ser negativo; 0 no crea ajuste). */
+  openingMinor: number;
+}
+
+export interface UpdateAccountInput {
+  name?: string;
+  /** Nuevo disponible: genera un ajuste MANUAL con anterior, nuevo y diferencia. */
+  balanceMinor?: number;
+}
+
+export interface AccountView extends AccountRow {
+  /** Disponible derivado (§3.1). */
+  availableMinor: number;
+}
+
+export interface AccountsSummary {
+  accounts: AccountView[];
+  /** Σ disponible de las cuentas no archivadas ("Resumen de cuentas"). */
+  totalMinor: number;
+}
+
+export type RemoveAccountOutcome = 'DELETED' | 'ARCHIVED';
+
+/** Compartido con OnboardingService (misma transaccion). */
+export function createAccountIn(tx: DbOrTx, ctx: DomainContext, input: CreateAccountInput): string {
+  const name = cleanName(input.name, 'El nombre de la cuenta');
+  assertInteger(input.openingMinor, 'El saldo inicial');
+  const now = ctx.now();
+  const id = accountRepository.insert(tx, {
+    userId: ctx.userId,
+    name,
+    type: input.type,
+    order: accountRepository.maxOrder(tx, ctx.userId) + 1,
+    now,
+  });
+  if (input.openingMinor !== 0) {
+    adjustmentRepository.insert(tx, {
+      userId: ctx.userId,
+      target: { type: 'ACCOUNT', id },
+      previousMinor: 0,
+      newMinor: input.openingMinor,
+      reason: 'OPENING',
+      now,
+    });
+  }
+  return id;
+}
+
+export function createAccountService(ctx: DomainContext) {
+  return {
+    /** Inserta la cuenta y, si el saldo inicial no es 0, un ajuste OPENING (anterior 0). */
+    create(input: CreateAccountInput): OperationResult<{ id: string }> {
+      return runOperation(ctx, (tx, fx: EffectsCollector) => {
+        const id = createAccountIn(tx, ctx, input);
+        fx.refresh('accounts');
+        return { id };
+      });
+    },
+
+    /** Renombrar toca solo `accounts.name`; cambiar el saldo crea un ajuste MANUAL. */
+    update(id: string, input: UpdateAccountInput): OperationResult<{ adjusted: boolean }> {
+      return runOperation(ctx, (tx, fx) => {
+        const account = requireActiveAccount(tx, id);
+        const now = ctx.now();
+        let adjusted = false;
+        if (input.name !== undefined) {
+          const name = cleanName(input.name, 'El nombre de la cuenta');
+          if (name !== account.name) {
+            accountRepository.rename(tx, id, name, now);
+            fx.refresh('accounts', 'transactions');
+          }
+        }
+        if (input.balanceMinor !== undefined) {
+          assertInteger(input.balanceMinor, 'El saldo');
+          const current = accountRepository.availableOf(tx, id);
+          if (input.balanceMinor !== current) {
+            adjustmentRepository.insert(tx, {
+              userId: ctx.userId,
+              target: { type: 'ACCOUNT', id },
+              previousMinor: current,
+              newMinor: input.balanceMinor,
+              reason: 'MANUAL',
+              now,
+            });
+            adjusted = true;
+            fx.refresh('accounts');
+          }
+        }
+        return { adjusted };
+      });
+    },
+
+    /**
+     * Sin movimientos: borrado real (con sus ajustes). Con movimientos: se ARCHIVA, con un ajuste
+     * ARCHIVE_CLOSE que deja el disponible en 0 (D2).
+     */
+    remove(id: string): OperationResult<{ outcome: RemoveAccountOutcome }> {
+      return runOperation(ctx, (tx, fx) => {
+        const account = accountRepository.getById(tx, id);
+        if (!account) throw new NotFoundError('Cuenta', id);
+        if (account.archivedAt !== null) throw new ValidationError('La cuenta ya esta archivada');
+        const now = ctx.now();
+        recurringRepository.clearDefaultAccount(tx, id, now);
+        fx.refresh('accounts', 'recurring');
+        if (!accountRepository.hasMovements(tx, id)) {
+          adjustmentRepository.deleteFor(tx, { type: 'ACCOUNT', id });
+          accountRepository.delete(tx, id);
+          return { outcome: 'DELETED' as const };
+        }
+        const available = accountRepository.availableOf(tx, id);
+        if (available !== 0) {
+          adjustmentRepository.insert(tx, {
+            userId: ctx.userId,
+            target: { type: 'ACCOUNT', id },
+            previousMinor: available,
+            newMinor: 0,
+            reason: 'ARCHIVE_CLOSE',
+            now,
+          });
+        }
+        accountRepository.archive(tx, id, now);
+        return { outcome: 'ARCHIVED' as const };
+      });
+    },
+
+    // --- Consultas (solo lectura) -------------------------------------------
+
+    /** Cuentas no archivadas con su disponible derivado y el total. */
+    summary(): AccountsSummary {
+      const available = accountRepository.availableByAccount(ctx.db, ctx.userId);
+      const accounts = accountRepository
+        .listActive(ctx.db, ctx.userId)
+        .map((a) => ({ ...a, availableMinor: available.get(a.id) ?? 0 }));
+      return { accounts, totalMinor: accounts.reduce((sum, a) => sum + a.availableMinor, 0) };
+    },
+
+    get(id: string): AccountView | undefined {
+      const account = accountRepository.getById(ctx.db, id);
+      return account ? { ...account, availableMinor: accountRepository.availableOf(ctx.db, id) } : undefined;
+    },
+  };
+}
+
+export type AccountService = ReturnType<typeof createAccountService>;
