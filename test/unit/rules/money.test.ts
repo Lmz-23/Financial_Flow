@@ -44,21 +44,58 @@ describe('money: conversión y redondeo', () => {
 
 describe('money: formatCOP', () => {
   it.each([
-    [0, '$ 0'],
-    [100, '$ 1'],
-    [99900, '$ 999'],
-    [100000, '$ 1.000'],
-    [123456700, '$ 1.234.567'],
-    [100000000000, '$ 1.000.000.000'],
-    [-5000000, '-$ 50.000'],
-    [149, '$ 1'],
-    [150, '$ 2'],
+    [0, '$0'],
+    [100, '$1'],
+    [99900, '$999'],
+    [100000, '$1.000'],
+    [123456700, '$1.234.567'],
+    [100000000000, '$1.000.000.000'],
+    [-5000000, '-$50.000'],
+    [149, '$1'],
+    [150, '$2'],
   ])('formatCOP(%i) = %s', (minor, expected) => {
     expect(formatCOP(minor)).toBe(expected);
   });
 
-  it('no muestra "-$ 0" para negativos que redondean a 0', () => {
-    expect(formatCOP(-40)).toBe('$ 0');
+  it('no muestra "-$0" para negativos que redondean a 0', () => {
+    expect(formatCOP(-40)).toBe('$0');
+  });
+
+  it('cero y -0 dan "$0"', () => {
+    expect(formatCOP(0)).toBe('$0');
+    expect(formatCOP(-0)).toBe('$0');
+  });
+
+  it('50 centavos redondea al peso hacia arriba, también en negativo', () => {
+    expect(formatCOP(50)).toBe('$1');
+    expect(formatCOP(-50)).toBe('-$1');
+    expect(formatCOP(49)).toBe('$0');
+  });
+
+  it('negativos: signo antes del "$"', () => {
+    expect(formatCOP(-100)).toBe('-$1');
+    expect(formatCOP(-123456700)).toBe('-$1.234.567');
+  });
+
+  it('rangos grandes dentro del rango seguro', () => {
+    expect(formatCOP(100000000000000)).toBe('$1.000.000.000.000');
+    expect(formatCOP(Number.MAX_SAFE_INTEGER)).toBe('$90.071.992.547.410');
+    expect(formatCOP(-Number.MAX_SAFE_INTEGER)).toBe('-$90.071.992.547.410');
+  });
+
+  it('ninguna salida contiene espacios', () => {
+    for (const m of [0, 1, 50, 99900, 123456700, -5000000, -40, 100000000000, Number.MAX_SAFE_INTEGER]) {
+      expect(formatCOP(m)).not.toMatch(/\s/);
+      expect(formatCOP(m)).toMatch(/^-?\$\d{1,3}(\.\d{3})*$/);
+    }
+  });
+
+  it('ida y vuelta con parsePesos (salvo signo y redondeo)', () => {
+    for (const pesos of [0, 1, 999, 1000, 1234567, 50000, 1000000000]) {
+      expect(parsePesos(formatCOP(pesos * 100))).toBe(pesos);
+    }
+    // parsePesos no admite negativos: el formato negativo no hace ida y vuelta.
+    expect(parsePesos(formatCOP(-5000000))).toBeNull();
   });
 
   it('rechaza no enteros', () => {
@@ -85,6 +122,11 @@ describe('money: parseo tolerante', () => {
       expect(parsePesos(text)).toBeNull();
     },
   );
+
+  it('parsePesos acepta "$" con y sin espacio', () => {
+    expect(parsePesos('$1.200.000')).toBe(1200000);
+    expect(parsePesos('$ 1.200.000')).toBe(1200000);
+  });
 
   it('parseMinor devuelve unidades menores', () => {
     expect(parseMinor('1.200.000')).toBe(120000000);

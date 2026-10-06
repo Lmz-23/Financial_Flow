@@ -7,9 +7,16 @@
 //   día (31 ene -> 28/29 feb -> 31 mar). Cada mes se calcula desde el ancla, no
 //   encadenado, así que no hay deriva.
 // - WEEKLY: ancla + 7k días.
-// - BIWEEKLY ("quincenal"): días 15 y último día del mes.
-//   SUPUESTO: el ancla es siempre la primera ocurrencia aunque no sea 15 ni
-//   fin de mes; las siguientes son los días 15 / último estrictamente posteriores.
+// - BIWEEKLY ("quincenal"): días 15 y último día del mes. Decisión del usuario:
+//   la PRIMERA fecha de un quincenal nunca puede ser otra que 15 o último día;
+//   si el usuario elige otra, se AJUSTA a la fecha válida más cercana
+//   (`nearestBiweeklyDate`). Contrato entre capas:
+//   - La pantalla "Agregar recurrente" debe llamar a `normalizeAnchor` en vivo
+//     y mostrar la fecha ajustada mientras el usuario elige (nunca cambiarla en
+//     silencio tras guardar).
+//   - El servicio que cree el recurrente debe guardar el ancla YA normalizada.
+//   - Por defensa, este módulo normaliza el ancla BIWEEKLY internamente, así que
+//     datos sin normalizar nunca producen una primera ocurrencia inválida.
 // =============================================================================
 
 import {
@@ -17,6 +24,7 @@ import {
   addMonthsToYearMonth,
   compareLocalDates,
   daysInMonth,
+  diffDays,
   formatLocalDate,
   parseLocalDate,
   type LocalDate,
@@ -37,7 +45,64 @@ function nextQuincena(date: LocalDate): LocalDate {
   return formatLocalDate(next.year, next.month, 15);
 }
 
-/** Generador infinito y ascendente de ocurrencias, desde el ancla inclusive. */
+/**
+ * Fecha quincenal válida (día 15 o último día de mes) más cercana a `date`,
+ * midiendo la distancia en días de calendario. Candidatas: último día del mes
+ * anterior, 15 del mes, último día del mes y 15 del mes siguiente.
+ * Idempotente: una fecha ya válida se devuelve igual.
+ *
+ * EMPATES (SUPUESTO, pendiente de validar por el usuario): gana la fecha
+ * POSTERIOR, para no adelantar un pago. Solo existen dos empates, entre el 15 y
+ * el último día: día 23 en meses de 31 días (8 y 8) y día 22 en febrero de 29
+ * días (7 y 7). Meses de 30 y de 28 días no tienen empates.
+ */
+export function nearestBiweeklyDate(date: LocalDate): LocalDate {
+  const { year, month } = parseLocalDate(date);
+  const prev = addMonthsToYearMonth(year, month, -1);
+  const next = addMonthsToYearMonth(year, month, 1);
+  // Orden ascendente: con `<=` el empate lo gana la candidata posterior.
+  const candidates: LocalDate[] = [
+    formatLocalDate(prev.year, prev.month, daysInMonth(prev.year, prev.month)),
+    formatLocalDate(year, month, 15),
+    formatLocalDate(year, month, daysInMonth(year, month)),
+    formatLocalDate(next.year, next.month, 15),
+  ];
+  let best = candidates[0] as LocalDate;
+  let bestDistance = Math.abs(diffDays(date, best));
+  for (const candidate of candidates) {
+    const distance = Math.abs(diffDays(date, candidate));
+    if (distance <= bestDistance) {
+      best = candidate;
+      bestDistance = distance;
+    }
+  }
+  return best;
+}
+
+export interface NormalizedAnchor {
+  /** Fecha efectiva a mostrar y guardar como ancla. */
+  date: LocalDate;
+  /** true solo si `date` difiere de `original`. */
+  adjusted: boolean;
+  /** Fecha elegida por el usuario, sin modificar. */
+  original: LocalDate;
+}
+
+/**
+ * Normaliza el ancla según la frecuencia. Pura: pensada para que la pantalla la
+ * llame en cada cambio de fecha y muestre el ajuste en vivo.
+ * BIWEEKLY -> `nearestBiweeklyDate`; MONTHLY y WEEKLY -> sin cambios.
+ */
+export function normalizeAnchor(anchor: LocalDate, frequency: Frequency): NormalizedAnchor {
+  if (frequency !== 'BIWEEKLY') return { date: anchor, adjusted: false, original: anchor };
+  const date = nearestBiweeklyDate(anchor);
+  return { date, adjusted: date !== anchor, original: anchor };
+}
+
+/**
+ * Generador infinito y ascendente de ocurrencias, desde el ancla inclusive.
+ * En BIWEEKLY el ancla efectiva es la normalizada.
+ */
 export function* iterateOccurrences(anchor: LocalDate, frequency: Frequency): Generator<LocalDate> {
   const a = parseLocalDate(anchor);
   switch (frequency) {
@@ -51,7 +116,7 @@ export function* iterateOccurrences(anchor: LocalDate, frequency: Frequency): Ge
       }
     }
     case 'BIWEEKLY': {
-      let current = anchor;
+      let current = nearestBiweeklyDate(anchor);
       for (;;) {
         yield current;
         current = nextQuincena(current);
