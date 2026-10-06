@@ -78,19 +78,19 @@ export function createAccountService(ctx: DomainContext) {
     /** Renombrar toca solo `accounts.name`; cambiar el saldo crea un ajuste MANUAL. */
     update(id: string, input: UpdateAccountInput): OperationResult<{ adjusted: boolean }> {
       return runOperation(ctx, (tx, fx) => {
-        const account = requireActiveAccount(tx, id);
+        const account = requireActiveAccount(tx, ctx.userId, id);
         const now = ctx.now();
         let adjusted = false;
         if (input.name !== undefined) {
           const name = cleanName(input.name, 'El nombre de la cuenta');
           if (name !== account.name) {
-            accountRepository.rename(tx, id, name, now);
+            accountRepository.rename(tx, ctx.userId, id, name, now);
             fx.refresh('accounts', 'transactions');
           }
         }
         if (input.balanceMinor !== undefined) {
           assertInteger(input.balanceMinor, 'El saldo');
-          const current = accountRepository.availableOf(tx, id);
+          const current = accountRepository.availableOf(tx, ctx.userId, id);
           if (input.balanceMinor !== current) {
             adjustmentRepository.insert(tx, {
               userId: ctx.userId,
@@ -114,18 +114,18 @@ export function createAccountService(ctx: DomainContext) {
      */
     remove(id: string): OperationResult<{ outcome: RemoveAccountOutcome }> {
       return runOperation(ctx, (tx, fx) => {
-        const account = accountRepository.getById(tx, id);
+        const account = accountRepository.getById(tx, ctx.userId, id);
         if (!account) throw new NotFoundError('Cuenta', id);
         if (account.archivedAt !== null) throw new ValidationError('La cuenta ya esta archivada');
         const now = ctx.now();
-        recurringRepository.clearDefaultAccount(tx, id, now);
+        recurringRepository.clearDefaultAccount(tx, ctx.userId, id, now);
         fx.refresh('accounts', 'recurring');
-        if (!accountRepository.hasMovements(tx, id)) {
-          adjustmentRepository.deleteFor(tx, { type: 'ACCOUNT', id });
-          accountRepository.delete(tx, id);
+        if (!accountRepository.hasMovements(tx, ctx.userId, id)) {
+          adjustmentRepository.deleteFor(tx, ctx.userId, { type: 'ACCOUNT', id });
+          accountRepository.delete(tx, ctx.userId, id);
           return { outcome: 'DELETED' as const };
         }
-        const available = accountRepository.availableOf(tx, id);
+        const available = accountRepository.availableOf(tx, ctx.userId, id);
         if (available !== 0) {
           adjustmentRepository.insert(tx, {
             userId: ctx.userId,
@@ -136,7 +136,7 @@ export function createAccountService(ctx: DomainContext) {
             now,
           });
         }
-        accountRepository.archive(tx, id, now);
+        accountRepository.archive(tx, ctx.userId, id, now);
         return { outcome: 'ARCHIVED' as const };
       });
     },
@@ -151,10 +151,10 @@ export function createAccountService(ctx: DomainContext) {
      */
     unarchive(id: string): OperationResult<{ id: string }> {
       return runOperation(ctx, (tx, fx) => {
-        const account = accountRepository.getById(tx, id);
-        if (!account || account.userId !== ctx.userId) throw new NotFoundError('Cuenta', id);
+        const account = accountRepository.getById(tx, ctx.userId, id);
+        if (!account) throw new NotFoundError('Cuenta', id);
         if (account.archivedAt === null) throw new ValidationError('La cuenta no esta archivada');
-        accountRepository.unarchive(tx, id, ctx.now());
+        accountRepository.unarchive(tx, ctx.userId, id, ctx.now());
         fx.refresh('accounts', 'goals');
         return { id };
       });
@@ -172,8 +172,8 @@ export function createAccountService(ctx: DomainContext) {
     },
 
     get(id: string): AccountView | undefined {
-      const account = accountRepository.getById(ctx.db, id);
-      return account ? { ...account, availableMinor: accountRepository.availableOf(ctx.db, id) } : undefined;
+      const account = accountRepository.getById(ctx.db, ctx.userId, id);
+      return account ? { ...account, availableMinor: accountRepository.availableOf(ctx.db, ctx.userId, id) } : undefined;
     },
   };
 }

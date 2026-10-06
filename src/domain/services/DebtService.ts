@@ -110,7 +110,7 @@ function createInstallmentRecurring(tx: DbOrTx, ctx: DomainContext, debtId: stri
 
 export function createDebtService(ctx: DomainContext) {
   function requireActiveDebt(tx: DbOrTx, id: string): DebtRow {
-    const debt = debtRepository.getById(tx, id);
+    const debt = debtRepository.getById(tx, ctx.userId, id);
     if (!debt) throw new NotFoundError('Deuda', id);
     if (debt.archivedAt !== null) throw new DebtArchivedError(id);
     return debt;
@@ -213,7 +213,7 @@ export function createDebtService(ctx: DomainContext) {
           if (input.installmentMinor !== null) assertPositiveMinor(input.installmentMinor, 'La cuota');
           installment = input.installmentMinor;
         }
-        debtRepository.update(tx, id, {
+        debtRepository.update(tx, ctx.userId, id, {
           name: input.name !== undefined ? cleanName(input.name, 'El nombre de la deuda') : undefined,
           installmentMinor: installment,
           now,
@@ -222,7 +222,7 @@ export function createDebtService(ctx: DomainContext) {
         let adjusted = false;
         if (input.balanceMinor !== undefined) {
           assertNonNegativeMinor(input.balanceMinor, 'El saldo');
-          const current = debtRepository.balanceOf(tx, id);
+          const current = debtRepository.balanceOf(tx, ctx.userId, id);
           if (input.balanceMinor !== current) {
             adjustmentRepository.insert(tx, {
               userId: ctx.userId,
@@ -238,7 +238,7 @@ export function createDebtService(ctx: DomainContext) {
 
         if (input.nextDueDate !== undefined) {
           const date = assertLocalDate(input.nextDueDate, 'La fecha de pago');
-          const existing = recurringRepository.getByDebtId(tx, id);
+          const existing = recurringRepository.getByDebtId(tx, ctx.userId, id);
           if (existing) {
             // El ancla es la fecha dada; nextDueDate, la primera ocurrencia desde el ancla sin
             // transaccion ligada (igual que el avance normal y RecurringService.update).
@@ -246,10 +246,10 @@ export function createDebtService(ctx: DomainContext) {
               nextPendingOccurrence({
                 anchor: date,
                 frequency: existing.frequency,
-                confirmed: transactionRepository.confirmedOccurrences(tx, existing.id),
+                confirmed: transactionRepository.confirmedOccurrences(tx, ctx.userId, existing.id),
                 minDate: date,
               }) ?? date;
-            recurringRepository.update(tx, existing.id, {
+            recurringRepository.update(tx, ctx.userId, existing.id, {
               anchorDate: date,
               nextDueDate,
               snoozedUntil: null,
@@ -293,14 +293,14 @@ export function createDebtService(ctx: DomainContext) {
       return runOperation(ctx, (tx, fx) => {
         const debt = requireActiveDebt(tx, input.debtId);
         assertPositiveMinor(input.amountMinor, 'El monto');
-        requireActiveAccount(tx, input.accountId);
+        requireActiveAccount(tx, ctx.userId, input.accountId);
         const date = input.date ?? ctx.now();
         assertEpochMs(date, 'La fecha');
-        const balance = debtRepository.balanceOf(tx, debt.id);
+        const balance = debtRepository.balanceOf(tx, ctx.userId, debt.id);
         if (balance <= 0) throw new DebtSettledError(debt.id);
         const effect = debtPaymentEffect(input.amountMinor, balance);
 
-        const recurring = input.type === 'INSTALLMENT' ? recurringRepository.getByDebtId(tx, debt.id) : undefined;
+        const recurring = input.type === 'INSTALLMENT' ? recurringRepository.getByDebtId(tx, ctx.userId, debt.id) : undefined;
         // Ocurrencia que cubre la cuota: la explicita (validada contra la serie) o la `nextDueDate`.
         let occurrence: LocalDate | null = null;
         if (recurring !== undefined) {
@@ -316,7 +316,7 @@ export function createDebtService(ctx: DomainContext) {
           } else {
             occurrence = recurring.nextDueDate;
           }
-          if (occurrence !== null && transactionRepository.findByOccurrence(tx, recurring.id, occurrence)) {
+          if (occurrence !== null && transactionRepository.findByOccurrence(tx, ctx.userId, recurring.id, occurrence)) {
             throw new OccurrenceAlreadyConfirmedError(recurring.id, occurrence);
           }
         }
@@ -353,19 +353,19 @@ export function createDebtService(ctx: DomainContext) {
     remove(id: string): OperationResult<{ outcome: RemoveDebtOutcome }> {
       return runOperation(ctx, (tx, fx) => {
         requireActiveDebt(tx, id);
-        const recurring = recurringRepository.getByDebtId(tx, id);
+        const recurring = recurringRepository.getByDebtId(tx, ctx.userId, id);
         if (recurring) {
-          transactionRepository.unlinkRecurring(tx, recurring.id);
-          recurringRepository.delete(tx, recurring.id);
+          transactionRepository.unlinkRecurring(tx, ctx.userId, recurring.id);
+          recurringRepository.delete(tx, ctx.userId, recurring.id);
           fx.reschedule(recurring.id);
         }
         fx.refresh('debts');
-        if (transactionRepository.countPaymentsOfDebt(tx, id) === 0) {
-          adjustmentRepository.deleteFor(tx, { type: 'DEBT', id });
-          debtRepository.delete(tx, id);
+        if (transactionRepository.countPaymentsOfDebt(tx, ctx.userId, id) === 0) {
+          adjustmentRepository.deleteFor(tx, ctx.userId, { type: 'DEBT', id });
+          debtRepository.delete(tx, ctx.userId, id);
           return { outcome: 'DELETED' as const };
         }
-        debtRepository.archive(tx, id, ctx.now());
+        debtRepository.archive(tx, ctx.userId, id, ctx.now());
         return { outcome: 'ARCHIVED' as const };
       });
     },
@@ -378,25 +378,25 @@ export function createDebtService(ctx: DomainContext) {
       const balances = debtRepository.balancesByDebt(db, ctx.userId);
       const installments = debtRepository.installmentCountsByDebt(db, ctx.userId);
       return debtRepository.list(db, ctx.userId).map((d) => {
-        const rec = recurringRepository.getByDebtId(db, d.id);
+        const rec = recurringRepository.getByDebtId(db, ctx.userId, d.id);
         return toView(d, balances.get(d.id) ?? 0, installments.get(d.id) ?? 0, rec);
       });
     },
 
     get(id: string): DebtView | undefined {
-      const debt = debtRepository.getById(ctx.db, id);
+      const debt = debtRepository.getById(ctx.db, ctx.userId, id);
       if (!debt) return undefined;
       return toView(
         debt,
-        debtRepository.balanceOf(ctx.db, id),
-        debtRepository.installmentPaymentCount(ctx.db, id),
-        recurringRepository.getByDebtId(ctx.db, id),
+        debtRepository.balanceOf(ctx.db, ctx.userId, id),
+        debtRepository.installmentPaymentCount(ctx.db, ctx.userId, id),
+        recurringRepository.getByDebtId(ctx.db, ctx.userId, id),
       );
     },
 
     /** Pagos de una deuda, del mas reciente al mas antiguo. */
     payments(debtId: string): TransactionRow[] {
-      return transactionRepository.listPaymentsOfDebt(ctx.db, debtId);
+      return transactionRepository.listPaymentsOfDebt(ctx.db, ctx.userId, debtId);
     },
   };
 }

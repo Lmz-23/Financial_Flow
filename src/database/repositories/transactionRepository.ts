@@ -69,12 +69,17 @@ export const transactionRepository = {
     return id;
   },
 
-  getById(db: DbOrTx, id: string): TransactionRow | undefined {
-    const row = db.select().from(transactions).where(eq(transactions.id, id)).get();
+  /** Transaccion del usuario; la de otro usuario es indistinguible de una inexistente (undefined). */
+  getById(db: DbOrTx, userId: string, id: string): TransactionRow | undefined {
+    const row = db
+      .select()
+      .from(transactions)
+      .where(and(eq(transactions.id, id), eq(transactions.userId, userId)))
+      .get();
     return row ? mapRow(row) : undefined;
   },
 
-  getViewById(db: DbOrTx, id: string): TransactionView | undefined {
+  getViewById(db: DbOrTx, userId: string, id: string): TransactionView | undefined {
     const row = db
       .select({
         t: transactions,
@@ -86,7 +91,7 @@ export const transactionRepository = {
       .innerJoin(accounts, eq(accounts.id, transactions.accountId))
       .leftJoin(categories, eq(categories.id, transactions.categoryId))
       .leftJoin(debts, eq(debts.id, transactions.debtId))
-      .where(eq(transactions.id, id))
+      .where(and(eq(transactions.id, id), eq(transactions.userId, userId)))
       .get();
     return row
       ? { ...mapRow(row.t), accountName: row.accountName, categoryName: row.categoryName, debtName: row.debtName }
@@ -121,50 +126,79 @@ export const transactionRepository = {
     }));
   },
 
-  delete(db: DbOrTx, id: string): void {
-    db.delete(transactions).where(eq(transactions.id, id)).run();
+  /** Devuelve el numero de filas borradas (0 = id inexistente o ajeno). */
+  delete(db: DbOrTx, userId: string, id: string): number {
+    return db
+      .delete(transactions)
+      .where(and(eq(transactions.id, id), eq(transactions.userId, userId)))
+      .returning({ id: transactions.id })
+      .all().length;
   },
 
-  findByOccurrence(db: DbOrTx, recurringItemId: string, occurrenceDate: string): TransactionRow | undefined {
+  findByOccurrence(
+    db: DbOrTx,
+    userId: string,
+    recurringItemId: string,
+    occurrenceDate: string,
+  ): TransactionRow | undefined {
     const row = db
       .select()
       .from(transactions)
-      .where(and(eq(transactions.recurringItemId, recurringItemId), eq(transactions.occurrenceDate, occurrenceDate)))
+      .where(
+        and(
+          eq(transactions.userId, userId),
+          eq(transactions.recurringItemId, recurringItemId),
+          eq(transactions.occurrenceDate, occurrenceDate),
+        ),
+      )
       .get();
     return row ? mapRow(row) : undefined;
   },
 
   /** Fechas de ocurrencia con transaccion ligada a un recurrente. */
-  confirmedOccurrences(db: DbOrTx, recurringItemId: string): string[] {
+  confirmedOccurrences(db: DbOrTx, userId: string, recurringItemId: string): string[] {
     return db
       .select({ occ: transactions.occurrenceDate })
       .from(transactions)
-      .where(and(eq(transactions.recurringItemId, recurringItemId), isNotNull(transactions.occurrenceDate)))
+      .where(
+        and(
+          eq(transactions.userId, userId),
+          eq(transactions.recurringItemId, recurringItemId),
+          isNotNull(transactions.occurrenceDate),
+        ),
+      )
       .all()
       .map((r) => r.occ as string);
   },
 
   /** Pagos de una deuda (transacciones DEBT_PAYMENT). */
-  countPaymentsOfDebt(db: DbOrTx, debtId: string): number {
+  countPaymentsOfDebt(db: DbOrTx, userId: string, debtId: string): number {
     const row = db
       .select({ n: sql<number>`count(*)`.mapWith(Number) })
       .from(transactions)
-      .where(eq(transactions.debtId, debtId))
+      .where(and(eq(transactions.userId, userId), eq(transactions.debtId, debtId)))
       .get();
     return row?.n ?? 0;
   },
 
-  listPaymentsOfDebt(db: DbOrTx, debtId: string): TransactionRow[] {
+  listPaymentsOfDebt(db: DbOrTx, userId: string, debtId: string): TransactionRow[] {
     return mapRows(
-      db.select().from(transactions).where(eq(transactions.debtId, debtId)).orderBy(desc(transactions.date)).all(),
+      db
+        .select()
+        .from(transactions)
+        .where(and(eq(transactions.userId, userId), eq(transactions.debtId, debtId)))
+        .orderBy(desc(transactions.date))
+        .all(),
     );
   },
 
   /** Desvincula las transacciones de un recurrente (quedan con recurringItemId NULL). */
-  unlinkRecurring(db: DbOrTx, recurringItemId: string): void {
-    db.update(transactions)
+  unlinkRecurring(db: DbOrTx, userId: string, recurringItemId: string): number {
+    return db
+      .update(transactions)
       .set({ recurringItemId: null })
-      .where(eq(transactions.recurringItemId, recurringItemId))
-      .run();
+      .where(and(eq(transactions.userId, userId), eq(transactions.recurringItemId, recurringItemId)))
+      .returning({ id: transactions.id })
+      .all().length;
   },
 };

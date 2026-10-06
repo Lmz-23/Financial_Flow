@@ -118,15 +118,15 @@ describe('Date <-> epoch ms en la frontera de los repositorios (escenario p)', (
     d.onboarding.complete({ accounts: [], recurring: [], widgets: { cashflow: true, debts: true, goals: true } });
 
     const isMs = (v: unknown) => typeof v === 'number' && Number.isFinite(v);
-    const account = accountRepository.getById(db, acc);
+    const account = accountRepository.getById(db, DEFAULT_USER_ID, acc);
     expect([account?.createdAt, account?.updatedAt, account?.archivedAt]).toEqual([NOW, NOW, null]);
-    const tx = transactionRepository.getById(db, txId);
+    const tx = transactionRepository.getById(db, DEFAULT_USER_ID, txId);
     expect(tx?.date).toBe(localMs(2026, 3, 9, 8, 30));
     expect(isMs(tx?.createdAt)).toBe(true);
-    const goal = goalRepository.getById(db, goalId);
+    const goal = goalRepository.getById(db, DEFAULT_USER_ID, goalId);
     expect(isMs(goal?.spentAt)).toBe(true);
     expect(goal?.targetDate).toBeNull();
-    expect(isMs(recurringRepository.getById(db, rec)?.snoozedUntil)).toBe(true);
+    expect(isMs(recurringRepository.getById(db, DEFAULT_USER_ID, rec)?.snoozedUntil)).toBe(true);
     expect(isMs(debtRepository.list(db, DEFAULT_USER_ID)[0]?.createdAt)).toBe(true);
     expect(isMs(settingsRepository.get(db, DEFAULT_USER_ID)?.onboardingCompletedAt)).toBe(true);
     for (const row of [...transactionRepository.list(db, DEFAULT_USER_ID), ...recurringRepository.listStandard(db, DEFAULT_USER_ID)]) {

@@ -38,6 +38,12 @@ export interface UpdateRecurring {
   now: number;
 }
 
+/**
+ * Recurrente `id` Y del usuario: toda consulta por id de este repositorio filtra por userId en el
+ * WHERE. Los mutadores devuelven el numero de filas afectadas (0 = id inexistente o ajeno).
+ */
+const owned = (userId: string, id: string) => and(eq(recurringItems.id, id), eq(recurringItems.userId, userId));
+
 export const recurringRepository = {
   insert(db: DbOrTx, v: InsertRecurring): string {
     const id = newId();
@@ -63,13 +69,22 @@ export const recurringRepository = {
     return id;
   },
 
-  getById(db: DbOrTx, id: string): RecurringRow | undefined {
-    const row = db.select().from(recurringItems).where(eq(recurringItems.id, id)).get();
+  /** Recurrente del usuario; el de otro usuario es indistinguible de uno inexistente (undefined). */
+  getById(db: DbOrTx, userId: string, id: string): RecurringRow | undefined {
+    const row = db
+      .select()
+      .from(recurringItems)
+      .where(owned(userId, id))
+      .get();
     return row ? mapRow(row) : undefined;
   },
 
-  getByDebtId(db: DbOrTx, debtId: string): RecurringRow | undefined {
-    const row = db.select().from(recurringItems).where(eq(recurringItems.debtId, debtId)).get();
+  getByDebtId(db: DbOrTx, userId: string, debtId: string): RecurringRow | undefined {
+    const row = db
+      .select()
+      .from(recurringItems)
+      .where(and(eq(recurringItems.userId, userId), eq(recurringItems.debtId, debtId)))
+      .get();
     return row ? mapRow(row) : undefined;
   },
 
@@ -103,7 +118,7 @@ export const recurringRepository = {
     );
   },
 
-  update(db: DbOrTx, id: string, v: UpdateRecurring): void {
+  update(db: DbOrTx, userId: string, id: string, v: UpdateRecurring): number {
     const set: Partial<typeof recurringItems.$inferInsert> = { updatedAt: toDate(v.now) };
     if (v.name !== undefined) set.name = v.name;
     if (v.amountMinor !== undefined) set.amountMinor = v.amountMinor;
@@ -114,18 +129,25 @@ export const recurringRepository = {
     if (v.anchorDate !== undefined) set.anchorDate = v.anchorDate;
     if (v.nextDueDate !== undefined) set.nextDueDate = v.nextDueDate;
     if (v.snoozedUntil !== undefined) set.snoozedUntil = v.snoozedUntil === null ? null : toDate(v.snoozedUntil);
-    db.update(recurringItems).set(set).where(eq(recurringItems.id, id)).run();
+    return db
+      .update(recurringItems)
+      .set(set)
+      .where(owned(userId, id))
+      .returning({ id: recurringItems.id })
+      .all().length;
   },
 
-  delete(db: DbOrTx, id: string): void {
-    db.delete(recurringItems).where(eq(recurringItems.id, id)).run();
+  delete(db: DbOrTx, userId: string, id: string): number {
+    return db.delete(recurringItems).where(owned(userId, id)).returning({ id: recurringItems.id }).all().length;
   },
 
   /** Los recurrentes que tenian la cuenta como predeterminada quedan sin cuenta. */
-  clearDefaultAccount(db: DbOrTx, accountId: string, now: number): void {
-    db.update(recurringItems)
+  clearDefaultAccount(db: DbOrTx, userId: string, accountId: string, now: number): number {
+    return db
+      .update(recurringItems)
       .set({ defaultAccountId: null, updatedAt: toDate(now) })
-      .where(eq(recurringItems.defaultAccountId, accountId))
-      .run();
+      .where(and(eq(recurringItems.userId, userId), eq(recurringItems.defaultAccountId, accountId)))
+      .returning({ id: recurringItems.id })
+      .all().length;
   },
 };

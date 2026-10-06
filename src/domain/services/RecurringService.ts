@@ -108,11 +108,11 @@ export function createStandardRecurringIn(
   const isPassive = input.isPassive ?? false;
   if (isPassive && input.type !== 'INCOME') throw new ValidationError('Solo un ingreso puede ser pasivo');
   if (input.categoryId) {
-    const category = categoryRepository.getById(tx, input.categoryId);
+    const category = categoryRepository.getById(tx, ctx.userId, input.categoryId);
     if (!category) throw new NotFoundError('Categoria', input.categoryId);
     if (category.type !== input.type) throw new ValidationError('La categoria no corresponde al tipo');
   }
-  if (input.defaultAccountId) requireActiveAccount(tx, input.defaultAccountId);
+  if (input.defaultAccountId) requireActiveAccount(tx, ctx.userId, input.defaultAccountId);
 
   let anchor: LocalDate | null = null;
   if (input.anchorDate) {
@@ -154,16 +154,16 @@ export function advanceAfterConfirm(
   const next = nextPendingOccurrence({
     anchor: recurring.anchorDate,
     frequency: recurring.frequency,
-    confirmed: transactionRepository.confirmedOccurrences(tx, recurring.id),
+    confirmed: transactionRepository.confirmedOccurrences(tx, ctx.userId, recurring.id),
     minDate: addDays(occurrence, 1),
   });
   if (next === null) return;
-  recurringRepository.update(tx, recurring.id, { nextDueDate: next, snoozedUntil: null, now: ctx.now() });
+  recurringRepository.update(tx, ctx.userId, recurring.id, { nextDueDate: next, snoozedUntil: null, now: ctx.now() });
 }
 
 export function createRecurringService(ctx: DomainContext) {
   function requireStandard(tx: DbOrTx, id: string): RecurringRow {
-    const row = recurringRepository.getById(tx, id);
+    const row = recurringRepository.getById(tx, ctx.userId, id);
     if (!row) throw new NotFoundError('Recurrente', id);
     if (row.kind !== 'STANDARD') {
       throw new NotSupportedError('La cuota de una deuda se gestiona desde DebtService');
@@ -188,11 +188,11 @@ export function createRecurringService(ctx: DomainContext) {
         if (isPassive && row.type !== 'INCOME') throw new ValidationError('Solo un ingreso puede ser pasivo');
         if (input.amountMinor !== undefined) assertPositiveMinor(input.amountMinor, 'El monto');
         if (input.categoryId) {
-          const category = categoryRepository.getById(tx, input.categoryId);
+          const category = categoryRepository.getById(tx, ctx.userId, input.categoryId);
           if (!category) throw new NotFoundError('Categoria', input.categoryId);
           if (category.type !== row.type) throw new ValidationError('La categoria no corresponde al tipo');
         }
-        if (input.defaultAccountId) requireActiveAccount(tx, input.defaultAccountId);
+        if (input.defaultAccountId) requireActiveAccount(tx, ctx.userId, input.defaultAccountId);
 
         const anchorInput = input.anchorDate !== undefined ? input.anchorDate : row.anchorDate;
         const scheduleChanged = input.anchorDate !== undefined || frequency !== row.frequency;
@@ -207,12 +207,12 @@ export function createRecurringService(ctx: DomainContext) {
               : nextPendingOccurrence({
                   anchor,
                   frequency,
-                  confirmed: transactionRepository.confirmedOccurrences(tx, id),
+                  confirmed: transactionRepository.confirmedOccurrences(tx, ctx.userId, id),
                   minDate: anchor,
                 });
         }
 
-        recurringRepository.update(tx, id, {
+        recurringRepository.update(tx, ctx.userId, id, {
           name: input.name !== undefined ? cleanName(input.name, 'El nombre del recurrente') : undefined,
           amountMinor: input.amountMinor,
           isPassive: input.isPassive,
@@ -234,8 +234,8 @@ export function createRecurringService(ctx: DomainContext) {
     remove(id: string): OperationResult<{ id: string }> {
       return runOperation(ctx, (tx, fx) => {
         requireStandard(tx, id);
-        transactionRepository.unlinkRecurring(tx, id);
-        recurringRepository.delete(tx, id);
+        transactionRepository.unlinkRecurring(tx, ctx.userId, id);
+        recurringRepository.delete(tx, ctx.userId, id);
         fx.reschedule(id);
         fx.refresh('transactions');
         return { id };
@@ -256,7 +256,7 @@ export function createRecurringService(ctx: DomainContext) {
      */
     confirmOccurrence(input: ConfirmOccurrenceInput): OperationResult<{ transactionId: string }> {
       return runOperation(ctx, (tx, fx) => {
-        const recurring = recurringRepository.getById(tx, input.recurringId);
+        const recurring = recurringRepository.getById(tx, ctx.userId, input.recurringId);
         if (!recurring) throw new NotFoundError('Recurrente', input.recurringId);
         if (recurring.kind === 'DEBT_INSTALLMENT' && recurring.debtId !== null) {
           throw new UseDebtPaymentFlow(recurring.debtId, recurring.id, input.occurrenceDate);
@@ -269,8 +269,8 @@ export function createRecurringService(ctx: DomainContext) {
         if (!isOccurrenceOfSeries(recurring.anchorDate, recurring.frequency, input.occurrenceDate)) {
           throw new OccurrenceNotInSeriesError(recurring.id, input.occurrenceDate);
         }
-        requireActiveAccount(tx, input.accountId);
-        if (transactionRepository.findByOccurrence(tx, recurring.id, input.occurrenceDate)) {
+        requireActiveAccount(tx, ctx.userId, input.accountId);
+        if (transactionRepository.findByOccurrence(tx, ctx.userId, recurring.id, input.occurrenceDate)) {
           throw new OccurrenceAlreadyConfirmedError(recurring.id, input.occurrenceDate);
         }
         const amountMinor = input.amountMinor ?? recurring.amountMinor;
@@ -303,7 +303,7 @@ export function createRecurringService(ctx: DomainContext) {
     /** Desmarcar el circulo en Proximos pagos: delega en el unico camino de reversion (D14). */
     unconfirm(recurringId: string, occurrenceDate: LocalDate): OperationResult<{ id: string }> {
       return runOperation(ctx, (tx, fx) => {
-        const row = transactionRepository.findByOccurrence(tx, recurringId, occurrenceDate);
+        const row = transactionRepository.findByOccurrence(tx, ctx.userId, recurringId, occurrenceDate);
         if (!row) throw new NotFoundError('Ocurrencia confirmada', `${recurringId}@${occurrenceDate}`);
         return removeTransactionIn(tx, ctx, fx, row.id);
       });
@@ -312,13 +312,13 @@ export function createRecurringService(ctx: DomainContext) {
     /** "Todavia no": proximo aviso = dia siguiente a `reminderHour` (§7, D5). */
     snooze(recurringId: string): OperationResult<{ snoozedUntil: number }> {
       return runOperation(ctx, (tx, fx) => {
-        const recurring = recurringRepository.getById(tx, recurringId);
+        const recurring = recurringRepository.getById(tx, ctx.userId, recurringId);
         if (!recurring) throw new NotFoundError('Recurrente', recurringId);
         const settings = settingsRepository.get(tx, ctx.userId);
         const hour = settings?.reminderHour ?? 9;
         const tomorrow = addDays(toLocalDate(ctx.now()), 1);
         const snoozedUntil = localDateToEpochMs(tomorrow, hour);
-        recurringRepository.update(tx, recurringId, { snoozedUntil, now: ctx.now() });
+        recurringRepository.update(tx, ctx.userId, recurringId, { snoozedUntil, now: ctx.now() });
         fx.reschedule(recurringId);
         return { snoozedUntil };
       });
@@ -355,7 +355,7 @@ export function createRecurringService(ctx: DomainContext) {
         }
         const paidThisMonth =
           !nextDueDate.startsWith(month) &&
-          transactionRepository.confirmedOccurrences(db, r.id).some((o) => o.startsWith(month));
+          transactionRepository.confirmedOccurrences(db, ctx.userId, r.id).some((o) => o.startsWith(month));
         const status: UpcomingStatus = paidThisMonth ? 'PAID' : nextDueDate < today ? 'OVERDUE' : 'PENDING';
         items.push({
           recurringId: r.id,

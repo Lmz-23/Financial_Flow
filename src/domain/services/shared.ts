@@ -132,9 +132,12 @@ export function assertEpochMs(value: number, label: string): void {
 // Helpers internos entre servicios (dentro de una transaccion ya abierta)
 // ----------------------------------------------------------------------------
 
-/** La cuenta debe existir y no estar archivada. */
-export function requireActiveAccount(db: DbOrTx, id: string): AccountRow {
-  const account = accountRepository.getById(db, id);
+/**
+ * La cuenta debe existir, ser del usuario y no estar archivada. Una cuenta de otro usuario es
+ * indistinguible de una inexistente (`NotFoundError`).
+ */
+export function requireActiveAccount(db: DbOrTx, userId: string, id: string): AccountRow {
+  const account = accountRepository.getById(db, userId, id);
   if (!account) throw new NotFoundError('Cuenta', id);
   if (account.archivedAt !== null) throw new AccountArchivedError(id);
   return account;
