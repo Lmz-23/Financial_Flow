@@ -1,460 +1,397 @@
-import { database } from '../../database';
-import { recurringItems, transactions, categories } from '../../database/schema';
-import { eq, and, lte, gte } from 'drizzle-orm';
-import { TransactionRepository } from '../../database/repositories/transactionRepository';
-import { rescheduleAll } from '../../lib/expo/notifications';
-import type { RecurringItem } from '../../database/schema';
-import type { Transaction } from '../../database/schema';
+import { categoryRepository } from '../../database/repositories/categoryRepository';
+import { debtRepository } from '../../database/repositories/debtRepository';
+import {
+  recurringRepository,
+  type RecurringFrequency,
+  type RecurringRow,
+} from '../../database/repositories/recurringRepository';
+import { settingsRepository } from '../../database/repositories/settingsRepository';
+import { transactionRepository } from '../../database/repositories/transactionRepository';
+import type { DbOrTx } from '../../database/types';
+import { addDays, localDateToEpochMs, toLocalDate, type LocalDate } from '../dates';
+import type { PendingOccurrence } from '../rules/notificationPlan';
+import { nextPendingOccurrence, normalizeAnchor } from '../rules/recurrence';
+import {
+  AccountRequiredError,
+  NotFoundError,
+  NotSupportedError,
+  OccurrenceAlreadyConfirmedError,
+  UseDebtPaymentFlow,
+  ValidationError,
+} from './errors';
+import {
+  assertEpochMs,
+  assertLocalDate,
+  assertPositiveMinor,
+  autoActivateWidget,
+  cleanName,
+  requireActiveAccount,
+  runOperation,
+  type DomainContext,
+  type EffectsCollector,
+  type OperationResult,
+} from './shared';
+import { removeTransactionIn } from './TransactionService';
 
-// =============================================================================
-// RECURRING SERVICE
-// =============================================================================
-//
-// Handles recurring income and expense items.
-// Manages due date calculations, confirmations, and notifications.
-//
-// When a recurring item is confirmed:
-// 1. Create the corresponding transaction
-// 2. Update lastExecutedAt
-// 3. Calculate and set nextDueDate based on frequency
-//
-// Status flow:
-// - ACTIVE: Normal state, notifications scheduled
-// - PENDING_CONFIRM: Income not yet confirmed (waiting for receipt)
-// - PENDING_PAYMENT: Expense not yet paid
-// - PAUSED: Temporarily disabled
-// =============================================================================
+export interface CreateRecurringInput {
+  type: 'INCOME' | 'EXPENSE';
+  name: string;
+  amountMinor: number;
+  /** Solo ingresos; activa el Indice (SUPUESTO de la arquitectura). */
+  isPassive?: boolean;
+  categoryId?: string | null;
+  /** Solo sugerencia: al confirmar siempre se pide cuenta (D8). */
+  defaultAccountId?: string | null;
+  frequency: RecurringFrequency;
+  /** Primera fecha 'YYYY-MM-DD'. Se guarda NORMALIZADA (BIWEEKLY -> 15 o ultimo dia). NULL = sin fecha. */
+  anchorDate?: LocalDate | null;
+}
 
-// =============================================================================
-// HELPERS
-// =============================================================================
+export interface UpdateRecurringInput {
+  name?: string;
+  amountMinor?: number;
+  isPassive?: boolean;
+  categoryId?: string | null;
+  defaultAccountId?: string | null;
+  frequency?: RecurringFrequency;
+  /** Nueva primera fecha; NULL deja el recurrente "sin fecha". */
+  anchorDate?: LocalDate | null;
+}
 
-/**
- * Calculates the next due date based on frequency.
- */
-function calculateNextDueDate(
-  currentDueDate: Date,
-  frequency: RecurringItem['frequency']
-): Date {
-  const next = new Date(currentDueDate);
+export interface ConfirmOccurrenceInput {
+  recurringId: string;
+  occurrenceDate: LocalDate;
+  /** Obligatorio: la hoja "Ya pague" siempre pide cuenta. */
+  accountId: string;
+  /** Por defecto, el monto del recurrente. */
+  amountMinor?: number;
+  /** Epoch ms; por defecto el reloj del dominio. */
+  date?: number;
+}
 
-  switch (frequency) {
-    case 'WEEKLY':
-      next.setDate(next.getDate() + 7);
-      break;
-    case 'BIWEEKLY':
-      next.setDate(next.getDate() + 14);
-      break;
-    case 'MONTHLY':
-      next.setMonth(next.getMonth() + 1);
-      break;
-    case 'ANNUAL':
-      next.setFullYear(next.getFullYear() + 1);
-      break;
+export type UpcomingStatus = 'PENDING' | 'OVERDUE' | 'PAID';
+
+export interface UpcomingItem {
+  recurringId: string;
+  kind: RecurringRow['kind'];
+  type: RecurringRow['type'];
+  /** Para cuotas de deuda, el nombre de la deuda. */
+  name: string;
+  /** Para cuotas de deuda, la cuota de la deuda (puede ser null si esta "sin definir"). */
+  amountMinor: number | null;
+  isPassive: boolean;
+  debtId: string | null;
+  defaultAccountId: string | null;
+  frequency: RecurringFrequency;
+  nextDueDate: LocalDate;
+  /** Epoch ms o null. */
+  snoozedUntil: number | null;
+  status: UpcomingStatus;
+}
+
+// ----------------------------------------------------------------------------
+// Internos compartidos (misma transaccion): creacion y avance de fecha
+// ----------------------------------------------------------------------------
+
+/** Crea un recurrente STANDARD con el ancla ya normalizada. Compartido con OnboardingService. */
+export function createStandardRecurringIn(
+  tx: DbOrTx,
+  ctx: DomainContext,
+  fx: EffectsCollector,
+  input: CreateRecurringInput,
+): string {
+  const name = cleanName(input.name, 'El nombre del recurrente');
+  assertPositiveMinor(input.amountMinor, 'El monto');
+  const isPassive = input.isPassive ?? false;
+  if (isPassive && input.type !== 'INCOME') throw new ValidationError('Solo un ingreso puede ser pasivo');
+  if (input.categoryId) {
+    const category = categoryRepository.getById(tx, input.categoryId);
+    if (!category) throw new NotFoundError('Categoria', input.categoryId);
+    if (category.type !== input.type) throw new ValidationError('La categoria no corresponde al tipo');
   }
+  if (input.defaultAccountId) requireActiveAccount(tx, input.defaultAccountId);
 
-  return next;
-}
-
-/**
- * Gets the DEBT_PAYMENT category ID, creating it if necessary.
- */
-async function getOrCreateDebtPaymentCategory(): Promise<string | null> {
-  // Look for existing DEBT_PAYMENT category
-  let category = await database.query.categories.findFirst({
-    where: eq(categories.name, 'Pago de deuda'),
-  });
-
-  if (!category) {
-    // Create the system category
-    const id = crypto.randomUUID();
-    await database.insert(categories).values({
-      id,
-      userId: null, // System category
-      name: 'Pago de deuda',
-      type: 'EXPENSE',
-      icon: 'credit-card-check',
-      color: '#F59E0B', // Yellow/orange
-      isDefault: true,
-      isActive: true,
-      order: 0,
-      createdAt: new Date(),
-    });
-    category = await database.query.categories.findFirst({
-      where: eq(categories.name, 'Pago de deuda'),
-    });
+  let anchor: LocalDate | null = null;
+  if (input.anchorDate) {
+    anchor = normalizeAnchor(assertLocalDate(input.anchorDate, 'La fecha'), input.frequency).date;
   }
-
-  return category?.id || null;
-}
-
-// =============================================================================
-// CHECK DUE ITEMS
-// =============================================================================
-
-export interface DueItem extends RecurringItem {
-  daysOverdue: number;
+  const id = recurringRepository.insert(tx, {
+    userId: ctx.userId,
+    type: input.type,
+    kind: 'STANDARD',
+    name,
+    amountMinor: input.amountMinor,
+    isPassive,
+    categoryId: input.categoryId ?? null,
+    defaultAccountId: input.defaultAccountId ?? null,
+    frequency: input.frequency,
+    anchorDate: anchor,
+    nextDueDate: anchor,
+    now: ctx.now(),
+  });
+  fx.reschedule(id);
+  if (isPassive && autoActivateWidget(tx, ctx, 'cashflow')) fx.refresh('settings');
+  return id;
 }
 
 /**
- * Checks all active recurring items and returns those that are due.
- * Items are due if nextDueDate <= today and they haven't been executed today.
+ * Tras confirmar `occurrence` (la transaccion ya esta insertada): si era la proxima pendiente,
+ * `nextDueDate` pasa a la primera ocurrencia POSTERIOR sin transaccion ligada, calculada desde el
+ * ancla (nunca desde "ahora"), y se limpia `snoozedUntil`.
  */
-export async function checkDueItems(userId: string): Promise<DueItem[]> {
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-
-  const allItems = await database.query.recurringItems.findMany({
-    where: eq(recurringItems.userId, userId),
+export function advanceAfterConfirm(
+  tx: DbOrTx,
+  ctx: DomainContext,
+  fx: EffectsCollector,
+  recurring: RecurringRow,
+  occurrence: LocalDate,
+): void {
+  fx.reschedule(recurring.id);
+  if (recurring.anchorDate === null || recurring.nextDueDate !== occurrence) return;
+  const next = nextPendingOccurrence({
+    anchor: recurring.anchorDate,
+    frequency: recurring.frequency,
+    confirmed: transactionRepository.confirmedOccurrences(tx, recurring.id),
+    minDate: addDays(occurrence, 1),
   });
+  if (next === null) return;
+  recurringRepository.update(tx, recurring.id, { nextDueDate: next, snoozedUntil: null, now: ctx.now() });
+}
 
-  const dueItems: DueItem[] = [];
-
-  for (const item of allItems) {
-    if (item.status !== 'ACTIVE') continue;
-
-    const dueDate = new Date(item.nextDueDate);
-    const dueDateStart = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
-
-    // Item is due if due date is today or earlier
-    if (dueDateStart <= today) {
-      const daysOverdue = Math.floor((today.getTime() - dueDateStart.getTime()) / (1000 * 60 * 60 * 24));
-
-      dueItems.push({
-        ...item,
-        daysOverdue,
-      });
+export function createRecurringService(ctx: DomainContext) {
+  function requireStandard(tx: DbOrTx, id: string): RecurringRow {
+    const row = recurringRepository.getById(tx, id);
+    if (!row) throw new NotFoundError('Recurrente', id);
+    if (row.kind !== 'STANDARD') {
+      throw new NotSupportedError('La cuota de una deuda se gestiona desde DebtService');
     }
-  }
-
-  // Sort by most overdue first
-  dueItems.sort((a, b) => b.daysOverdue - a.daysOverdue);
-
-  return dueItems;
-}
-
-// =============================================================================
-// CONFIRM INCOME
-// =============================================================================
-
-export interface ConfirmIncomeResult {
-  transaction: Transaction;
-  recurringItem: RecurringItem;
-}
-
-/**
- * Confirms an income recurring item was received.
- *
- * Creates the INCOME transaction, updates lastExecutedAt, and calculates
- * the next due date based on frequency.
- */
-export async function confirmIncome(
-  recurringItemId: string,
-  actualAmount?: number
-): Promise<ConfirmIncomeResult | null> {
-  // Get the recurring item
-  const item = await database.query.recurringItems.findFirst({
-    where: eq(recurringItems.id, recurringItemId),
-  });
-
-  if (!item) {
-    console.error('[RecurringService] Item not found:', recurringItemId);
-    return null;
-  }
-
-  if (item.type !== 'INCOME') {
-    console.error('[RecurringService] Item is not an INCOME type');
-    return null;
-  }
-
-  const amount = actualAmount ?? item.amount;
-  const now = new Date();
-
-  // Create the INCOME transaction
-  const transaction = await TransactionRepository.create({
-    userId: item.userId,
-    accountId: item.accountId,
-    toAccountId: null,
-    type: 'INCOME',
-    amount,
-    description: item.name,
-    categoryId: null, // Could link to income category
-    pocketId: null,
-    date: now,
-    status: 'CONFIRMED',
-    recurringItemId: item.id,
-  });
-
-  // Calculate next due date
-  const nextDueDate = calculateNextDueDate(now, item.frequency);
-
-  // Update the recurring item
-  await database
-    .update(recurringItems)
-    .set({
-      lastExecutedAt: now,
-      nextDueDate,
-      status: 'ACTIVE', // Back to active
-      updatedAt: now,
-    })
-    .where(eq(recurringItems.id, recurringItemId));
-
-  // Reschedule notification for next due date
-  const updatedItem = await database.query.recurringItems.findFirst({
-    where: eq(recurringItems.id, recurringItemId),
-  });
-
-  if (updatedItem) {
-    await rescheduleAll(item.userId);
+    return row;
   }
 
   return {
-    transaction,
-    recurringItem: updatedItem!,
+    create(input: CreateRecurringInput): OperationResult<{ id: string }> {
+      return runOperation(ctx, (tx, fx) => ({ id: createStandardRecurringIn(tx, ctx, fx, input) }));
+    },
+
+    /**
+     * Cambiar frecuencia o fecha reubica `nextDueDate` en la primera ocurrencia sin transaccion
+     * desde la nueva ancla (normalizada) y limpia `snoozedUntil`.
+     */
+    update(id: string, input: UpdateRecurringInput): OperationResult<{ id: string }> {
+      return runOperation(ctx, (tx, fx) => {
+        const row = requireStandard(tx, id);
+        const frequency = input.frequency ?? row.frequency;
+        const isPassive = input.isPassive ?? row.isPassive;
+        if (isPassive && row.type !== 'INCOME') throw new ValidationError('Solo un ingreso puede ser pasivo');
+        if (input.amountMinor !== undefined) assertPositiveMinor(input.amountMinor, 'El monto');
+        if (input.categoryId) {
+          const category = categoryRepository.getById(tx, input.categoryId);
+          if (!category) throw new NotFoundError('Categoria', input.categoryId);
+          if (category.type !== row.type) throw new ValidationError('La categoria no corresponde al tipo');
+        }
+        if (input.defaultAccountId) requireActiveAccount(tx, input.defaultAccountId);
+
+        const anchorInput = input.anchorDate !== undefined ? input.anchorDate : row.anchorDate;
+        const scheduleChanged = input.anchorDate !== undefined || frequency !== row.frequency;
+        let anchor: LocalDate | null = null;
+        if (anchorInput) anchor = normalizeAnchor(assertLocalDate(anchorInput, 'La fecha'), frequency).date;
+
+        let nextDueDate: LocalDate | null | undefined;
+        if (scheduleChanged) {
+          nextDueDate =
+            anchor === null
+              ? null
+              : nextPendingOccurrence({
+                  anchor,
+                  frequency,
+                  confirmed: transactionRepository.confirmedOccurrences(tx, id),
+                  minDate: anchor,
+                });
+        }
+
+        recurringRepository.update(tx, id, {
+          name: input.name !== undefined ? cleanName(input.name, 'El nombre del recurrente') : undefined,
+          amountMinor: input.amountMinor,
+          isPassive: input.isPassive,
+          categoryId: input.categoryId,
+          defaultAccountId: input.defaultAccountId,
+          frequency: scheduleChanged ? frequency : undefined,
+          anchorDate: scheduleChanged ? anchor : undefined,
+          nextDueDate,
+          snoozedUntil: scheduleChanged ? null : undefined,
+          now: ctx.now(),
+        });
+        fx.reschedule(id);
+        if (isPassive && autoActivateWidget(tx, ctx, 'cashflow')) fx.refresh('settings');
+        return { id };
+      });
+    },
+
+    /** Las transacciones ligadas quedan con `recurringItemId` NULL. */
+    remove(id: string): OperationResult<{ id: string }> {
+      return runOperation(ctx, (tx, fx) => {
+        requireStandard(tx, id);
+        transactionRepository.unlinkRecurring(tx, id);
+        recurringRepository.delete(tx, id);
+        fx.reschedule(id);
+        fx.refresh('transactions');
+        return { id };
+      });
+    },
+
+    /**
+     * Confirma una ocurrencia creando una Transaction REAL. Si el recurrente es la cuota de una deuda
+     * lanza `UseDebtPaymentFlow` (I4): ese camino es `DebtService.registerPayment`.
+     */
+    confirmOccurrence(input: ConfirmOccurrenceInput): OperationResult<{ transactionId: string }> {
+      return runOperation(ctx, (tx, fx) => {
+        const recurring = recurringRepository.getById(tx, input.recurringId);
+        if (!recurring) throw new NotFoundError('Recurrente', input.recurringId);
+        if (recurring.kind === 'DEBT_INSTALLMENT' && recurring.debtId !== null) {
+          throw new UseDebtPaymentFlow(recurring.debtId, recurring.id, input.occurrenceDate);
+        }
+        if (!input.accountId) throw new AccountRequiredError();
+        assertLocalDate(input.occurrenceDate, 'La ocurrencia');
+        requireActiveAccount(tx, input.accountId);
+        if (transactionRepository.findByOccurrence(tx, recurring.id, input.occurrenceDate)) {
+          throw new OccurrenceAlreadyConfirmedError(recurring.id, input.occurrenceDate);
+        }
+        const amountMinor = input.amountMinor ?? recurring.amountMinor;
+        if (amountMinor === null) throw new ValidationError('El recurrente no tiene monto');
+        assertPositiveMinor(amountMinor, 'El monto');
+        const date = input.date ?? ctx.now();
+        assertEpochMs(date, 'La fecha');
+
+        const transactionId = transactionRepository.insert(tx, {
+          userId: ctx.userId,
+          accountId: input.accountId,
+          type: recurring.type,
+          kind: 'STANDARD',
+          amountMinor,
+          description: recurring.name ?? '',
+          date,
+          categoryId: recurring.categoryId,
+          isPassive: recurring.isPassive,
+          recurringItemId: recurring.id,
+          occurrenceDate: input.occurrenceDate,
+          now: ctx.now(),
+        });
+        advanceAfterConfirm(tx, ctx, fx, recurring, input.occurrenceDate);
+        fx.refresh('accounts', 'transactions', 'statement');
+        if (recurring.isPassive && autoActivateWidget(tx, ctx, 'cashflow')) fx.refresh('settings');
+        return { transactionId };
+      });
+    },
+
+    /** Desmarcar el circulo en Proximos pagos: delega en el unico camino de reversion (D14). */
+    unconfirm(recurringId: string, occurrenceDate: LocalDate): OperationResult<{ id: string }> {
+      return runOperation(ctx, (tx, fx) => {
+        const row = transactionRepository.findByOccurrence(tx, recurringId, occurrenceDate);
+        if (!row) throw new NotFoundError('Ocurrencia confirmada', `${recurringId}@${occurrenceDate}`);
+        return removeTransactionIn(tx, ctx, fx, row.id);
+      });
+    },
+
+    /** "Todavia no": proximo aviso = dia siguiente a `reminderHour` (§7, D5). */
+    snooze(recurringId: string): OperationResult<{ snoozedUntil: number }> {
+      return runOperation(ctx, (tx, fx) => {
+        const recurring = recurringRepository.getById(tx, recurringId);
+        if (!recurring) throw new NotFoundError('Recurrente', recurringId);
+        const settings = settingsRepository.get(tx, ctx.userId);
+        const hour = settings?.reminderHour ?? 9;
+        const tomorrow = addDays(toLocalDate(ctx.now()), 1);
+        const snoozedUntil = localDateToEpochMs(tomorrow, hour);
+        recurringRepository.update(tx, recurringId, { snoozedUntil, now: ctx.now() });
+        fx.reschedule(recurringId);
+        return { snoozedUntil };
+      });
+    },
+
+    // --- Consultas (solo lectura) -------------------------------------------
+
+    /** Recurrentes STANDARD (pantalla de gestion). */
+    list(): RecurringRow[] {
+      return recurringRepository.listStandard(ctx.db, ctx.userId);
+    },
+
+    /**
+     * Proximos pagos: recurrentes activos con fecha, sin las cuotas de deudas con saldo 0 o archivadas.
+     * Estado: PAID (hay transaccion de una ocurrencia del mes actual y la siguiente fecha cae fuera del
+     * mes; SUPUESTO de presentacion), OVERDUE (fecha pasada) o PENDING.
+     */
+    upcoming(): UpcomingItem[] {
+      const db = ctx.db;
+      const today = toLocalDate(ctx.now());
+      const month = today.slice(0, 7);
+      const debts = new Map(debtRepository.list(db, ctx.userId, true).map((d) => [d.id, d]));
+      const balances = debtRepository.balancesByDebt(db, ctx.userId);
+      const items: UpcomingItem[] = [];
+      for (const r of recurringRepository.listActiveDated(db, ctx.userId)) {
+        const nextDueDate = r.nextDueDate as LocalDate;
+        let name = r.name ?? '';
+        let amountMinor = r.amountMinor;
+        if (r.kind === 'DEBT_INSTALLMENT' && r.debtId !== null) {
+          const debt = debts.get(r.debtId);
+          if (!debt || debt.archivedAt !== null || (balances.get(debt.id) ?? 0) <= 0) continue;
+          name = debt.name;
+          amountMinor = debt.installmentMinor;
+        }
+        const paidThisMonth =
+          !nextDueDate.startsWith(month) &&
+          transactionRepository.confirmedOccurrences(db, r.id).some((o) => o.startsWith(month));
+        const status: UpcomingStatus = paidThisMonth ? 'PAID' : nextDueDate < today ? 'OVERDUE' : 'PENDING';
+        items.push({
+          recurringId: r.id,
+          kind: r.kind,
+          type: r.type,
+          name,
+          amountMinor,
+          isPassive: r.isPassive,
+          debtId: r.debtId,
+          defaultAccountId: r.defaultAccountId,
+          frequency: r.frequency,
+          nextDueDate,
+          snoozedUntil: r.snoozedUntil,
+          status,
+        });
+      }
+      return items;
+    },
+
+    /**
+     * Entrada de `planNotifications` (F4): recurrentes activos con fecha. Los instantes salen como
+     * epoch ms (`number`), no como `Date`. Las cuotas de deudas liquidadas van marcadas `debtSettled`.
+     */
+    pendingOccurrences(): PendingOccurrence[] {
+      const db = ctx.db;
+      const debts = new Map(debtRepository.list(db, ctx.userId, true).map((d) => [d.id, d]));
+      const balances = debtRepository.balancesByDebt(db, ctx.userId);
+      const out: PendingOccurrence[] = [];
+      for (const r of recurringRepository.listActiveDated(db, ctx.userId)) {
+        let name = r.name ?? '';
+        let amount = r.amountMinor;
+        let debtSettled = false;
+        if (r.kind === 'DEBT_INSTALLMENT' && r.debtId !== null) {
+          const debt = debts.get(r.debtId);
+          if (!debt) continue;
+          name = debt.name;
+          amount = debt.installmentMinor;
+          debtSettled = debt.archivedAt !== null || (balances.get(debt.id) ?? 0) <= 0;
+        }
+        out.push({
+          recurringId: r.id,
+          occurrence: r.nextDueDate as LocalDate,
+          name,
+          amount,
+          direction: r.type,
+          debtId: r.debtId,
+          debtSettled,
+          snoozedUntil: r.snoozedUntil,
+        });
+      }
+      return out;
+    },
   };
 }
 
-// =============================================================================
-// CONFIRM EXPENSE PAID
-// =============================================================================
-
-export interface ConfirmExpenseResult {
-  transaction: Transaction;
-  recurringItem: RecurringItem;
-}
-
-/**
- * Confirms an expense recurring item was paid.
- *
- * Creates the EXPENSE transaction, updates lastExecutedAt, and calculates
- * the next due date. If wasLate is true, marks it appropriately.
- */
-export async function confirmExpensePaid(
-  recurringItemId: string,
-  actualAmount?: number,
-  wasLate: boolean = false
-): Promise<ConfirmExpenseResult | null> {
-  // Get the recurring item
-  const item = await database.query.recurringItems.findFirst({
-    where: eq(recurringItems.id, recurringItemId),
-  });
-
-  if (!item) {
-    console.error('[RecurringService] Item not found:', recurringItemId);
-    return null;
-  }
-
-  if (item.type !== 'EXPENSE') {
-    console.error('[RecurringService] Item is not an EXPENSE type');
-    return null;
-  }
-
-  const amount = actualAmount ?? item.amount;
-  const now = new Date();
-
-  // Create the EXPENSE transaction
-  const transaction = await TransactionRepository.create({
-    userId: item.userId,
-    accountId: item.accountId,
-    toAccountId: null,
-    type: 'EXPENSE',
-    amount: -Math.abs(amount), // Always negative for expenses
-    description: `${item.name}${wasLate ? ' (tarde)' : ''}`,
-    categoryId: null,
-    pocketId: null,
-    date: now,
-    status: 'CONFIRMED',
-    recurringItemId: item.id,
-  });
-
-  // Calculate next due date
-  const nextDueDate = calculateNextDueDate(now, item.frequency);
-
-  // Update the recurring item
-  await database
-    .update(recurringItems)
-    .set({
-      lastExecutedAt: now,
-      nextDueDate,
-      status: 'ACTIVE',
-      updatedAt: now,
-    })
-    .where(eq(recurringItems.id, recurringItemId));
-
-  // Reschedule notification
-  const updatedItem = await database.query.recurringItems.findFirst({
-    where: eq(recurringItems.id, recurringItemId),
-  });
-
-  if (updatedItem) {
-    await rescheduleAll(item.userId);
-  }
-
-  return {
-    transaction,
-    recurringItem: updatedItem!,
-  };
-}
-
-// =============================================================================
-// MARK PENDING
-// =============================================================================
-
-/**
- * Marks a recurring item as pending confirmation/payment.
- *
- * For INCOME items: sets status to PENDING_CONFIRM
- * For EXPENSE items: sets status to PENDING_PAYMENT
- *
- * Called when the due date passes without confirmation.
- */
-export async function markPending(
-  recurringItemId: string
-): Promise<RecurringItem | null> {
-  const item = await database.query.recurringItems.findFirst({
-    where: eq(recurringItems.id, recurringItemId),
-  });
-
-  if (!item) {
-    console.error('[RecurringService] Item not found:', recurringItemId);
-    return null;
-  }
-
-  const now = new Date();
-  const newStatus = item.type === 'INCOME' ? 'PENDING_CONFIRM' : 'PENDING_PAYMENT';
-
-  await database
-    .update(recurringItems)
-    .set({
-      status: newStatus,
-      updatedAt: now,
-    })
-    .where(eq(recurringItems.id, recurringItemId));
-
-  // Cancel the notification since it's now pending
-  // (user will confirm manually)
-  await rescheduleAll(item.userId);
-
-  const updatedItem = await database.query.recurringItems.findFirst({
-    where: eq(recurringItems.id, recurringItemId),
-  });
-
-  return updatedItem;
-}
-
-// =============================================================================
-// POSTPONE
-// =============================================================================
-
-/**
- * Postpones a recurring item to a new date without marking it as executed.
- *
- * This is used when the user wants to defer payment/receipt to a later date
- * without creating a transaction.
- */
-export async function postpone(
-  recurringItemId: string,
-  newDate: Date
-): Promise<RecurringItem | null> {
-  const item = await database.query.recurringItems.findFirst({
-    where: eq(recurringItems.id, recurringItemId),
-  });
-
-  if (!item) {
-    console.error('[RecurringService] Item not found:', recurringItemId);
-    return null;
-  }
-
-  const now = new Date();
-
-  await database
-    .update(recurringItems)
-    .set({
-      nextDueDate: newDate,
-      status: 'ACTIVE', // Back to active if it was pending
-      updatedAt: now,
-    })
-    .where(eq(recurringItems.id, recurringItemId));
-
-  // Reschedule notification for the new date
-  await rescheduleAll(item.userId);
-
-  const updatedItem = await database.query.recurringItems.findFirst({
-    where: eq(recurringItems.id, recurringItemId),
-  });
-
-  return updatedItem;
-}
-
-// =============================================================================
-// PAUSE / RESUME
-// =============================================================================
-
-/**
- * Pauses a recurring item (stops notifications).
- */
-export async function pause(recurringItemId: string): Promise<RecurringItem | null> {
-  const item = await database.query.recurringItems.findFirst({
-    where: eq(recurringItems.id, recurringItemId),
-  });
-
-  if (!item) return null;
-
-  const now = new Date();
-
-  await database
-    .update(recurringItems)
-    .set({
-      status: 'PAUSED',
-      updatedAt: now,
-    })
-    .where(eq(recurringItems.id, recurringItemId));
-
-  // Cancel notification
-  await rescheduleAll(item.userId);
-
-  const updatedItem = await database.query.recurringItems.findFirst({
-    where: eq(recurringItems.id, recurringItemId),
-  });
-
-  return updatedItem;
-}
-
-/**
- * Resumes a paused recurring item.
- */
-export async function resume(recurringItemId: string): Promise<RecurringItem | null> {
-  const item = await database.query.recurringItems.findFirst({
-    where: eq(recurringItems.id, recurringItemId),
-  });
-
-  if (!item) return null;
-
-  const now = new Date();
-
-  // If nextDueDate is in the past, calculate a new one from today
-  let nextDueDate = item.nextDueDate;
-  if (new Date(nextDueDate) < now) {
-    nextDueDate = calculateNextDueDate(now, item.frequency);
-  }
-
-  await database
-    .update(recurringItems)
-    .set({
-      status: 'ACTIVE',
-      nextDueDate,
-      updatedAt: now,
-    })
-    .where(eq(recurringItems.id, recurringItemId));
-
-  // Reschedule notification
-  await rescheduleAll(item.userId);
-
-  const updatedItem = await database.query.recurringItems.findFirst({
-    where: eq(recurringItems.id, recurringItemId),
-  });
-
-  return updatedItem;
-}
+export type RecurringService = ReturnType<typeof createRecurringService>;

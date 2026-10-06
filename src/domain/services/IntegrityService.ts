@@ -1,121 +1,85 @@
-import { AccountRepository } from '../../database/repositories/accountRepository';
-import { PocketRepository } from '../../database/repositories/pocketRepository';
+import { accountRepository } from '../../database/repositories/accountRepository';
+import { debtRepository } from '../../database/repositories/debtRepository';
+import { goalRepository } from '../../database/repositories/goalRepository';
+import { reportRepository } from '../../database/repositories/reportRepository';
+import type { DomainContext } from './shared';
 
-// =============================================================================
-// INTEGRITY SERVICE
-// =============================================================================
-//
-// This service verifies the fundamental invariant of the financial model:
-//
-//   account_balance = unassigned_balance + Σ(explicit_pocket_balances)
-//
-// Every operation that modifies transactions or pockets should preserve this.
-// If verifyAccountIntegrity returns valid=false, there is a bug in the system.
-//
-// CRITICAL: All amounts are stored as integers (cents), so there should be
-// NO floating point precision issues. We use strict equality comparison.
-// =============================================================================
+export type InvariantCode = 'I1' | 'I2' | 'I3' | 'I4' | 'I5' | 'I6';
 
-export interface IntegrityCheckResult {
-  accountId: string;
-  valid: boolean;
-  details: {
-    accountBalance: number;
-    unassignedBalance: number;
-    pocketsSum: number;
-    totalDistributed: number;
-    difference: number;
-    pockets: {
-      id: string;
-      name: string;
-      balance: number;
-    }[];
-  };
+export interface IntegrityViolation {
+  invariant: InvariantCode;
+  message: string;
+}
+
+export interface IntegrityReport {
+  ok: boolean;
+  violations: IntegrityViolation[];
 }
 
 /**
- * Verifies the integrity of a single account.
- *
- * The invariant being checked:
- *   account_balance = unassigned_balance + Σ(explicit_pocket_balances)
- *
- * @returns { valid: true } if the invariant holds, { valid: false } if not
+ * Comprueba las invariantes I1-I6 de la arquitectura (§3.3). Solo lectura; nunca bloquea al usuario:
+ * devuelve el informe y quien llama decide (desarrollo y tests).
  */
-export async function verifyAccountIntegrity(
-  accountId: string
-): Promise<IntegrityCheckResult> {
-  // 1. Get the total balance of the account
-  const accountBalance = await AccountRepository.getBalance(accountId);
+export function createIntegrityService(ctx: DomainContext) {
+  return {
+    check(): IntegrityReport {
+      const db = ctx.db;
+      const userId = ctx.userId;
+      const violations: IntegrityViolation[] = [];
+      const add = (invariant: InvariantCode, message: string): void => {
+        violations.push({ invariant, message });
+      };
 
-  // 2. Get the balance of the implicit "Unassigned" pocket
-  const unassignedBalance = await PocketRepository.getUnassignedBalance(accountId);
+      // I1. Conservacion global (los aportes se cancelan entre ambos lados).
+      const available = accountRepository.availableByAccount(db, userId);
+      const saved = goalRepository.savedByGoal(db, userId);
+      const goals = goalRepository.list(db, userId);
+      let left = 0;
+      for (const v of available.values()) left += v;
+      for (const g of goals) {
+        left += g.status === 'SPENT' ? (g.spentAmountMinor ?? 0) : (saved.get(g.id) ?? 0);
+      }
+      const right = reportRepository.ledgerTotal(db, userId);
+      if (left !== right) add('I1', `Conservacion global rota: patrimonio derivado ${left} != libro ${right}`);
 
-  // 3. Get all explicit pockets with their balances
-  const pocketsWithBalances = await PocketRepository.getAllByAccountWithBalances(accountId);
+      // I2. Deudas: saldo >= 0 y 0 <= capital aplicado <= monto.
+      for (const [debtId, balance] of debtRepository.balancesByDebt(db, userId)) {
+        if (balance < 0) add('I2', `La deuda ${debtId} tiene saldo negativo (${balance})`);
+      }
+      for (const p of reportRepository.paymentsOutOfRange(db, userId)) {
+        add('I2', `El pago ${p.id} tiene capital aplicado fuera de [0, ${p.amountMinor}] (${p.principalMinor})`);
+      }
 
-  // 4. Sum the explicit pocket balances
-  const pocketsSum = pocketsWithBalances.explicit.reduce(
-    (sum, pocket) => sum + pocket.balance,
-    0
-  );
+      // I3. Metas gastadas: spentAmountMinor == saved derivado.
+      for (const g of goals) {
+        if (g.status !== 'SPENT') continue;
+        const derived = saved.get(g.id) ?? 0;
+        if (g.spentAmountMinor !== derived) {
+          add('I3', `La meta ${g.id} gastada guarda ${g.spentAmountMinor} pero su ahorro derivado es ${derived}`);
+        }
+      }
 
-  // 5. Calculate total distributed (unassigned + explicit pockets)
-  const totalDistributed = unassignedBalance + pocketsSum;
+      // I4. Recurrentes: una transaccion por ocurrencia; cuotas de deuda nunca por el camino generico.
+      for (const d of reportRepository.duplicatedOccurrences(db, userId)) {
+        add('I4', `El recurrente ${d.recurringItemId} tiene ${d.n} transacciones para ${d.occurrenceDate}`);
+      }
+      for (const id of reportRepository.genericTxOnDebtRecurring(db, userId)) {
+        add('I4', `La transaccion ${id} confirma por el camino generico la cuota de una deuda`);
+      }
 
-  // 6. Calculate the difference
-  const difference = accountBalance - totalDistributed;
+      // I5. Clasificacion.
+      for (const id of reportRepository.misclassifiedTransactions(db, userId)) {
+        add('I5', `La transaccion ${id} esta mal clasificada`);
+      }
 
-  // 7. Check if the invariant holds (strict equality - no tolerance)
-  const valid = difference === 0;
+      // I6. Widgets: solo NULL, 0 o 1.
+      for (const key of reportRepository.invalidWidgetFlags(db, userId)) {
+        add('I6', `El flag de widget ${key} tiene un valor invalido`);
+      }
 
-  const result: IntegrityCheckResult = {
-    accountId,
-    valid,
-    details: {
-      accountBalance,
-      unassignedBalance,
-      pocketsSum,
-      totalDistributed,
-      difference,
-      pockets: pocketsWithBalances.explicit.map((p) => ({
-        id: p.id,
-        name: p.name,
-        balance: p.balance,
-      })),
+      return { ok: violations.length === 0, violations };
     },
   };
-
-  if (!valid) {
-    console.error('[IntegrityService] Account integrity check FAILED:', result);
-  }
-
-  return result;
 }
 
-/**
- * Verifies the integrity of ALL accounts for a user.
- *
- * @returns Array of results, one per account
- */
-export async function verifyAllAccountsIntegrity(
-  userId: string
-): Promise<IntegrityCheckResult[]> {
-  const accounts = await AccountRepository.getAll(userId);
-  const results: IntegrityCheckResult[] = [];
-
-  for (const account of accounts) {
-    const result = await verifyAccountIntegrity(account.id);
-    results.push(result);
-  }
-
-  return results;
-}
-
-/**
- * Quick check: returns true only if ALL accounts pass integrity check.
- * Useful for running as a health check on app startup.
- */
-export async function isSystemHealthy(userId: string): Promise<boolean> {
-  const results = await verifyAllAccountsIntegrity(userId);
-  return results.every((r) => r.valid);
-}
+export type IntegrityService = ReturnType<typeof createIntegrityService>;

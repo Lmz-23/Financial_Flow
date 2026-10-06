@@ -1,304 +1,362 @@
-// =============================================================================
-// DEBT SERVICE
-// =============================================================================
-//
-// Financial calculations for debts and credit cards.
-// All calculations use integer pesos (no decimals) to avoid floating point issues.
-// =============================================================================
+import { adjustmentRepository } from '../../database/repositories/adjustmentRepository';
+import { debtRepository, type DebtRow, type RateSource } from '../../database/repositories/debtRepository';
+import { recurringRepository } from '../../database/repositories/recurringRepository';
+import { transactionRepository, type TransactionRow } from '../../database/repositories/transactionRepository';
+import type { DbOrTx } from '../../database/types';
+import type { LocalDate } from '../dates';
+import { estimateMonthlyRate, remainingMonths } from '../rules/amortization';
+import { debtPaymentEffect, paidCount } from '../rules/statement';
+import {
+  DebtArchivedError,
+  DebtSettledError,
+  NotFoundError,
+  OccurrenceAlreadyConfirmedError,
+  ValidationError,
+} from './errors';
+import { advanceAfterConfirm } from './RecurringService';
+import {
+  assertEpochMs,
+  assertLocalDate,
+  assertNonNegativeMinor,
+  assertPositiveMinor,
+  autoActivateWidget,
+  cleanName,
+  requireActiveAccount,
+  runOperation,
+  type DomainContext,
+  type EffectsCollector,
+  type OperationResult,
+} from './shared';
 
-/**
- * Calculates the effective monthly interest rate using Newton-Raphson method.
- *
- * Uses the present value of annuity formula:
- *   PV = PMT * (1 - (1 + r)^-n) / r
- *
- * Where:
- *   PV = Principal (amount borrowed)
- *   PMT = Monthly payment
- *   r = Monthly interest rate (what we're solving for)
- *   n = Number of installments
- *
- * Newton-Raphson iteration:
- *   r_new = r - (f(r) / f'(r))
- *   f(r) = PMT * (1 - (1 + r)^-n) / r - PV
- *   f'(r) = PMT * ((n * (1 + r)^(-n-1) / r) - (1 - (1 + r)^-n) / r^2)
- *
- * @param principal - Loan amount in pesos
- * @param monthlyPayment - Fixed monthly payment in pesos
- * @param totalInstallments - Number of monthly payments
- * @returns Monthly interest rate as decimal (e.g., 0.025 = 2.5%)
- * @throws Error if payment is too low to ever pay off the loan
- */
-export function calculateInterestRate(
-  principal: number,
-  monthlyPayment: number,
-  totalInstallments: number
-): number {
-  // Validation
-  if (principal <= 0) {
-    throw new Error('Principal must be positive');
-  }
-  if (monthlyPayment <= 0) {
-    throw new Error('Monthly payment must be positive');
-  }
-  if (totalInstallments <= 0) {
-    throw new Error('Number of installments must be positive');
-  }
-
-  // If payment is too low to ever cover interest, throw
-  const minPaymentToCoverInterest = principal * 0.5; // Arbitrary high rate assumption
-  if (monthlyPayment * totalInstallments <= principal) {
-    throw new Error(
-      'Payment too low to ever pay off this loan. Total payments would be less than principal.'
-    );
-  }
-
-  // Newton-Raphson implementation
-  let r = 0.01; // Initial guess: 1% monthly
-  const tolerance = 0.0000001; // Precision to 0.00001%
-  const maxIterations = 100;
-
-  for (let i = 0; i < maxIterations; i++) {
-    const rPlus1 = 1 + r;
-    const rPlus1PowerN = Math.pow(rPlus1, -totalInstallments);
-    const rPlus1PowerNMinus1 = Math.pow(rPlus1, -(totalInstallments - 1));
-
-    // f(r) = PMT * (1 - (1+r)^-n) / r - PV
-    const f = monthlyPayment * (1 - rPlus1PowerN) / r - principal;
-
-    // f'(r) = PMT * (n * (1+r)^(-n-1) / r) - PMT * (1 - (1+r)^-n) / r^2
-    const fPrime =
-      monthlyPayment * (totalInstallments * rPlus1PowerNMinus1 / r) -
-      monthlyPayment * ((1 - rPlus1PowerN) / (r * r));
-
-    if (Math.abs(fPrime) < 1e-15) {
-      // Derivative too small, try bisection instead
-      return bisectionMethod(principal, monthlyPayment, totalInstallments);
-    }
-
-    const newR = r - f / fPrime;
-
-    // Check convergence
-    if (Math.abs(newR - r) < tolerance) {
-      return newR;
-    }
-
-    r = newR;
-
-    // Sanity check: if rate goes negative or unreasonably high, bail out
-    if (r < 0 || r > 1) {
-      return bisectionMethod(principal, monthlyPayment, totalInstallments);
-    }
-  }
-
-  // If Newton-Raphson didn't converge, try bisection
-  return bisectionMethod(principal, monthlyPayment, totalInstallments);
+export interface CreateDebtInput {
+  name: string;
+  /** Saldo actual (>= 0; el ajuste OPENING solo se crea si es > 0). */
+  balanceMinor: number;
+  installmentMinor?: number | null;
+  /** `known`: tasa mensual decimal (0.02 = 2%). `unknown`: se estima con `estimateMonthlyRate`. */
+  rate: { known: number } | { unknown: { months: number } };
+  /** Fecha del proximo pago. Solo crea el recurrente si tambien hay cuota. */
+  nextDueDate?: LocalDate | null;
+  /** Cuotas ya pagadas antes de usar la app (SUPUESTO: opcional, 0 por defecto). */
+  initialPaidCount?: number;
 }
 
-/**
- * Bisection method as fallback/verification for interest rate calculation.
- */
-function bisectionMethod(
-  principal: number,
-  monthlyPayment: number,
-  totalInstallments: number
-): number {
-  let low = 0.0001; // 0.01%
-  let high = 0.5; // 50% monthly (unrealistic but safe upper bound)
+export interface UpdateDebtInput {
+  name?: string;
+  /** Nuevo saldo: ajuste MANUAL con nuevo >= 0. */
+  balanceMinor?: number;
+  installmentMinor?: number | null;
+  /** Actualiza o crea el recurrente vinculado (requiere cuota). */
+  nextDueDate?: LocalDate;
+}
 
-  const tolerance = 0.0000001;
-  const maxIterations = 100;
+export interface RegisterPaymentInput {
+  debtId: string;
+  accountId: string;
+  /** Monto completo del pago: siempre es el gasto, aunque supere el saldo. */
+  amountMinor: number;
+  type: 'INSTALLMENT' | 'EXTRA';
+  /** Epoch ms; por defecto el reloj del dominio. */
+  date?: number;
+  /** Ocurrencia que cubre una cuota (por defecto, la `nextDueDate` del recurrente vinculado). */
+  occurrenceDate?: LocalDate;
+  description?: string;
+}
 
-  for (let i = 0; i < maxIterations; i++) {
-    const mid = (low + high) / 2;
-    const pv = presentValue(mid, monthlyPayment, totalInstallments);
+export interface RegisterPaymentResult {
+  transactionId: string;
+  principalAppliedMinor: number;
+  overpaymentMinor: number;
+  newBalanceMinor: number;
+  /** true si el pago se ligo a una ocurrencia del recurrente y avanzo `nextDueDate`. */
+  linkedToOccurrence: boolean;
+}
 
-    if (Math.abs(pv - principal) < tolerance) {
-      return mid;
-    }
+export interface DebtView extends DebtRow {
+  /** Saldo derivado (>= 0). */
+  balanceMinor: number;
+  /** initialPaidCount + cuotas (INSTALLMENT) registradas. */
+  paidCount: number;
+  /** Fecha del proximo pago (del recurrente vinculado) o null. */
+  nextDueDate: LocalDate | null;
+  recurringId: string | null;
+  /** Meses restantes (D16); null sin cuota o si nunca se liquida. */
+  monthsRemaining: number | null;
+}
 
-    if (pv > principal) {
-      // Need higher rate to reduce PV
-      low = mid;
-    } else {
-      high = mid;
-    }
+export type RemoveDebtOutcome = 'DELETED' | 'ARCHIVED';
+
+function createInstallmentRecurring(tx: DbOrTx, ctx: DomainContext, debtId: string, date: LocalDate): string {
+  return recurringRepository.insert(tx, {
+    userId: ctx.userId,
+    type: 'EXPENSE',
+    kind: 'DEBT_INSTALLMENT',
+    debtId,
+    name: null,
+    amountMinor: null,
+    // SUPUESTO: la cuota de una deuda es mensual (la arquitectura no define la frecuencia).
+    frequency: 'MONTHLY',
+    anchorDate: date,
+    nextDueDate: date,
+    now: ctx.now(),
+  });
+}
+
+export function createDebtService(ctx: DomainContext) {
+  function requireActiveDebt(tx: DbOrTx, id: string): DebtRow {
+    const debt = debtRepository.getById(tx, id);
+    if (!debt) throw new NotFoundError('Deuda', id);
+    if (debt.archivedAt !== null) throw new DebtArchivedError(id);
+    return debt;
   }
 
-  return (low + high) / 2;
-}
-
-/**
- * Calculates present value of an annuity.
- */
-function presentValue(rate: number, payment: number, periods: number): number {
-  if (rate === 0) return payment * periods;
-  return payment * (1 - Math.pow(1 + rate, -periods)) / rate;
-}
-
-/**
- * Converts monthly interest rate to annual effective rate.
- *
- * @param monthlyRate - Monthly rate as decimal (e.g., 0.025 = 2.5%)
- * @returns Annual effective rate as decimal (e.g., 0.34 = 34%)
- */
-export function monthlyToAnnualRate(monthlyRate: number): number {
-  return Math.pow(1 + monthlyRate, 12) - 1;
-}
-
-/**
- * Converts annual effective rate to monthly rate.
- *
- * @param annualRate - Annual rate as decimal (e.g., 0.34 = 34%)
- * @returns Monthly rate as decimal
- */
-export function annualToMonthlyRate(annualRate: number): number {
-  return Math.pow(1 + annualRate, 1 / 12) - 1;
-}
-
-/**
- * Calculates the minimum payment amount based on a percentage of balance.
- *
- * @param currentBalance - Current debt balance in pesos
- * @param minPaymentPercent - Minimum payment percentage (e.g., 15 for 15%)
- * @returns Minimum payment amount in pesos
- */
-export function calculateMinPayment(
-  currentBalance: number,
-  minPaymentPercent: number
-): number {
-  if (currentBalance <= 0) return 0;
-  if (minPaymentPercent <= 0) return 0;
-
-  return Math.round(currentBalance * (minPaymentPercent / 100));
-}
-
-/**
- * Calculates available credit on a credit card.
- *
- * @param creditLimit - Total credit limit in pesos
- * @param usedAmount - Currently used amount in pesos
- * @returns Available credit in pesos
- */
-export function calculateAvailableCredit(
-  creditLimit: number,
-  usedAmount: number
-): number {
-  return creditLimit - usedAmount;
-}
-
-/**
- * Projects how a debt will be paid off over time with fixed monthly payments.
- *
- * @param currentBalance - Current debt balance in pesos
- * @param monthlyPayment - Fixed monthly payment in pesos
- * @param interestRateMonthly - Monthly interest rate as decimal
- * @returns Projected payoff information
- */
-export interface PayoffProjection {
-  monthsToPayoff: number;
-  totalInterestPaid: number;
-  totalAmountPaid: number;
-  isIndefinite: boolean; // True if payment doesn't cover interest
-  finalBalance: number; // Should be 0 or negative if overpaid
-}
-
-export function projectPayoff(
-  currentBalance: number,
-  monthlyPayment: number,
-  interestRateMonthly: number
-): PayoffProjection {
-  let balance = currentBalance;
-  let totalInterest = 0;
-  let months = 0;
-  const maxMonths = 360; // 30 years cap
-
-  // Validate: check if payment covers at least the interest
-  const monthlyInterest = balance * interestRateMonthly;
-  if (monthlyPayment <= monthlyInterest) {
+  function toView(
+    debt: DebtRow,
+    balance: number,
+    installments: number,
+    recurring: { id: string; nextDueDate: string | null } | undefined,
+  ): DebtView {
+    const paid = paidCount(debt.initialPaidCount, installments);
     return {
-      monthsToPayoff: Infinity,
-      totalInterestPaid: Infinity,
-      totalAmountPaid: Infinity,
-      isIndefinite: true,
-      finalBalance: balance,
+      ...debt,
+      balanceMinor: balance,
+      paidCount: paid,
+      nextDueDate: recurring?.nextDueDate ?? null,
+      recurringId: recurring?.id ?? null,
+      monthsRemaining: remainingMonths({
+        saldo: balance,
+        cuota: debt.installmentMinor,
+        tasa: debt.monthlyRate,
+        totalCount: debt.totalCount,
+        paidCount: paid,
+      }),
     };
   }
 
-  // Simulate month by month
-  while (balance > 0 && months < maxMonths) {
-    const interest = balance * interestRateMonthly;
-    const principal = monthlyPayment - interest;
-
-    totalInterest += interest;
-    balance -= principal;
-    months++;
-
-    // If we've paid off the balance, cap it at 0
-    if (balance < 0) balance = 0;
-  }
-
   return {
-    monthsToPayoff: months,
-    totalInterestPaid: Math.round(totalInterest),
-    totalAmountPaid: Math.round(totalInterest + currentBalance - balance),
-    isIndefinite: false,
-    finalBalance: Math.round(balance),
+    create(input: CreateDebtInput): OperationResult<{ id: string; recurringId: string | null }> {
+      return runOperation(ctx, (tx, fx: EffectsCollector) => {
+        const name = cleanName(input.name, 'El nombre de la deuda');
+        assertNonNegativeMinor(input.balanceMinor, 'El saldo');
+        const installment = input.installmentMinor ?? null;
+        if (installment !== null) assertPositiveMinor(installment, 'La cuota');
+        const initialPaid = input.initialPaidCount ?? 0;
+        assertNonNegativeMinor(initialPaid, 'Las cuotas pagadas');
+        const nextDue = input.nextDueDate ? assertLocalDate(input.nextDueDate, 'La fecha de pago') : null;
+
+        let monthlyRate: number | null;
+        let rateSource: RateSource;
+        let totalCount: number | null;
+        if ('known' in input.rate) {
+          if (!Number.isFinite(input.rate.known) || input.rate.known < 0) {
+            throw new ValidationError('La tasa mensual debe ser un numero >= 0');
+          }
+          monthlyRate = input.rate.known;
+          rateSource = 'KNOWN';
+          totalCount = null;
+        } else {
+          const months = input.rate.unknown.months;
+          assertPositiveMinor(months, 'Los meses');
+          totalCount = months;
+          const estimated =
+            installment !== null && input.balanceMinor > 0
+              ? estimateMonthlyRate(input.balanceMinor, installment, months)
+              : null;
+          // SUPUESTO: si no hay solucion (sin cuota, o cuota x meses <= saldo) la tasa queda desconocida.
+          monthlyRate = estimated;
+          rateSource = estimated === null ? 'UNKNOWN' : 'ESTIMATED';
+        }
+
+        const id = debtRepository.insert(tx, {
+          userId: ctx.userId,
+          name,
+          installmentMinor: installment,
+          monthlyRate,
+          rateSource,
+          initialPaidCount: initialPaid,
+          totalCount,
+          now: ctx.now(),
+        });
+        if (input.balanceMinor > 0) {
+          adjustmentRepository.insert(tx, {
+            userId: ctx.userId,
+            target: { type: 'DEBT', id },
+            previousMinor: 0,
+            newMinor: input.balanceMinor,
+            reason: 'OPENING',
+            now: ctx.now(),
+          });
+        }
+        let recurringId: string | null = null;
+        if (installment !== null && nextDue !== null) {
+          recurringId = createInstallmentRecurring(tx, ctx, id, nextDue);
+          fx.reschedule(recurringId);
+        }
+        fx.refresh('debts');
+        if (autoActivateWidget(tx, ctx, 'debts')) fx.refresh('settings');
+        return { id, recurringId };
+      });
+    },
+
+    update(id: string, input: UpdateDebtInput): OperationResult<{ adjusted: boolean }> {
+      return runOperation(ctx, (tx, fx) => {
+        const debt = requireActiveDebt(tx, id);
+        const now = ctx.now();
+        let installment: number | null | undefined;
+        if (input.installmentMinor !== undefined) {
+          if (input.installmentMinor !== null) assertPositiveMinor(input.installmentMinor, 'La cuota');
+          installment = input.installmentMinor;
+        }
+        debtRepository.update(tx, id, {
+          name: input.name !== undefined ? cleanName(input.name, 'El nombre de la deuda') : undefined,
+          installmentMinor: installment,
+          now,
+        });
+
+        let adjusted = false;
+        if (input.balanceMinor !== undefined) {
+          assertNonNegativeMinor(input.balanceMinor, 'El saldo');
+          const current = debtRepository.balanceOf(tx, id);
+          if (input.balanceMinor !== current) {
+            adjustmentRepository.insert(tx, {
+              userId: ctx.userId,
+              target: { type: 'DEBT', id },
+              previousMinor: current,
+              newMinor: input.balanceMinor,
+              reason: 'MANUAL',
+              now,
+            });
+            adjusted = true;
+          }
+        }
+
+        if (input.nextDueDate !== undefined) {
+          const date = assertLocalDate(input.nextDueDate, 'La fecha de pago');
+          const existing = recurringRepository.getByDebtId(tx, id);
+          if (existing) {
+            recurringRepository.update(tx, existing.id, {
+              anchorDate: date,
+              nextDueDate: date,
+              snoozedUntil: null,
+              now,
+            });
+            fx.reschedule(existing.id);
+          } else {
+            const effectiveInstallment = installment !== undefined ? installment : debt.installmentMinor;
+            if (effectiveInstallment === null) {
+              throw new ValidationError('Para fijar la fecha de pago hay que definir la cuota');
+            }
+            fx.reschedule(createInstallmentRecurring(tx, ctx, id, date));
+          }
+        }
+        fx.refresh('debts');
+        return { adjusted };
+      });
+    },
+
+    /**
+     * Pago de deuda = gasto real. Capital aplicado = min(monto, saldo); la transaccion guarda el monto
+     * COMPLETO (un abono mayor al saldo deja la deuda en 0 y cuenta completo como gasto).
+     */
+    registerPayment(input: RegisterPaymentInput): OperationResult<RegisterPaymentResult> {
+      return runOperation(ctx, (tx, fx) => {
+        const debt = requireActiveDebt(tx, input.debtId);
+        assertPositiveMinor(input.amountMinor, 'El monto');
+        requireActiveAccount(tx, input.accountId);
+        const date = input.date ?? ctx.now();
+        assertEpochMs(date, 'La fecha');
+        const balance = debtRepository.balanceOf(tx, debt.id);
+        if (balance <= 0) throw new DebtSettledError(debt.id);
+        const effect = debtPaymentEffect(input.amountMinor, balance);
+
+        const recurring = input.type === 'INSTALLMENT' ? recurringRepository.getByDebtId(tx, debt.id) : undefined;
+        const linked = recurring !== undefined && recurring.nextDueDate !== null;
+        const occurrence = linked
+          ? input.occurrenceDate !== undefined
+            ? assertLocalDate(input.occurrenceDate, 'La ocurrencia')
+            : (recurring.nextDueDate as LocalDate)
+          : null;
+        if (linked && occurrence !== null && transactionRepository.findByOccurrence(tx, recurring.id, occurrence)) {
+          throw new OccurrenceAlreadyConfirmedError(recurring.id, occurrence);
+        }
+
+        const transactionId = transactionRepository.insert(tx, {
+          userId: ctx.userId,
+          accountId: input.accountId,
+          type: 'EXPENSE',
+          kind: 'DEBT_PAYMENT',
+          amountMinor: effect.expense,
+          description: input.description?.trim() || `Pago ${debt.name}`,
+          date,
+          debtId: debt.id,
+          debtPaymentType: input.type,
+          debtPrincipalAppliedMinor: effect.principalApplied,
+          recurringItemId: linked ? recurring.id : null,
+          occurrenceDate: linked ? occurrence : null,
+          now: ctx.now(),
+        });
+        if (linked && occurrence !== null) advanceAfterConfirm(tx, ctx, fx, recurring, occurrence);
+        fx.refresh('accounts', 'transactions', 'debts', 'statement');
+        return {
+          transactionId,
+          principalAppliedMinor: effect.principalApplied,
+          overpaymentMinor: effect.overpayment,
+          newBalanceMinor: effect.newBalance,
+          linkedToOccurrence: linked,
+        };
+      });
+    },
+
+    /** Sin pagos: borrado real (ajustes y recurrente incluidos). Con pagos: se archiva (D3). */
+    remove(id: string): OperationResult<{ outcome: RemoveDebtOutcome }> {
+      return runOperation(ctx, (tx, fx) => {
+        requireActiveDebt(tx, id);
+        const recurring = recurringRepository.getByDebtId(tx, id);
+        if (recurring) {
+          transactionRepository.unlinkRecurring(tx, recurring.id);
+          recurringRepository.delete(tx, recurring.id);
+          fx.reschedule(recurring.id);
+        }
+        fx.refresh('debts');
+        if (transactionRepository.countPaymentsOfDebt(tx, id) === 0) {
+          adjustmentRepository.deleteFor(tx, { type: 'DEBT', id });
+          debtRepository.delete(tx, id);
+          return { outcome: 'DELETED' as const };
+        }
+        debtRepository.archive(tx, id, ctx.now());
+        return { outcome: 'ARCHIVED' as const };
+      });
+    },
+
+    // --- Consultas (solo lectura) -------------------------------------------
+
+    /** Deudas no archivadas con saldo, paidCount, proxima fecha y meses restantes derivados. */
+    list(): DebtView[] {
+      const db = ctx.db;
+      const balances = debtRepository.balancesByDebt(db, ctx.userId);
+      const installments = debtRepository.installmentCountsByDebt(db, ctx.userId);
+      return debtRepository.list(db, ctx.userId).map((d) => {
+        const rec = recurringRepository.getByDebtId(db, d.id);
+        return toView(d, balances.get(d.id) ?? 0, installments.get(d.id) ?? 0, rec);
+      });
+    },
+
+    get(id: string): DebtView | undefined {
+      const debt = debtRepository.getById(ctx.db, id);
+      if (!debt) return undefined;
+      return toView(
+        debt,
+        debtRepository.balanceOf(ctx.db, id),
+        debtRepository.installmentPaymentCount(ctx.db, id),
+        recurringRepository.getByDebtId(ctx.db, id),
+      );
+    },
+
+    /** Pagos de una deuda, del mas reciente al mas antiguo. */
+    payments(debtId: string): TransactionRow[] {
+      return transactionRepository.listPaymentsOfDebt(ctx.db, debtId);
+    },
   };
 }
 
-/**
- * Calculates credit card billing information.
- */
-export interface BillingInfo {
-  nextPaymentDate: Date;
-  minimumPayment: number;
-  recommendedPayment: number;
-  daysUntilDue: number;
-  isOverdue: boolean;
-}
-
-export function calculateBillingInfo(
-  currentBalance: number,
-  paymentDayOfMonth: number,
-  minPaymentPercent: number,
-  currentDate: Date = new Date()
-): BillingInfo {
-  const today = new Date(currentDate);
-  const currentDay = today.getDate();
-  const currentMonth = today.getMonth();
-  const currentYear = today.getFullYear();
-
-  let nextPaymentMonth = currentMonth;
-  let nextPaymentYear = currentYear;
-
-  // If we're past the payment day this month, next payment is next month
-  if (currentDay >= paymentDayOfMonth) {
-    nextPaymentMonth++;
-    if (nextPaymentMonth > 11) {
-      nextPaymentMonth = 0;
-      nextPaymentYear++;
-    }
-  }
-
-  const nextPaymentDate = new Date(nextPaymentYear, nextPaymentMonth, paymentDayOfMonth);
-  const daysUntilDue = Math.ceil(
-    (nextPaymentDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-  );
-
-  const minimumPayment = calculateMinPayment(currentBalance, minPaymentPercent);
-
-  // "Recommended" is typically slightly more than minimum to pay faster
-  const recommendedPayment = Math.max(
-    minimumPayment,
-    Math.round(currentBalance * 0.05) // 5% of balance
-  );
-
-  return {
-    nextPaymentDate,
-    minimumPayment,
-    recommendedPayment,
-    daysUntilDue: Math.max(0, daysUntilDue),
-    isOverdue: daysUntilDue < 0,
-  };
-}
+export type DebtService = ReturnType<typeof createDebtService>;
