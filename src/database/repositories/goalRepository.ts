@@ -3,7 +3,7 @@ import { newId } from '../ids';
 import { balanceAdjustments, goalContributions, goals, type Goal } from '../schema';
 import type { DbOrTx } from '../types';
 import { adjustmentRepository } from './adjustmentRepository';
-import { mapRow, mapRows, toDate, type DatesToMs } from './mapping';
+import { mapRow, mapRows, toDate, toDateOrNull, type DatesToMs } from './mapping';
 
 export type GoalRow = DatesToMs<Goal>;
 export type GoalStatus = Goal['status'];
@@ -11,7 +11,10 @@ export type GoalStatus = Goal['status'];
 const num = (expr: ReturnType<typeof sql<number>>) => expr.mapWith(Number);
 
 export const goalRepository = {
-  insert(db: DbOrTx, v: { userId: string; name: string; targetMinor: number; now: number }): string {
+  insert(
+    db: DbOrTx,
+    v: { userId: string; name: string; targetMinor: number; targetDate?: number | null; now: number },
+  ): string {
     const id = newId();
     db.insert(goals)
       .values({
@@ -19,6 +22,7 @@ export const goalRepository = {
         userId: v.userId,
         name: v.name,
         targetMinor: v.targetMinor,
+        targetDate: toDateOrNull(v.targetDate ?? null),
         createdAt: toDate(v.now),
         updatedAt: toDate(v.now),
       })
@@ -36,10 +40,16 @@ export const goalRepository = {
     return mapRows(db.select().from(goals).where(where).orderBy(asc(goals.createdAt)).all());
   },
 
-  update(db: DbOrTx, id: string, v: { name?: string; targetMinor?: number; now: number }): void {
+  /** `targetDate`: epoch ms; `null` la limpia; `undefined` la deja intacta. */
+  update(
+    db: DbOrTx,
+    id: string,
+    v: { name?: string; targetMinor?: number; targetDate?: number | null; now: number },
+  ): void {
     const set: Partial<typeof goals.$inferInsert> = { updatedAt: toDate(v.now) };
     if (v.name !== undefined) set.name = v.name;
     if (v.targetMinor !== undefined) set.targetMinor = v.targetMinor;
+    if (v.targetDate !== undefined) set.targetDate = toDateOrNull(v.targetDate);
     db.update(goals).set(set).where(eq(goals.id, id)).run();
   },
 

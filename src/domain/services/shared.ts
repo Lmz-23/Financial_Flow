@@ -108,8 +108,14 @@ export function assertLocalDate(value: string, label: string): LocalDate {
   return value;
 }
 
+/** Rango maximo de un `Date` de JavaScript (ECMAScript): +-8.64e15 ms. */
+export const MAX_EPOCH_MS = 8.64e15;
+
+/** Un instante epoch ms valido: entero seguro dentro del rango de `Date`. */
 export function assertEpochMs(value: number, label: string): void {
-  if (!Number.isFinite(value)) throw new ValidationError(`${label} no es un instante valido`);
+  if (!Number.isSafeInteger(value) || Math.abs(value) > MAX_EPOCH_MS) {
+    throw new ValidationError(`${label} no es un instante valido`);
+  }
 }
 
 // ----------------------------------------------------------------------------

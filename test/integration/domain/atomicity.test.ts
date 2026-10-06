@@ -1,7 +1,26 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_USER_ID } from '../../../src/database/seed';
-import { InsufficientFundsError, runOperation } from '../../../src/domain/services';
+import {
+  AccountArchivedError,
+  InsufficientFundsError,
+  OccurrenceNotInSeriesError,
+  RefundAccountRequiredError,
+  runOperation,
+} from '../../../src/domain/services';
 import { expectIntegrity, failOn, mkAccount, NOW, setup, thrown, type TestEnv } from './_helpers';
+
+/** Meta con aportes de una cuenta activa y otra ARCHIVADA, y una cuenta destino. */
+function goalWithArchivedSource(env: TestEnv) {
+  const { d } = env;
+  const a = mkAccount(d, 'A', 1000);
+  const b = mkAccount(d, 'B', 1000);
+  const c = mkAccount(d, 'C', 50);
+  const goal = d.goals.create({ name: 'G', targetMinor: 900 }).result.id;
+  d.goals.contribute({ goalId: goal, accountId: a, amountMinor: 300 });
+  d.goals.contribute({ goalId: goal, accountId: b, amountMinor: 200 });
+  d.accounts.remove(b);
+  return { a, b, c, goal };
+}
 
 const TABLES = [
   'users', 'accounts', 'categories', 'debts', 'goals', 'recurring_items',
@@ -132,6 +151,41 @@ const cases: Case[] = [
     fail: ['DELETE', 'goals'],
   },
   {
+    name: 'GoalService.update con targetDate (escribe la fecha y luego falla el ajuste MANUAL)',
+    prepare: ({ d }) => {
+      const goal = d.goals.create({ name: 'G', targetMinor: 500, targetDate: '2026-12-31' }).result.id;
+      return () => d.goals.update(goal, { targetDate: '2027-01-31', savedMinor: 50 });
+    },
+    fail: ['INSERT', 'balance_adjustments'],
+  },
+  {
+    name: 'GoalService.remove con redireccion (falla el ajuste MANUAL del destino al final)',
+    prepare: (env) => {
+      const { c, goal } = goalWithArchivedSource(env);
+      return () => env.d.goals.remove(goal, { refundAccountId: c });
+    },
+    fail: ['INSERT', 'balance_adjustments', "WHEN NEW.reason = 'MANUAL'"],
+  },
+  {
+    name: 'GoalService.remove con redireccion (falla el ARCHIVE_CLOSE tras borrar aportes y meta)',
+    prepare: (env) => {
+      const { c, goal } = goalWithArchivedSource(env);
+      return () => env.d.goals.remove(goal, { refundAccountId: c });
+    },
+    // El trigger se instala despues de preparar: solo alcanza al ARCHIVE_CLOSE de la redireccion.
+    fail: ['INSERT', 'balance_adjustments', "WHEN NEW.reason = 'ARCHIVE_CLOSE'"],
+  },
+  {
+    name: 'DebtService.update con ancla sobre ocurrencias confirmadas (falla mover la fecha)',
+    prepare: ({ d }) => {
+      const acc = mkAccount(d, 'A', 10_000);
+      const debt = d.debts.create({ name: 'D', balanceMinor: 1000, installmentMinor: 100, rate: { known: 0 }, nextDueDate: '2026-03-15' }).result.id;
+      d.debts.registerPayment({ debtId: debt, accountId: acc, amountMinor: 100, type: 'INSTALLMENT' });
+      return () => d.debts.update(debt, { balanceMinor: 500, nextDueDate: '2026-03-15' });
+    },
+    fail: ['UPDATE', 'recurring_items'],
+  },
+  {
     name: 'RecurringService.confirmOccurrence (falla el avance tras insertar la transaccion)',
     prepare: ({ d }) => {
       const acc = mkAccount(d, 'A', 1000);
@@ -193,6 +247,25 @@ describe('Atomicidad real (escenario q): una operacion que falla a mitad no deja
       InsufficientFundsError,
     );
     expect(snapshot(env)).toBe(before);
+  });
+
+  it('los rechazos de regla de la pasada F2b-bis no dejan efectos parciales', () => {
+    const env = setup();
+    const { d } = env;
+    const acc = mkAccount(d, 'A', 1000);
+    const rec = d.recurring.create({ type: 'EXPENSE', name: 'x', amountMinor: 10, frequency: 'MONTHLY', anchorDate: '2026-03-15' }).result.id;
+    const old = mkAccount(d, 'Vieja', 500);
+    const tx = d.transactions.create({ type: 'EXPENSE', accountId: old, amountMinor: 10 }).result.id;
+    d.accounts.remove(old);
+    const { c, goal } = goalWithArchivedSource(env);
+    const before = snapshot(env);
+    expect(thrown(() => d.recurring.confirmOccurrence({ recurringId: rec, occurrenceDate: '2026-03-20', accountId: acc }))).toBeInstanceOf(OccurrenceNotInSeriesError);
+    expect(thrown(() => d.transactions.remove(tx))).toBeInstanceOf(AccountArchivedError);
+    expect(thrown(() => d.goals.remove(goal))).toBeInstanceOf(RefundAccountRequiredError);
+    expect(thrown(() => d.goals.remove(goal, { refundAccountId: old }))).toBeInstanceOf(RefundAccountRequiredError);
+    expect(c).toBeTruthy();
+    expect(snapshot(env)).toBe(before);
+    expectIntegrity(d);
   });
 
   it('el callback de una operacion no puede ser asincrono (sin await dentro de la transaccion)', () => {

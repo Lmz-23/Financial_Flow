@@ -5,12 +5,14 @@ import { transactionRepository, type TransactionRow } from '../../database/repos
 import type { DbOrTx } from '../../database/types';
 import type { LocalDate } from '../dates';
 import { estimateMonthlyRate, remainingMonths } from '../rules/amortization';
+import { isOccurrenceOfSeries, nextPendingOccurrence } from '../rules/recurrence';
 import { debtPaymentEffect, paidCount } from '../rules/statement';
 import {
   DebtArchivedError,
   DebtSettledError,
   NotFoundError,
   OccurrenceAlreadyConfirmedError,
+  OccurrenceNotInSeriesError,
   ValidationError,
 } from './errors';
 import { advanceAfterConfirm } from './RecurringService';
@@ -46,7 +48,11 @@ export interface UpdateDebtInput {
   /** Nuevo saldo: ajuste MANUAL con nuevo >= 0. */
   balanceMinor?: number;
   installmentMinor?: number | null;
-  /** Actualiza o crea el recurrente vinculado (requiere cuota). */
+  /**
+   * Actualiza o crea el recurrente vinculado (requiere cuota). La fecha dada pasa a ser el ANCLA;
+   * `nextDueDate` queda en la primera ocurrencia desde el ancla que no tenga transaccion ligada
+   * (puede ser posterior a la fecha dada si esa ocurrencia ya estaba pagada).
+   */
   nextDueDate?: LocalDate;
 }
 
@@ -234,9 +240,18 @@ export function createDebtService(ctx: DomainContext) {
           const date = assertLocalDate(input.nextDueDate, 'La fecha de pago');
           const existing = recurringRepository.getByDebtId(tx, id);
           if (existing) {
+            // El ancla es la fecha dada; nextDueDate, la primera ocurrencia desde el ancla sin
+            // transaccion ligada (igual que el avance normal y RecurringService.update).
+            const nextDueDate =
+              nextPendingOccurrence({
+                anchor: date,
+                frequency: existing.frequency,
+                confirmed: transactionRepository.confirmedOccurrences(tx, existing.id),
+                minDate: date,
+              }) ?? date;
             recurringRepository.update(tx, existing.id, {
               anchorDate: date,
-              nextDueDate: date,
+              nextDueDate,
               snoozedUntil: null,
               now,
             });
@@ -276,6 +291,13 @@ export function createDebtService(ctx: DomainContext) {
             ? assertLocalDate(input.occurrenceDate, 'La ocurrencia')
             : (recurring.nextDueDate as LocalDate)
           : null;
+        if (
+          linked &&
+          occurrence !== null &&
+          (recurring.anchorDate === null || !isOccurrenceOfSeries(recurring.anchorDate, recurring.frequency, occurrence))
+        ) {
+          throw new OccurrenceNotInSeriesError(recurring.id, occurrence);
+        }
         if (linked && occurrence !== null && transactionRepository.findByOccurrence(tx, recurring.id, occurrence)) {
           throw new OccurrenceAlreadyConfirmedError(recurring.id, occurrence);
         }

@@ -26,6 +26,7 @@ import {
   daysInMonth,
   diffDays,
   formatLocalDate,
+  isValidLocalDate,
   parseLocalDate,
   type LocalDate,
 } from '../dates';
@@ -122,6 +123,31 @@ export function* iterateOccurrences(anchor: LocalDate, frequency: Frequency): Ge
         current = nextQuincena(current);
       }
     }
+  }
+}
+
+/**
+ * true si `date` es una ocurrencia de la serie (ancla, frecuencia), es decir, si `iterateOccurrences`
+ * la generaría. Aritmética de calendario O(1), sin recorrer la serie:
+ * - La serie empieza en el ancla (normalizada en BIWEEKLY): una fecha anterior NO pertenece.
+ * - MONTHLY: día del ancla, o el último día del mes si este es más corto.
+ * - WEEKLY: diferencia en días múltiplo de 7.
+ * - BIWEEKLY: día 15 o último día del mes.
+ * Una `date` inválida devuelve false; un `anchor` inválido lanza (igual que el resto del módulo).
+ */
+export function isOccurrenceOfSeries(anchor: LocalDate, frequency: Frequency, date: LocalDate): boolean {
+  const a = parseLocalDate(anchor);
+  if (!isValidLocalDate(date)) return false;
+  const effectiveAnchor = frequency === 'BIWEEKLY' ? nearestBiweeklyDate(anchor) : anchor;
+  if (compareLocalDates(date, effectiveAnchor) < 0) return false;
+  const d = parseLocalDate(date);
+  switch (frequency) {
+    case 'WEEKLY':
+      return diffDays(effectiveAnchor, date) % 7 === 0;
+    case 'MONTHLY':
+      return d.day === Math.min(a.day, daysInMonth(d.year, d.month));
+    case 'BIWEEKLY':
+      return d.day === 15 || d.day === daysInMonth(d.year, d.month);
   }
 }
 
