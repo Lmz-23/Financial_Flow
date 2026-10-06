@@ -1,5 +1,6 @@
 import { View, type StyleProp, type ViewStyle } from 'react-native';
 
+import { formatCOP, type Minor } from '../../../domain/money';
 import { useTheme } from '../../../theme';
 import { Pill } from './Pill';
 import { Text } from './Text';
@@ -7,8 +8,8 @@ import { Text } from './Text';
 export interface AccountOption {
   id: string;
   name: string;
-  /** Saldo ya formateado; solo se usa en el nombre accesible (no se muestra en el chip). */
-  balanceLabel?: string;
+  /** Saldo en UNIDADES MENORES; se formatea con formatCOP solo para el nombre accesible (no se muestra en el chip). */
+  balance?: Minor;
 }
 
 export interface AccountPickerProps {
@@ -40,7 +41,7 @@ export function AccountPicker({ accounts, selectedId, onSelect, label, emptyText
               label={account.name}
               selected={account.id === selectedId}
               onPress={() => onSelect(account.id)}
-              accessibilityLabel={account.balanceLabel ? `${account.name}, ${account.balanceLabel}` : account.name}
+              accessibilityLabel={account.balance !== undefined ? `${account.name}, ${formatCOP(account.balance)}` : account.name}
             />
           ))}
         </View>

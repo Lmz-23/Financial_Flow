@@ -1,14 +1,15 @@
 import type { TextProps as RNTextProps } from 'react-native';
 
+import type { Minor } from '../../../domain/money';
 import { Text } from './Text';
-import { amountDisplay, formatCurrency, type AmountTone } from './utils';
+import { amountDisplay, type AmountTone } from './utils';
 
 export interface AmountProps extends Omit<RNTextProps, 'children'> {
   /**
-   * Monto con signo en unidades de moneda (p. ej. pesos). La conversión desde unidades menores
-   * (centavos) es responsabilidad de quien llama (src/domain/money.ts).
+   * Monto con signo en UNIDADES MENORES (`Minor`, como se guarda en BD). El texto lo produce
+   * `formatCOP` (src/domain/money.ts); este componente no formatea pesos por su cuenta.
    */
-  value: number;
+  value: Minor;
   /** 'amountLg' (hero), 'amountMd' (secundario) o 'amountSm' (listas). Por defecto 'amountSm'. */
   variant?: 'amountLg' | 'amountMd' | 'amountSm';
   /**
@@ -18,8 +19,6 @@ export interface AmountProps extends Omit<RNTextProps, 'children'> {
   tone?: AmountTone;
   /** Mostrar '+' en positivos. Por defecto solo con tone 'auto'. El '-' siempre se muestra. */
   showSign?: boolean;
-  /** Formateador del valor absoluto. Por defecto '$' + miles con punto, sin decimales. */
-  format?: (absValue: number) => string;
 }
 
 const SIGNAL = { growth: 'growth', debt: 'debt', goal: 'goal', neutral: 'primary' } as const;
@@ -29,10 +28,9 @@ export function Amount({
   variant = 'amountSm',
   tone = 'neutral',
   showSign,
-  format = formatCurrency,
   ...rest
 }: AmountProps) {
-  const display = amountDisplay(value, { tone, showSign, format });
+  const display = amountDisplay(value, { tone, showSign });
   return (
     <Text {...rest} variant={variant} tone={SIGNAL[display.tone]}>
       {display.text}
