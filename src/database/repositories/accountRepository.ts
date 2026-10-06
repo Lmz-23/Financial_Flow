@@ -1,246 +1,180 @@
-import { database } from '../index';
-import { accounts, transactions, pockets } from '../schema';
-import { eq, and, sql, asc, desc } from 'drizzle-orm';
-import type { Account, NewAccount } from '../schema';
+import { and, asc, eq, isNull, sql } from 'drizzle-orm';
+import { newId } from '../ids';
+import {
+  accounts,
+  balanceAdjustments,
+  goalContributions,
+  transactions,
+  type Account,
+} from '../schema';
+import type { DbOrTx } from '../types';
+import { mapRow, mapRows, toDate, type DatesToMs } from './mapping';
 
-// =============================================================================
-// ACCOUNT REPOSITORY
-// =============================================================================
-//
-// CRITICAL: Balance is NEVER stored. It is ALWAYS calculated from transactions.
-// This is the single source of truth that prevents the synchronization bug
-// where pocket balances diverge from account balances.
-// =============================================================================
+export type AccountRow = DatesToMs<Account>;
+export type AccountType = Account['type'];
 
-export const AccountRepository = {
-  // ---------------------------------------------------------------------------
-  // CREATE
-  // ---------------------------------------------------------------------------
+const num = <T>(expr: ReturnType<typeof sql<T>>) => expr.mapWith(Number);
 
-  async create(data: Omit<Account, 'id' | 'createdAt' | 'updatedAt'>): Promise<Account> {
-    const now = new Date();
-    const id = crypto.randomUUID();
+export const accountRepository = {
+  insert(
+    db: DbOrTx,
+    v: { userId: string; name: string; type: AccountType; order: number; now: number },
+  ): string {
+    const id = newId();
+    db.insert(accounts)
+      .values({
+        id,
+        userId: v.userId,
+        name: v.name,
+        type: v.type,
+        order: v.order,
+        createdAt: toDate(v.now),
+        updatedAt: toDate(v.now),
+      })
+      .run();
+    return id;
+  },
 
-    const newAccount = {
-      ...data,
-      id,
-      createdAt: now,
-      updatedAt: now,
+  getById(db: DbOrTx, id: string): AccountRow | undefined {
+    const row = db.select().from(accounts).where(eq(accounts.id, id)).get();
+    return row ? mapRow(row) : undefined;
+  },
+
+  /** Cuentas no archivadas, en orden de usuario. */
+  listActive(db: DbOrTx, userId: string): AccountRow[] {
+    return mapRows(
+      db
+        .select()
+        .from(accounts)
+        .where(and(eq(accounts.userId, userId), isNull(accounts.archivedAt)))
+        .orderBy(asc(accounts.order), asc(accounts.createdAt))
+        .all(),
+    );
+  },
+
+  /** Todas, incluidas las archivadas (para invariantes y reportes). */
+  listAll(db: DbOrTx, userId: string): AccountRow[] {
+    return mapRows(
+      db
+        .select()
+        .from(accounts)
+        .where(eq(accounts.userId, userId))
+        .orderBy(asc(accounts.order), asc(accounts.createdAt))
+        .all(),
+    );
+  },
+
+  maxOrder(db: DbOrTx, userId: string): number {
+    const row = db
+      .select({ m: num(sql<number>`coalesce(max(${accounts.order}), -1)`) })
+      .from(accounts)
+      .where(eq(accounts.userId, userId))
+      .get();
+    return row?.m ?? -1;
+  },
+
+  rename(db: DbOrTx, id: string, name: string, now: number): void {
+    db.update(accounts).set({ name, updatedAt: toDate(now) }).where(eq(accounts.id, id)).run();
+  },
+
+  archive(db: DbOrTx, id: string, now: number): void {
+    db.update(accounts)
+      .set({ archivedAt: toDate(now), updatedAt: toDate(now) })
+      .where(eq(accounts.id, id))
+      .run();
+  },
+
+  delete(db: DbOrTx, id: string): void {
+    db.delete(accounts).where(eq(accounts.id, id)).run();
+  },
+
+  /** true si la cuenta tiene transacciones o aportes a metas. */
+  hasMovements(db: DbOrTx, id: string): boolean {
+    const tx = db
+      .select({ n: num(sql<number>`count(*)`) })
+      .from(transactions)
+      .where(eq(transactions.accountId, id))
+      .get();
+    if ((tx?.n ?? 0) > 0) return true;
+    const gc = db
+      .select({ n: num(sql<number>`count(*)`) })
+      .from(goalContributions)
+      .where(eq(goalContributions.accountId, id))
+      .get();
+    return (gc?.n ?? 0) > 0;
+  },
+
+  /**
+   * Disponible derivado (§3.1):
+   * Σ ajustes + Σ ingresos − Σ gastos − Σ aportes desde la cuenta.
+   */
+  availableOf(db: DbOrTx, id: string): number {
+    const adj = db
+      .select({ v: num(sql<number>`coalesce(sum(${balanceAdjustments.deltaMinor}), 0)`) })
+      .from(balanceAdjustments)
+      .where(eq(balanceAdjustments.accountId, id))
+      .get();
+    const tx = db
+      .select({
+        income: num(sql<number>`coalesce(sum(case when ${transactions.type} = 'INCOME' then ${transactions.amountMinor} else 0 end), 0)`),
+        expense: num(sql<number>`coalesce(sum(case when ${transactions.type} = 'EXPENSE' then ${transactions.amountMinor} else 0 end), 0)`),
+      })
+      .from(transactions)
+      .where(eq(transactions.accountId, id))
+      .get();
+    const gc = db
+      .select({ v: num(sql<number>`coalesce(sum(${goalContributions.amountMinor}), 0)`) })
+      .from(goalContributions)
+      .where(eq(goalContributions.accountId, id))
+      .get();
+    return (adj?.v ?? 0) + (tx?.income ?? 0) - (tx?.expense ?? 0) - (gc?.v ?? 0);
+  },
+
+  /** Disponible de todas las cuentas del usuario (incluidas archivadas), por id. */
+  availableByAccount(db: DbOrTx, userId: string): Map<string, number> {
+    const result = new Map<string, number>();
+    for (const a of db.select({ id: accounts.id }).from(accounts).where(eq(accounts.userId, userId)).all()) {
+      result.set(a.id, 0);
+    }
+    const add = (accountId: string | null, delta: number): void => {
+      if (accountId === null) return;
+      result.set(accountId, (result.get(accountId) ?? 0) + delta);
     };
 
-    await database.insert(accounts).values(newAccount);
-
-    const [created] = await database
-      .select()
-      .from(accounts)
-      .where(eq(accounts.id, id));
-
-    return created;
-  },
-
-  // ---------------------------------------------------------------------------
-  // UPDATE
-  // ---------------------------------------------------------------------------
-
-  async update(
-    id: string,
-    data: Partial<Pick<Account, 'name' | 'icon' | 'color' | 'institution' | 'cashflowClass' | 'isActive' | 'order'>>
-  ): Promise<Account | null> {
-    const now = new Date();
-
-    await database
-      .update(accounts)
-      .set({ ...data, updatedAt: now })
-      .where(eq(accounts.id, id));
-
-    return this.getById(id);
-  },
-
-  // ---------------------------------------------------------------------------
-  // DELETE
-  // ---------------------------------------------------------------------------
-
-  async delete(id: string): Promise<void> {
-    // Check if account has transactions
-    const txCount = await database
-      .select({ count: sql<number>`count(*)` })
-      .from(transactions)
-      .where(eq(transactions.accountId, id));
-
-    if (txCount[0].count > 0) {
-      throw new Error(
-        `Cannot delete account: it has ${txCount[0].count} associated transactions. ` +
-        `Delete or reassign the transactions first.`
-      );
-    }
-
-    // Check if account has pockets
-    const pocketCount = await database
-      .select({ count: sql<number>`count(*)` })
-      .from(pockets)
-      .where(eq(pockets.accountId, id));
-
-    if (pocketCount[0].count > 0) {
-      throw new Error(
-        `Cannot delete account: it has ${pocketCount[0].count} associated pockets. ` +
-        `Delete the pockets first.`
-      );
-    }
-
-    await database.delete(accounts).where(eq(accounts.id, id));
-  },
-
-  // ---------------------------------------------------------------------------
-  // QUERIES (without balance - use getBalance() for that)
-  // ---------------------------------------------------------------------------
-
-  async getAll(userId: string): Promise<Account[]> {
-    return database.query.accounts.findMany({
-      where: and(
-        eq(accounts.userId, userId),
-        eq(accounts.isActive, true)
-      ),
-      orderBy: [asc(accounts.order), asc(accounts.name)],
-    });
-  },
-
-  async getById(id: string): Promise<Account | null> {
-    const result = await database.query.accounts.findFirst({
-      where: eq(accounts.id, id),
-    });
-    return result ?? null;
-  },
-
-  async getAllIncludingInactive(userId: string): Promise<Account[]> {
-    return database.query.accounts.findMany({
-      where: eq(accounts.userId, userId),
-      orderBy: [asc(accounts.order), asc(accounts.name)],
-    });
-  },
-
-  // ---------------------------------------------------------------------------
-  // BALANCE CALCULATION (CRITICAL - ALWAYS CALCULATED, NEVER STORED)
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Calculates the current balance of an account by summing all transactions.
-   * This is the ONLY source of truth for account balance.
-   *
-   * @returns Sum of all transaction amounts for this account (positive + negative)
-   */
-  async getBalance(accountId: string): Promise<number> {
-    const result = await database
-      .select({ total: sql<number>`COALESCE(SUM(${transactions.amount}), 0)` })
-      .from(transactions)
-      .where(
-        and(
-          eq(transactions.accountId, accountId),
-          eq(transactions.status, 'CONFIRMED')
-        )
-      );
-
-    return result[0]?.total ?? 0;
-  },
-
-  /**
-   * Calculates the balance of an account AS OF a specific date.
-   * Useful for historical reports and patrimony evolution.
-   */
-  async getBalanceAsOf(accountId: string, date: Date): Promise<number> {
-    const result = await database
-      .select({ total: sql<number>`COALESCE(SUM(${transactions.amount}), 0)` })
-      .from(transactions)
-      .where(
-        and(
-          eq(transactions.accountId, accountId),
-          eq(transactions.status, 'CONFIRMED'),
-          sql`${transactions.date} <= ${date.getTime()}`
-        )
-      );
-
-    return result[0]?.total ?? 0;
-  },
-
-  // ---------------------------------------------------------------------------
-  // GET ALL WITH BALANCES (OPTIMIZED - NO N+1 QUERIES)
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Returns all accounts for a user with their calculated balances.
-   * Uses a single aggregated query instead of N+1 queries.
-   */
-  async getAllWithBalances(userId: string): Promise<(Account & { balance: number })[]> {
-    // Single query: get all accounts with their transaction sums in one round trip
-    const accountsWithSums = await database
+    for (const r of db
       .select({
-        accountId: accounts.id,
-        balance: sql<number>`COALESCE(SUM(${transactions.amount}), 0)`,
+        accountId: balanceAdjustments.accountId,
+        v: num(sql<number>`coalesce(sum(${balanceAdjustments.deltaMinor}), 0)`),
       })
-      .from(accounts)
-      .leftJoin(
-        transactions,
-        and(
-          eq(accounts.id, transactions.accountId),
-          eq(transactions.status, 'CONFIRMED')
-        )
-      )
-      .where(
-        and(
-          eq(accounts.userId, userId),
-          eq(accounts.isActive, true)
-        )
-      )
-      .groupBy(accounts.id)
-      .orderBy(asc(accounts.order), asc(accounts.name));
-
-    // Get the full account records
-    const allAccounts = await database.query.accounts.findMany({
-      where: and(
-        eq(accounts.userId, userId),
-        eq(accounts.isActive, true)
-      ),
-      orderBy: [asc(accounts.order), asc(accounts.name)],
-    });
-
-    // Merge: attach balance to each account
-    const balanceMap = new Map(
-      accountsWithSums.map((row) => [row.accountId, row.balance])
-    );
-
-    return allAccounts.map((account) => ({
-      ...account,
-      balance: balanceMap.get(account.id) ?? 0,
-    }));
-  },
-
-  // ---------------------------------------------------------------------------
-  // TOTAL PATRIMONY (SUM OF ALL ACCOUNTS)
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Calculates total patrimony (sum of all account balances) for a user.
-   */
-  async getTotalPatrimony(userId: string): Promise<number> {
-    const result = await database
+      .from(balanceAdjustments)
+      .where(and(eq(balanceAdjustments.userId, userId), eq(balanceAdjustments.targetType, 'ACCOUNT')))
+      .groupBy(balanceAdjustments.accountId)
+      .all()) {
+      add(r.accountId, r.v);
+    }
+    for (const r of db
       .select({
-        total: sql<number>`COALESCE(SUM(${transactions.amount}), 0)`,
+        accountId: transactions.accountId,
+        income: num(sql<number>`coalesce(sum(case when ${transactions.type} = 'INCOME' then ${transactions.amountMinor} else 0 end), 0)`),
+        expense: num(sql<number>`coalesce(sum(case when ${transactions.type} = 'EXPENSE' then ${transactions.amountMinor} else 0 end), 0)`),
       })
-      .from(accounts)
-      .leftJoin(
-        transactions,
-        and(
-          eq(accounts.id, transactions.accountId),
-          eq(transactions.status, 'CONFIRMED')
-        )
-      )
-      .where(eq(accounts.userId, userId));
-
-    return result[0]?.total ?? 0;
+      .from(transactions)
+      .where(eq(transactions.userId, userId))
+      .groupBy(transactions.accountId)
+      .all()) {
+      add(r.accountId, r.income - r.expense);
+    }
+    for (const r of db
+      .select({
+        accountId: goalContributions.accountId,
+        v: num(sql<number>`coalesce(sum(${goalContributions.amountMinor}), 0)`),
+      })
+      .from(goalContributions)
+      .where(eq(goalContributions.userId, userId))
+      .groupBy(goalContributions.accountId)
+      .all()) {
+      add(r.accountId, -r.v);
+    }
+    return result;
   },
 };
-
-// =============================================================================
-// TYPE EXPORTS
-// =============================================================================
-
-export type { Account, NewAccount };
