@@ -1,3 +1,6 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import { toneColor } from '../../../src/components/ui/ds/tone';
@@ -5,46 +8,103 @@ import {
   amountDisplay,
   clampPercent,
   digitsOnly,
-  formatCurrency,
-  formatDigitsAsCurrency,
-  groupThousands,
+  inputTextFromMinor,
+  minorFromInputText,
 } from '../../../src/components/ui/ds/utils';
+import { formatCOP, toMinor } from '../../../src/domain/money';
 import { inkFor } from '../../../src/theme/theme';
 import { colorTokens } from '../../../src/theme/tokens';
 
-describe('formato de montos', () => {
-  it('agrupa miles con punto como el diseño', () => {
-    expect(groupThousands(450000)).toBe('450.000');
-    expect(groupThousands(999)).toBe('999');
-    expect(groupThousands(1200000)).toBe('1.200.000');
-    expect(formatCurrency(85000)).toBe('$85.000');
-    expect(formatCurrency(0)).toBe('$0');
+// Los montos de las primitivas son unidades menores; el texto lo produce formatCOP (dominio).
+describe('amountDisplay (unidades menores, delega en formatCOP)', () => {
+  it('el texto es formatCOP del monto', () => {
+    expect(amountDisplay(toMinor(340000)).text).toBe(formatCOP(toMinor(340000)));
+    expect(amountDisplay(toMinor(-85000)).text).toBe(formatCOP(toMinor(-85000)));
+    expect(amountDisplay(0).text).toBe(formatCOP(0));
   });
 
   it('signo y tono', () => {
-    expect(amountDisplay(160000, { tone: 'auto' })).toEqual({ text: '+$160.000', tone: 'growth' });
-    expect(amountDisplay(-85000, { tone: 'auto' })).toEqual({ text: '-$85.000', tone: 'debt' });
-    expect(amountDisplay(0, { tone: 'auto' })).toEqual({ text: '$0', tone: 'neutral' });
-    expect(amountDisplay(340000)).toEqual({ text: '$340.000', tone: 'neutral' });
-    expect(amountDisplay(340000, { showSign: true }).text).toBe('+$340.000');
-    expect(amountDisplay(-5, { tone: 'neutral' }).text).toBe('-$5');
-    expect(amountDisplay(1000, { tone: 'goal' }).tone).toBe('goal');
-    expect(amountDisplay(-0.4, { tone: 'auto' })).toEqual({ text: '$0', tone: 'neutral' });
+    const plus = amountDisplay(toMinor(160000), { tone: 'auto' });
+    expect(plus).toEqual({ text: `+${formatCOP(toMinor(160000))}`, tone: 'growth' });
+    const minus = amountDisplay(toMinor(-85000), { tone: 'auto' });
+    expect(minus).toEqual({ text: formatCOP(toMinor(-85000)), tone: 'debt' });
+    expect(minus.text.startsWith('-')).toBe(true);
+    expect(amountDisplay(0, { tone: 'auto' })).toEqual({ text: formatCOP(0), tone: 'neutral' });
+    expect(amountDisplay(toMinor(340000), { showSign: true }).text).toBe(`+${formatCOP(toMinor(340000))}`);
+    expect(amountDisplay(toMinor(340000)).text.startsWith('+')).toBe(false);
+    expect(amountDisplay(toMinor(1000), { tone: 'goal' }).tone).toBe('goal');
   });
 
-  it('formateador personalizado', () => {
-    expect(amountDisplay(-1, { format: (n) => `COP ${n}` }).text).toBe('-COP 1');
+  it('un monto que se muestra como 0 pesos no lleva signo y es neutral', () => {
+    expect(amountDisplay(-40, { tone: 'auto' })).toEqual({ text: formatCOP(0), tone: 'neutral' });
+    expect(amountDisplay(40, { tone: 'auto' })).toEqual({ text: formatCOP(0), tone: 'neutral' });
   });
 });
 
-describe('MoneyInput helpers', () => {
-  it('digitsOnly y formatDigitsAsCurrency', () => {
+describe('MoneyInput helpers (unidades menores in/out)', () => {
+  it('digitsOnly', () => {
     expect(digitsOnly('$1.200.000')).toBe('1200000');
     expect(digitsOnly('abc')).toBe('');
-    expect(formatDigitsAsCurrency('1200000')).toBe('$1.200.000');
-    expect(formatDigitsAsCurrency('')).toBe('');
-    expect(formatDigitsAsCurrency('000')).toBe('$0');
-    expect(formatDigitsAsCurrency('0042')).toBe('$42');
+  });
+
+  it('minorFromInputText: dígitos escritos son pesos enteros -> unidades menores', () => {
+    expect(minorFromInputText('1200000')).toBe(toMinor(1200000));
+    expect(minorFromInputText(formatCOP(toMinor(1200000)))).toBe(toMinor(1200000));
+    expect(minorFromInputText('0042')).toBe(toMinor(42));
+    expect(minorFromInputText('0')).toBe(0);
+  });
+
+  it('minorFromInputText: vacío, sin dígitos o fuera de rango -> null', () => {
+    expect(minorFromInputText('')).toBeNull();
+    expect(minorFromInputText('$ ')).toBeNull();
+    expect(minorFromInputText('9'.repeat(30))).toBeNull();
+  });
+
+  it('inputTextFromMinor delega en formatCOP; null -> vacío', () => {
+    expect(inputTextFromMinor(null)).toBe('');
+    expect(inputTextFromMinor(toMinor(1200000))).toBe(formatCOP(toMinor(1200000)));
+    expect(inputTextFromMinor(0)).toBe(formatCOP(0));
+  });
+
+  it('ida y vuelta: texto -> minor -> texto estable', () => {
+    const minor = minorFromInputText('1234567');
+    expect(minor).toBe(toMinor(1234567));
+    expect(minorFromInputText(inputTextFromMinor(minor))).toBe(minor);
+  });
+});
+
+describe('ds/ no formatea pesos por su cuenta', () => {
+  const dir = join(__dirname, '../../../src/components/ui/ds');
+  const files = readdirSync(dir).filter((f) => /\.(ts|tsx)$/.test(f));
+  /** Excepciones justificadas por archivo (vacía: no hay ninguna). */
+  const EXCEPTIONS: Record<string, string[]> = {};
+  const FORBIDDEN: [string, RegExp][] = [
+    ['toLocaleString', /toLocaleString/],
+    ['Intl.NumberFormat', /Intl\.NumberFormat/],
+    ['toFixed', /\.toFixed\(/],
+    ['formatCurrency', /formatCurrency/],
+    ['groupThousands', /groupThousands/],
+    ['plantilla con $ literal seguido de interpolación', /`[^`]*\$\$\{/],
+    ["'$' concatenado", /['"]\$['"]\s*\+/],
+  ];
+
+  it('hay archivos que revisar', () => {
+    expect(files.length).toBeGreaterThan(5);
+  });
+
+  for (const [label, pattern] of FORBIDDEN) {
+    it(`ningún archivo contiene ${label}`, () => {
+      const offenders = files.filter(
+        (f) => !(EXCEPTIONS[f] ?? []).includes(label) && pattern.test(readFileSync(join(dir, f), 'utf8')),
+      );
+      expect(offenders).toEqual([]);
+    });
+  }
+
+  it('las primitivas con montos importan formatCOP del dominio', () => {
+    for (const f of ['AccountPicker.tsx', 'MoneyInput.tsx', 'utils.ts']) {
+      expect(readFileSync(join(dir, f), 'utf8')).toMatch(/formatCOP/);
+    }
   });
 });
 
