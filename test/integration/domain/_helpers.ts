@@ -70,3 +70,26 @@ export function thrown(fn: () => unknown): unknown {
   }
   throw new Error('se esperaba que la operacion lanzara');
 }
+
+const SNAPSHOT_TABLES = [
+  'users', 'accounts', 'categories', 'debts', 'goals', 'recurring_items',
+  'transactions', 'goal_contributions', 'balance_adjustments',
+];
+
+/** Foto completa del contenido de la BD (las 9 tablas, todas las columnas): para probar "sin efectos". */
+export function snapshot(env: TestEnv): string {
+  return JSON.stringify(
+    SNAPSHOT_TABLES.map((t) => [t, env.sqlite.prepare(`select * from ${t} order by rowid`).all()]),
+  );
+}
+
+/**
+ * Crea un SEGUNDO usuario (SQL directo: la API del dominio no crea usuarios) y devuelve un dominio
+ * que opera como el. Comparte la BD y el reloj del entorno.
+ */
+export function secondUserDomain(env: TestEnv, userId = 'otro-usuario'): Domain {
+  env.sqlite
+    .prepare('insert into users (id, created_at, updated_at) values (?, 0, 0)')
+    .run(userId);
+  return createDomain(env.db, { userId, now: () => env.clock.now });
+}

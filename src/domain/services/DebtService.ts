@@ -272,6 +272,22 @@ export function createDebtService(ctx: DomainContext) {
     /**
      * Pago de deuda = gasto real. Capital aplicado = min(monto, saldo); la transaccion guarda el monto
      * COMPLETO (un abono mayor al saldo deja la deuda en 0 y cuenta completo como gasto).
+     *
+     * Cuota (`INSTALLMENT`) con recurrente vinculado: cubre `occurrenceDate` si se pasa (debe ser de la
+     * serie) o, si no, la `nextDueDate`. Si el recurrente NO tiene fecha (`nextDueDate` NULL):
+     *   - sin `occurrenceDate`: el pago se registra SIN ligar a ninguna ocurrencia (`linkedToOccurrence`
+     *     false);
+     *   - con `occurrenceDate` explicita: sin ancla nunca pertenece a la serie y se lanza
+     *     `OccurrenceNotInSeriesError` (una ocurrencia ajena a la serie nunca se acepta). SUPUESTO: con
+     *     ancla pero sin `nextDueDate`, una ocurrencia explicita de la serie si se liga.
+     * `EXTRA` ignora `occurrenceDate` (no es cuota).
+     *
+     * ORDEN DE VALIDACIONES (fijado por tests; el primer error que aplique es el que se lanza):
+     *   1 deuda inexistente (`NotFoundError`) o archivada (`DebtArchivedError`), 2 monto
+     *   (`ValidationError`), 3 cuenta inexistente o archivada (`NotFoundError` / `AccountArchivedError`),
+     *   4 fecha del pago fuera de rango (`ValidationError`), 5 deuda liquidada (`DebtSettledError`),
+     *   6 `occurrenceDate` mal formada o con anio < 100 (`ValidationError`), 7 fuera de la serie
+     *   (`OccurrenceNotInSeriesError`), 8 ya confirmada (`OccurrenceAlreadyConfirmedError`).
      */
     registerPayment(input: RegisterPaymentInput): OperationResult<RegisterPaymentResult> {
       return runOperation(ctx, (tx, fx) => {
@@ -285,22 +301,26 @@ export function createDebtService(ctx: DomainContext) {
         const effect = debtPaymentEffect(input.amountMinor, balance);
 
         const recurring = input.type === 'INSTALLMENT' ? recurringRepository.getByDebtId(tx, debt.id) : undefined;
-        const linked = recurring !== undefined && recurring.nextDueDate !== null;
-        const occurrence = linked
-          ? input.occurrenceDate !== undefined
-            ? assertLocalDate(input.occurrenceDate, 'La ocurrencia')
-            : (recurring.nextDueDate as LocalDate)
-          : null;
-        if (
-          linked &&
-          occurrence !== null &&
-          (recurring.anchorDate === null || !isOccurrenceOfSeries(recurring.anchorDate, recurring.frequency, occurrence))
-        ) {
-          throw new OccurrenceNotInSeriesError(recurring.id, occurrence);
+        // Ocurrencia que cubre la cuota: la explicita (validada contra la serie) o la `nextDueDate`.
+        let occurrence: LocalDate | null = null;
+        if (recurring !== undefined) {
+          if (input.occurrenceDate !== undefined) {
+            occurrence = assertLocalDate(input.occurrenceDate, 'La ocurrencia');
+            // Sin ancla no hay serie: una ocurrencia explicita nunca es "de la serie".
+            if (
+              recurring.anchorDate === null ||
+              !isOccurrenceOfSeries(recurring.anchorDate, recurring.frequency, occurrence)
+            ) {
+              throw new OccurrenceNotInSeriesError(recurring.id, occurrence);
+            }
+          } else {
+            occurrence = recurring.nextDueDate;
+          }
+          if (occurrence !== null && transactionRepository.findByOccurrence(tx, recurring.id, occurrence)) {
+            throw new OccurrenceAlreadyConfirmedError(recurring.id, occurrence);
+          }
         }
-        if (linked && occurrence !== null && transactionRepository.findByOccurrence(tx, recurring.id, occurrence)) {
-          throw new OccurrenceAlreadyConfirmedError(recurring.id, occurrence);
-        }
+        const linked = recurring !== undefined && occurrence !== null;
 
         const transactionId = transactionRepository.insert(tx, {
           userId: ctx.userId,

@@ -103,8 +103,18 @@ export function cleanName(value: string, label: string): string {
   return name;
 }
 
+/** Primer anio aceptado: `new Date(y, ...)` interpreta 0-99 como 1900-1999 y guardaria otra fecha. */
+export const MIN_LOCAL_DATE_YEAR = 100;
+
+/**
+ * Valida 'YYYY-MM-DD' (formato y dia existente). Rechaza anios < 100 (0000-0099): al convertir a epoch
+ * ms con el constructor local de Date se guardarian silenciosamente como 1900-1999.
+ */
 export function assertLocalDate(value: string, label: string): LocalDate {
   if (!isValidLocalDate(value)) throw new ValidationError(`${label} no es una fecha 'YYYY-MM-DD' valida`);
+  if (Number(value.slice(0, 4)) < MIN_LOCAL_DATE_YEAR) {
+    throw new ValidationError(`${label} no es una fecha valida: el anio debe ser 0100 o posterior`);
+  }
   return value;
 }
 

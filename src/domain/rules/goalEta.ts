@@ -18,13 +18,17 @@
 //     (completos) -- sumados y divididos SIEMPRE entre 3. Aportes posteriores a `now` no cuentan.
 //     monthsLeft = ceil(falta / (suma / 3)) = ceil(3 * falta / suma); la fecha estimada es
 //     hoy + monthsLeft meses (dia ajustado al ultimo del mes destino).
-//   - UNKNOWN: sin `targetDate` y sin aportes en la ventana ("por calcular").
+//     TOPE (F2b-ter): si monthsLeft no es un entero seguro, supera 1200 (100 anios; exactamente 1200 SE
+//     INCLUYE) o la fecha no es una LocalDate valida de 4 digitos de anio, el resultado es UNKNOWN.
+//   - UNKNOWN: sin `targetDate` y sin aportes en la ventana, o ritmo que supera el tope ("por calcular").
+//     Tambien una `targetDate` que no es una fecha valida.
 // =============================================================================
 
 import {
   addMonthsToYearMonth,
   daysInMonth,
   formatLocalDate,
+  isValidLocalDate,
   monthBounds,
   parseLocalDate,
   toLocalDate,
@@ -72,6 +76,9 @@ export type GoalEta =
     }
   | { kind: 'UNKNOWN' };
 
+/** Tope del ETA por ritmo: 100 anios. SUPUESTO: exactamente 1200 meses SE INCLUYE (el tope es > 1200). */
+export const MAX_PACE_MONTHS = 1200;
+
 /** `date` + k meses de calendario; el dia se ajusta al ultimo del mes destino si hace falta. */
 function addMonthsClamped(date: LocalDate, k: number): LocalDate {
   const { year, month, day } = parseLocalDate(date);
@@ -95,8 +102,15 @@ export function goalEta(input: GoalEtaInput): GoalEta {
         requiredMonthlyMinor: missing,
       };
     }
-    let monthsLeft = 1;
-    while (addMonthsClamped(today, monthsLeft) < input.targetDate) monthsLeft++;
+    // Una fecha objetivo que no es 'YYYY-MM-DD' valida (p. ej. anio de 5 digitos) no tiene ETA.
+    if (!isValidLocalDate(input.targetDate)) return { kind: 'UNKNOWN' };
+    // Sin bucle (cota O(1)): k0 = meses de calendario entre hoy y el mes de la fecha objetivo; el menor
+    // k >= 1 con (hoy + k meses) >= targetDate es k0 si (hoy + k0 meses, dia ajustado) ya la alcanza,
+    // si no k0 + 1 (el mes siguiente siempre la supera).
+    const t = parseLocalDate(input.targetDate);
+    const now = parseLocalDate(today);
+    const k0 = (t.year - now.year) * 12 + (t.month - now.month);
+    const monthsLeft = k0 >= 1 && addMonthsClamped(today, k0) >= input.targetDate ? k0 : k0 + 1;
     return {
       kind: 'BY_TARGET_DATE',
       date: input.targetDate,
@@ -116,9 +130,13 @@ export function goalEta(input: GoalEtaInput): GoalEta {
   if (total <= 0) return { kind: 'UNKNOWN' };
 
   const monthsLeft = Math.ceil((3 * missing) / total);
+  // Tope: mas de 100 anios (o un valor que no es entero seguro / no da una fecha de 4 digitos) es "por calcular".
+  if (!Number.isSafeInteger(monthsLeft) || monthsLeft > MAX_PACE_MONTHS) return { kind: 'UNKNOWN' };
+  const date = addMonthsClamped(today, monthsLeft);
+  if (!isValidLocalDate(date)) return { kind: 'UNKNOWN' };
   return {
     kind: 'BY_PACE',
-    date: addMonthsClamped(today, monthsLeft),
+    date,
     monthsLeft,
     monthlyAverageMinor: Math.round(total / 3),
   };

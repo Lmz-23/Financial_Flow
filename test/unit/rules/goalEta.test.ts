@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { addDays, addMonthsToYearMonth, daysInMonth, formatLocalDate, parseLocalDate, toLocalDate } from '../../../src/domain/dates';
 import { goalEta, type GoalEtaContribution } from '../../../src/domain/rules/goalEta';
 
 /** Instante local (zona de vitest: America/Bogota). month 1-12. */
@@ -123,6 +124,88 @@ describe('goalEta: BY_PACE (ultimos 3 meses calendario locales)', () => {
     const eta = goalEta({ contributions: [c(ms(2026, 1, 30), 300)], savedMinor: 0, targetMinor: 100, targetDate: null, now });
     // 100/mes, falta 100 -> 1 mes -> 28 feb
     expect(eta).toMatchObject({ kind: 'BY_PACE', monthsLeft: 1, date: '2026-02-28' });
+  });
+});
+
+describe('goalEta: tope de 100 anios del ETA por ritmo (F2b-ter)', () => {
+  // 3000 en la ventana -> 1000 al mes: monthsLeft = ceil(3 * falta / 3000) = ceil(falta / 1000).
+  const pace = (missing: number, contribution = 3000) =>
+    goalEta({ contributions: [c(ms(2026, 10, 1), contribution)], savedMinor: 0, targetMinor: missing, targetDate: null, now: NOW });
+
+  it('exactamente 1200 meses (100 anios) SE INCLUYE: SUPUESTO, el tope es monthsLeft > 1200', () => {
+    expect(pace(1_200_000)).toEqual({ kind: 'BY_PACE', date: '2126-10-05', monthsLeft: 1200, monthlyAverageMinor: 1000 });
+  });
+
+  it('1201 meses supera el tope: por calcular', () => {
+    expect(pace(1_200_001)).toEqual({ kind: 'UNKNOWN' });
+    expect(pace(1_201_000)).toEqual({ kind: 'UNKNOWN' });
+  });
+
+  it('falta enorme con aporte pequeno: por calcular, sin fecha de 6 digitos', () => {
+    expect(goalEta({ contributions: [c(ms(2026, 10, 1), 300)], savedMinor: 0, targetMinor: 1e8, targetDate: null, now: NOW })).toEqual({ kind: 'UNKNOWN' });
+  });
+
+  it('falta de ~9e15 y aporte minimo (monthsLeft no es entero seguro): por calcular', () => {
+    expect(goalEta({ contributions: [c(ms(2026, 10, 1), 1)], savedMinor: 0, targetMinor: 9e15, targetDate: null, now: NOW })).toEqual({ kind: 'UNKNOWN' });
+    expect(goalEta({ contributions: [c(ms(2026, 10, 1), 1)], savedMinor: -Number.MAX_SAFE_INTEGER, targetMinor: Number.MAX_SAFE_INTEGER, targetDate: null, now: NOW })).toEqual({ kind: 'UNKNOWN' });
+  });
+
+  it('aporte minimo (1 en la ventana) con falta pequena: se calcula si cabe en el tope', () => {
+    // total 1 -> 3 * falta meses: falta 400 -> 1200 (incluido); falta 401 -> 1203 (fuera).
+    expect(goalEta({ contributions: [c(ms(2026, 10, 1), 1)], savedMinor: 0, targetMinor: 400, targetDate: null, now: NOW })).toMatchObject({ kind: 'BY_PACE', monthsLeft: 1200 });
+    expect(goalEta({ contributions: [c(ms(2026, 10, 1), 1)], savedMinor: 0, targetMinor: 401, targetDate: null, now: NOW })).toEqual({ kind: 'UNKNOWN' });
+  });
+
+  it('cuando existe, la fecha del ETA siempre es una LocalDate de 4 digitos que parsea', () => {
+    for (const missing of [1, 999, 1_000, 1_199_999, 1_200_000]) {
+      const eta = pace(missing);
+      expect(eta.kind).toBe('BY_PACE');
+      if (eta.kind === 'BY_PACE') expect(() => parseLocalDate(eta.date)).not.toThrow();
+    }
+  });
+
+  it('un now que haria pasar la fecha de 9999 tambien es por calcular', () => {
+    const now = ms(9950, 1, 1);
+    expect(goalEta({ contributions: [c(ms(9949, 12, 1), 3000)], savedMinor: 0, targetMinor: 1_200_000, targetDate: null, now })).toEqual({ kind: 'UNKNOWN' });
+  });
+});
+
+describe('goalEta: BY_TARGET_DATE acotado y sin desbordes (F2b-ter)', () => {
+  it('falta enorme: el aporte mensual nunca supera la falta y es entero seguro', () => {
+    const eta = goalEta({ contributions: [], savedMinor: 0, targetMinor: 9e15, targetDate: '2027-10-05', now: NOW });
+    expect(eta).toMatchObject({ kind: 'BY_TARGET_DATE', monthsLeft: 12, requiredMonthlyMinor: 7.5e14 });
+    if (eta.kind === 'BY_TARGET_DATE') expect(Number.isSafeInteger(eta.requiredMonthlyMinor)).toBe(true);
+  });
+
+  it('fecha objetivo lejana (9999-12-31) termina y es coherente', () => {
+    const eta = goalEta({ contributions: [], savedMinor: 0, targetMinor: 1_000_000, targetDate: '9999-12-31', now: NOW });
+    expect(eta).toMatchObject({ kind: 'BY_TARGET_DATE', overdue: false, monthsLeft: (9999 - 2026) * 12 + 3 });
+  });
+
+  it('el calculo O(1) de monthsLeft coincide con la definicion (menor k >= 1 con hoy + k meses >= fecha)', () => {
+    const reference = (today: string, target: string): number => {
+      const p = parseLocalDate(today);
+      let k = 1;
+      for (;;) {
+        const ym = addMonthsToYearMonth(p.year, p.month, k);
+        const day = Math.min(p.day, daysInMonth(ym.year, ym.month));
+        if (formatLocalDate(ym.year, ym.month, day) >= target) return k;
+        k++;
+      }
+    };
+    const nows = [ms(2026, 1, 31), ms(2026, 3, 31), ms(2024, 2, 29), ms(2026, 10, 5), ms(2026, 12, 31)];
+    for (const now of nows) {
+      const today = toLocalDate(now);
+      for (let offset = 0; offset <= 800; offset += 1) {
+        const target = addDays(today, offset);
+        const eta = goalEta({ contributions: [], savedMinor: 0, targetMinor: 1000, targetDate: target, now });
+        expect(eta, `${today} -> ${target}`).toMatchObject({ monthsLeft: reference(today, target) });
+      }
+    }
+  });
+
+  it('un targetDate con formato invalido (anio de 5 digitos) no cuelga el calculo: por calcular', () => {
+    expect(goalEta({ contributions: [], savedMinor: 0, targetMinor: 1000, targetDate: '99999-01-01', now: NOW })).toEqual({ kind: 'UNKNOWN' });
   });
 });
 

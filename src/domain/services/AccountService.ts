@@ -141,6 +141,25 @@ export function createAccountService(ctx: DomainContext) {
       });
     },
 
+    /**
+     * Quita `archivedAt` de una cuenta archivada: vuelve a las listas, a los selectores y al total, y
+     * puede recibir movimientos. NO crea ajustes: el ARCHIVE_CLOSE que la dejo en 0 queda como historial
+     * (su disponible sigue en 0). Errores: `NotFoundError` si no existe o es de otro usuario;
+     * `ValidationError` si la cuenta NO esta archivada (SUPUESTO: no hay error especifico).
+     * Efectos: `accounts` y `goals` (los aportes/reembolsos de metas exponen `accountArchived`);
+     * no `statement` (el estado financiero no depende de si la cuenta esta archivada).
+     */
+    unarchive(id: string): OperationResult<{ id: string }> {
+      return runOperation(ctx, (tx, fx) => {
+        const account = accountRepository.getById(tx, id);
+        if (!account || account.userId !== ctx.userId) throw new NotFoundError('Cuenta', id);
+        if (account.archivedAt === null) throw new ValidationError('La cuenta no esta archivada');
+        accountRepository.unarchive(tx, id, ctx.now());
+        fx.refresh('accounts', 'goals');
+        return { id };
+      });
+    },
+
     // --- Consultas (solo lectura) -------------------------------------------
 
     /** Cuentas no archivadas con su disponible derivado y el total. */

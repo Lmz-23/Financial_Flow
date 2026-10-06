@@ -7,7 +7,7 @@ import {
   RefundAccountRequiredError,
   runOperation,
 } from '../../../src/domain/services';
-import { expectIntegrity, failOn, mkAccount, NOW, setup, thrown, type TestEnv } from './_helpers';
+import { available, expectIntegrity, failOn, mkAccount, NOW, setup, snapshot, thrown, type TestEnv } from './_helpers';
 
 /** Meta con aportes de una cuenta activa y otra ARCHIVADA, y una cuenta destino. */
 function goalWithArchivedSource(env: TestEnv) {
@@ -20,18 +20,6 @@ function goalWithArchivedSource(env: TestEnv) {
   d.goals.contribute({ goalId: goal, accountId: b, amountMinor: 200 });
   d.accounts.remove(b);
   return { a, b, c, goal };
-}
-
-const TABLES = [
-  'users', 'accounts', 'categories', 'debts', 'goals', 'recurring_items',
-  'transactions', 'goal_contributions', 'balance_adjustments',
-];
-
-/** Foto completa del contenido de la BD (todas las tablas, todas las columnas). */
-function snapshot(env: TestEnv): string {
-  return JSON.stringify(
-    TABLES.map((t) => [t, env.sqlite.prepare(`select * from ${t} order by rowid`).all()]),
-  );
 }
 
 interface Case {
@@ -64,6 +52,16 @@ const cases: Case[] = [
       return () => d.accounts.remove(id);
     },
     fail: ['INSERT', 'balance_adjustments', "WHEN NEW.reason = 'ARCHIVE_CLOSE'"],
+  },
+  {
+    name: 'AccountService.unarchive (falla el UPDATE que limpia archivedAt)',
+    prepare: ({ d }) => {
+      const id = mkAccount(d, 'A', 100);
+      d.transactions.create({ type: 'EXPENSE', accountId: id, amountMinor: 10 });
+      d.accounts.remove(id);
+      return () => d.accounts.unarchive(id);
+    },
+    fail: ['UPDATE', 'accounts', 'WHEN NEW.archived_at IS NULL'],
   },
   {
     name: 'AccountService.remove borrando (falla el DELETE de la cuenta tras borrar ajustes)',
@@ -263,7 +261,8 @@ describe('Atomicidad real (escenario q): una operacion que falla a mitad no deja
     expect(thrown(() => d.transactions.remove(tx))).toBeInstanceOf(AccountArchivedError);
     expect(thrown(() => d.goals.remove(goal))).toBeInstanceOf(RefundAccountRequiredError);
     expect(thrown(() => d.goals.remove(goal, { refundAccountId: old }))).toBeInstanceOf(RefundAccountRequiredError);
-    expect(c).toBeTruthy();
+    // La cuenta destino valida (C) no recibio nada en ninguno de los rechazos.
+    expect(available(d, c)).toBe(50);
     expect(snapshot(env)).toBe(before);
     expectIntegrity(d);
   });

@@ -1,6 +1,6 @@
 // F2b-bis: targetDate, aportes, ETA (hallazgo 5) y redireccion al eliminar metas (hallazgo 6b).
 import { describe, expect, it } from 'vitest';
-import { localDateToEpochMs } from '../../../src/domain/dates';
+import { localDateToEpochMs, parseLocalDate } from '../../../src/domain/dates';
 import { GoalNotActiveError, RefundAccountRequiredError, ValidationError } from '../../../src/domain/services';
 import { available, count, expectIntegrity, localMs, mkAccount, NOW, setup, thrown, type TestEnv } from './_helpers';
 
@@ -117,6 +117,40 @@ describe('ETA en GoalView (D20)', () => {
     d.goals.close(id);
     expect(d.goals.get(id)?.eta).toBeNull();
     expect(d.goals.list('SPENT')[0]?.eta).toBeNull();
+  });
+});
+
+describe('Tope del ETA por ritmo (F2b-ter)', () => {
+  it('falta enorme con aporte pequeno: eta por calcular (antes: fecha de 6 digitos que no parsea)', () => {
+    const { d } = setup();
+    const acc = mkAccount(d, 'A', 1000);
+    const id = d.goals.create({ name: 'G', targetMinor: 100_000_000, initialMinor: 100, accountId: acc }).result.id;
+    expect(d.goals.get(id)?.eta).toEqual({ kind: 'UNKNOWN' });
+    expect(d.goals.list()[0]?.eta).toEqual({ kind: 'UNKNOWN' });
+  });
+
+  it('eta.date, cuando existe, siempre parsea con parseLocalDate (get y list)', () => {
+    const { d } = setup();
+    const acc = mkAccount(d, 'A', 10_000_000);
+    const targets = [101, 1000, 50_000, 1_200_000, 1_201_000, 100_000_000, 9_000_000_000_000_000];
+    for (const [i, targetMinor] of targets.entries()) {
+      d.goals.create({ name: `G${i}`, targetMinor, initialMinor: 1, accountId: acc });
+    }
+    d.goals.create({ name: 'Con fecha', targetMinor: 5000, targetDate: '2030-01-31' });
+    const views = [...d.goals.list(), ...d.goals.list().map((g) => d.goals.get(g.id) as (typeof g))];
+    expect(views).toHaveLength(2 * (targets.length + 1));
+    let withDate = 0;
+    for (const g of views) {
+      const eta = g.eta;
+      if (eta !== null && 'date' in eta) {
+        withDate++;
+        expect(() => parseLocalDate(eta.date), `${g.name}: ${eta.date}`).not.toThrow();
+        expect(eta.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      }
+    }
+    expect(withDate).toBeGreaterThan(0);
+    // La meta con falta 9e15 y aporte de 1 no tiene fecha.
+    expect(views.find((g) => g.name === 'G6')?.eta).toEqual({ kind: 'UNKNOWN' });
   });
 });
 
@@ -254,7 +288,13 @@ describe('Eliminar meta con aportes de cuentas archivadas (6b)', () => {
     expect(available(d, c)).toBe(350_000);
     expect(available(d, b1)).toBe(0);
     expect(available(d, b2)).toBe(0);
-    expect(count(env, 'balance_adjustments', "reason = 'ARCHIVE_CLOSE' and delta_minor < 0")).toBeGreaterThanOrEqual(4);
+    // Por cada cuenta archivada: 1 al archivarla (-disponible: b1 400k, b2 250k) + 1 de la redireccion
+    // (-aporte: b1 100k, b2 250k) = 4 en total.
+    expect(count(env, 'balance_adjustments', "reason = 'ARCHIVE_CLOSE' and delta_minor < 0")).toBe(4);
+    expect(count(env, 'balance_adjustments', "reason = 'ARCHIVE_CLOSE'")).toBe(4);
+    expect(count(env, 'balance_adjustments', "reason = 'ARCHIVE_CLOSE' and account_id = '" + b1 + "' and delta_minor = -100000")).toBe(1);
+    expect(count(env, 'balance_adjustments', "reason = 'ARCHIVE_CLOSE' and account_id = '" + b2 + "' and delta_minor = -250000")).toBe(2);
+    expect(count(env, 'balance_adjustments', "reason = 'ARCHIVE_CLOSE' and account_id = '" + b1 + "' and delta_minor = -400000")).toBe(1);
     expectIntegrity(d);
   });
 

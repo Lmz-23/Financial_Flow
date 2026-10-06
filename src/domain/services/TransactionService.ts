@@ -42,7 +42,7 @@ export interface CreateTransactionInput {
  * su serie actual; si no, `nextDueDate` no se toca. Unico camino de reversion: lo usan
  * `TransactionService.remove` y `RecurringService.unconfirm`.
  * Una cuenta archivada no vuelve a cambiar de saldo: borrar su transaccion lanza `AccountArchivedError`
- * (el usuario debe desarchivarla primero; esa operacion aun no existe en el dominio).
+ * (el usuario debe desarchivarla primero con `AccountService.unarchive`).
  */
 export function removeTransactionIn(
   tx: DbOrTx,
