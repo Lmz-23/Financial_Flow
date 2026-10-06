@@ -169,7 +169,8 @@ describe('Eliminar meta (escenario 12, l)', () => {
     expect(available(d, b)).toBe(300_000);
 
     const preview = d.goals.refundPreview(goalId);
-    expect(preview.map((p) => [p.accountName, p.amountMinor]).sort()).toEqual([['Ahorros', 200_000], ['Efectivo', 400_000]]);
+    expect(preview.refunds.map((p) => [p.accountName, p.amountMinor]).sort()).toEqual([['Ahorros', 200_000], ['Efectivo', 400_000]]);
+    expect(preview.requiresDestinationMinor).toBe(0);
 
     const { result } = d.goals.remove(goalId);
     expect(result.refunds.map((r) => [r.accountId, r.amountMinor]).sort()).toEqual(

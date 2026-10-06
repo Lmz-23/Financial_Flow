@@ -10,12 +10,15 @@ import { transactionRepository } from '../../database/repositories/transactionRe
 import type { DbOrTx } from '../../database/types';
 import { addDays, localDateToEpochMs, toLocalDate, type LocalDate } from '../dates';
 import type { PendingOccurrence } from '../rules/notificationPlan';
-import { nextPendingOccurrence, normalizeAnchor } from '../rules/recurrence';
+import { isOccurrenceOfSeries, nextPendingOccurrence, normalizeAnchor } from '../rules/recurrence';
 import {
   AccountRequiredError,
   NotFoundError,
   NotSupportedError,
   OccurrenceAlreadyConfirmedError,
+  OccurrenceNotInSeriesError,
+  RecurringPausedError,
+  RecurringWithoutDateError,
   UseDebtPaymentFlow,
   ValidationError,
 } from './errors';
@@ -250,8 +253,14 @@ export function createRecurringService(ctx: DomainContext) {
         if (recurring.kind === 'DEBT_INSTALLMENT' && recurring.debtId !== null) {
           throw new UseDebtPaymentFlow(recurring.debtId, recurring.id, input.occurrenceDate);
         }
+        if (recurring.status === 'PAUSED') throw new RecurringPausedError(recurring.id);
+        // SUPUESTO: sin fecha (ancla NULL) no hay serie contra la cual validar; hay que fijar la fecha.
+        if (recurring.anchorDate === null) throw new RecurringWithoutDateError(recurring.id);
         if (!input.accountId) throw new AccountRequiredError();
         assertLocalDate(input.occurrenceDate, 'La ocurrencia');
+        if (!isOccurrenceOfSeries(recurring.anchorDate, recurring.frequency, input.occurrenceDate)) {
+          throw new OccurrenceNotInSeriesError(recurring.id, input.occurrenceDate);
+        }
         requireActiveAccount(tx, input.accountId);
         if (transactionRepository.findByOccurrence(tx, recurring.id, input.occurrenceDate)) {
           throw new OccurrenceAlreadyConfirmedError(recurring.id, input.occurrenceDate);

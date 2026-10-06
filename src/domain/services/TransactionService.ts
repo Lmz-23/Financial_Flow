@@ -1,3 +1,4 @@
+import { accountRepository } from '../../database/repositories/accountRepository';
 import { categoryRepository, type CategoryType } from '../../database/repositories/categoryRepository';
 import { recurringRepository } from '../../database/repositories/recurringRepository';
 import {
@@ -6,7 +7,8 @@ import {
   type TransactionView,
 } from '../../database/repositories/transactionRepository';
 import type { DbOrTx } from '../../database/types';
-import { NotFoundError, ValidationError } from './errors';
+import { isOccurrenceOfSeries } from '../rules/recurrence';
+import { AccountArchivedError, NotFoundError, ValidationError } from './errors';
 import {
   assertEpochMs,
   assertPositiveMinor,
@@ -36,8 +38,11 @@ export interface CreateTransactionInput {
 
 /**
  * Borra una transaccion y reubica el recurrente ligado (`nextDueDate = min(nextDueDate, ocurrencia)`,
- * `snoozedUntil` limpio). Unico camino de reversion: lo usan `TransactionService.remove` y
- * `RecurringService.unconfirm`.
+ * `snoozedUntil` limpio) SOLO si el recurrente tiene fecha (ancla no NULL) y la ocurrencia pertenece a
+ * su serie actual; si no, `nextDueDate` no se toca. Unico camino de reversion: lo usan
+ * `TransactionService.remove` y `RecurringService.unconfirm`.
+ * Una cuenta archivada no vuelve a cambiar de saldo: borrar su transaccion lanza `AccountArchivedError`
+ * (el usuario debe desarchivarla primero; esa operacion aun no existe en el dominio).
  */
 export function removeTransactionIn(
   tx: DbOrTx,
@@ -47,12 +52,18 @@ export function removeTransactionIn(
 ): { id: string } {
   const row = transactionRepository.getById(tx, id);
   if (!row) throw new NotFoundError('Transaccion', id);
+  const account = accountRepository.getById(tx, row.accountId);
+  if (account && account.archivedAt !== null) throw new AccountArchivedError(account.id);
   transactionRepository.delete(tx, id);
   fx.refresh('accounts', 'transactions', 'statement');
   if (row.debtId !== null) fx.refresh('debts');
   if (row.recurringItemId !== null && row.occurrenceDate !== null) {
     const recurring = recurringRepository.getById(tx, row.recurringItemId);
-    if (recurring) {
+    if (
+      recurring &&
+      recurring.anchorDate !== null &&
+      isOccurrenceOfSeries(recurring.anchorDate, recurring.frequency, row.occurrenceDate)
+    ) {
       const next =
         recurring.nextDueDate === null || row.occurrenceDate < recurring.nextDueDate
           ? row.occurrenceDate

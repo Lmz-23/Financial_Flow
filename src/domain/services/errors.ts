@@ -14,6 +14,10 @@ export type DomainErrorCode =
   | 'GOAL_NOT_ACTIVE'
   | 'GOAL_NOT_REACHED'
   | 'OCCURRENCE_ALREADY_CONFIRMED'
+  | 'OCCURRENCE_NOT_IN_SERIES'
+  | 'RECURRING_WITHOUT_DATE'
+  | 'RECURRING_PAUSED'
+  | 'REFUND_ACCOUNT_REQUIRED'
   | 'USE_DEBT_PAYMENT_FLOW'
   | 'ONBOARDING_ALREADY_COMPLETED'
   | 'NOT_SUPPORTED';
@@ -116,6 +120,62 @@ export class OccurrenceAlreadyConfirmedError extends DomainError {
     super('OCCURRENCE_ALREADY_CONFIRMED', 'La ocurrencia ya esta confirmada');
     this.recurringId = recurringId;
     this.occurrenceDate = occurrenceDate;
+  }
+}
+
+/** La fecha indicada no es una ocurrencia de la serie del recurrente (ancla + frecuencia). */
+export class OccurrenceNotInSeriesError extends DomainError {
+  readonly recurringId: string;
+  readonly occurrenceDate: string;
+  constructor(recurringId: string, occurrenceDate: string) {
+    super('OCCURRENCE_NOT_IN_SERIES', 'La fecha no pertenece a la serie del recurrente');
+    this.recurringId = recurringId;
+    this.occurrenceDate = occurrenceDate;
+  }
+}
+
+/** Un recurrente sin fecha (ancla NULL) no se puede confirmar: primero hay que fijar la fecha. */
+export class RecurringWithoutDateError extends DomainError {
+  readonly recurringId: string;
+  constructor(recurringId: string) {
+    super('RECURRING_WITHOUT_DATE', 'El recurrente no tiene fecha: fija la fecha antes de confirmar');
+    this.recurringId = recurringId;
+  }
+}
+
+/** Confirmar una ocurrencia de un recurrente pausado. */
+export class RecurringPausedError extends DomainError {
+  readonly recurringId: string;
+  constructor(recurringId: string) {
+    super('RECURRING_PAUSED', 'El recurrente esta pausado');
+    this.recurringId = recurringId;
+  }
+}
+
+/** Origen archivado de aportes de una meta, con el total que hay que redirigir. */
+export interface ArchivedRefundSource {
+  accountId: string;
+  accountName: string;
+  amountMinor: number;
+}
+
+/**
+ * Eliminar una meta con aportes de cuentas ARCHIVADAS exige elegir una cuenta ACTIVA de destino.
+ * `invalidAccountId` es la cuenta indicada que no sirvio (inexistente, archivada o ajena), o null si
+ * simplemente no se indico ninguna.
+ */
+export class RefundAccountRequiredError extends DomainError {
+  readonly goalId: string;
+  /** Total que se redirige al destino (suma de las cuentas archivadas de origen). */
+  readonly totalMinor: number;
+  readonly byAccount: ArchivedRefundSource[];
+  readonly invalidAccountId: string | null;
+  constructor(goalId: string, totalMinor: number, byAccount: ArchivedRefundSource[], invalidAccountId: string | null) {
+    super('REFUND_ACCOUNT_REQUIRED', 'Hay que elegir una cuenta activa para recibir el dinero de las cuentas archivadas');
+    this.goalId = goalId;
+    this.totalMinor = totalMinor;
+    this.byAccount = byAccount;
+    this.invalidAccountId = invalidAccountId;
   }
 }
 

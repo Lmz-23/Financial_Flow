@@ -8,6 +8,7 @@ import {
   parseLocalDate,
 } from '../../../src/domain/dates';
 import {
+  isOccurrenceOfSeries,
   iterateOccurrences,
   nearestBiweeklyDate,
   normalizeAnchor,
@@ -305,5 +306,64 @@ describe('nextPendingOccurrence', () => {
         confirmed: new Set(['2025-02-15']),
       }),
     ).toBe('2025-02-28');
+  });
+});
+
+describe('isOccurrenceOfSeries', () => {
+  const FREQS: Frequency[] = ['MONTHLY', 'WEEKLY', 'BIWEEKLY'];
+
+  /** Anclas: cada dia de 2024-01-25..2024-03-05 (bisiesto) y los dias 29, 30 y 31 de cada mes de 2023-2025. */
+  function anchors(): string[] {
+    const out = new Set<string>();
+    for (let a = '2024-01-25'; a <= '2024-03-05'; a = addDays(a, 1)) out.add(a);
+    for (let y = 2023; y <= 2025; y++) {
+      for (let m = 1; m <= 12; m++) {
+        for (const day of [29, 30, 31]) {
+          if (day <= daysInMonth(y, m)) out.add(formatLocalDate(y, m, day));
+        }
+      }
+    }
+    return [...out];
+  }
+
+  it.each(FREQS)('coincide con iterateOccurrences para muchas anclas y 4 anios (%s)', (freq) => {
+    for (const anchor of anchors()) {
+      const start = addDays(anchor, -40);
+      const end = addDays(anchor, 4 * 366);
+      const series = new Set<string>();
+      for (const occ of iterateOccurrences(anchor, freq)) {
+        if (occ > end) break;
+        series.add(occ);
+      }
+      for (let day = start; day <= end; day = addDays(day, 1)) {
+        const expected = series.has(day);
+        if (isOccurrenceOfSeries(anchor, freq, day) !== expected) {
+          throw new Error(`${freq} ancla ${anchor} fecha ${day}: esperado ${expected}`);
+        }
+      }
+    }
+  }, 60_000);
+
+  it('casos puntuales', () => {
+    expect(isOccurrenceOfSeries('2026-03-15', 'MONTHLY', '2026-03-20')).toBe(false);
+    expect(isOccurrenceOfSeries('2026-03-15', 'MONTHLY', '2026-02-15')).toBe(false); // anterior al ancla
+    expect(isOccurrenceOfSeries('2026-03-15', 'MONTHLY', '2026-03-15')).toBe(true);
+    expect(isOccurrenceOfSeries('2026-01-31', 'MONTHLY', '2026-02-28')).toBe(true);
+    expect(isOccurrenceOfSeries('2026-01-31', 'MONTHLY', '2026-02-27')).toBe(false);
+    expect(isOccurrenceOfSeries('2028-01-30', 'MONTHLY', '2028-02-29')).toBe(true);
+    expect(isOccurrenceOfSeries('2026-03-02', 'WEEKLY', '2026-03-16')).toBe(true);
+    expect(isOccurrenceOfSeries('2026-03-02', 'WEEKLY', '2026-03-17')).toBe(false);
+    expect(isOccurrenceOfSeries('2026-03-02', 'WEEKLY', '2026-02-23')).toBe(false);
+    // BIWEEKLY: el ancla 10 de marzo se normaliza a 15 de marzo; el 28 de feb es anterior.
+    expect(isOccurrenceOfSeries('2026-03-10', 'BIWEEKLY', '2026-03-15')).toBe(true);
+    expect(isOccurrenceOfSeries('2026-03-10', 'BIWEEKLY', '2026-02-28')).toBe(false);
+    expect(isOccurrenceOfSeries('2026-03-10', 'BIWEEKLY', '2026-03-31')).toBe(true);
+    expect(isOccurrenceOfSeries('2026-03-10', 'BIWEEKLY', '2026-03-30')).toBe(false);
+    expect(isOccurrenceOfSeries('2028-02-29', 'BIWEEKLY', '2028-03-15')).toBe(true);
+  });
+
+  it('una fecha invalida no pertenece a ninguna serie', () => {
+    expect(isOccurrenceOfSeries('2026-03-15', 'MONTHLY', '2026-02-30')).toBe(false);
+    expect(isOccurrenceOfSeries('2026-03-15', 'MONTHLY', 'hola')).toBe(false);
   });
 });
