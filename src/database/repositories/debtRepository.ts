@@ -28,6 +28,12 @@ export interface UpdateDebt {
 
 const num = (expr: ReturnType<typeof sql<number>>) => expr.mapWith(Number);
 
+/**
+ * Deuda `id` Y del usuario: toda consulta por id de este repositorio filtra por userId en el WHERE.
+ * Los mutadores devuelven el numero de filas afectadas (0 = id inexistente o ajeno).
+ */
+const owned = (userId: string, id: string) => and(eq(debts.id, id), eq(debts.userId, userId));
+
 export const debtRepository = {
   insert(db: DbOrTx, v: InsertDebt): string {
     const id = newId();
@@ -48,8 +54,13 @@ export const debtRepository = {
     return id;
   },
 
-  getById(db: DbOrTx, id: string): DebtRow | undefined {
-    const row = db.select().from(debts).where(eq(debts.id, id)).get();
+  /** Deuda del usuario; la de otro usuario es indistinguible de una inexistente (undefined). */
+  getById(db: DbOrTx, userId: string, id: string): DebtRow | undefined {
+    const row = db
+      .select()
+      .from(debts)
+      .where(owned(userId, id))
+      .get();
     return row ? mapRow(row) : undefined;
   },
 
@@ -61,45 +72,58 @@ export const debtRepository = {
     return mapRows(db.select().from(debts).where(where).orderBy(asc(debts.createdAt)).all());
   },
 
-  update(db: DbOrTx, id: string, v: UpdateDebt): void {
+  update(db: DbOrTx, userId: string, id: string, v: UpdateDebt): number {
     const set: Partial<typeof debts.$inferInsert> = { updatedAt: toDate(v.now) };
     if (v.name !== undefined) set.name = v.name;
     if (v.installmentMinor !== undefined) set.installmentMinor = v.installmentMinor;
-    db.update(debts).set(set).where(eq(debts.id, id)).run();
+    return db.update(debts).set(set).where(owned(userId, id)).returning({ id: debts.id }).all().length;
   },
 
-  archive(db: DbOrTx, id: string, now: number): void {
-    db.update(debts).set({ archivedAt: toDate(now), updatedAt: toDate(now) }).where(eq(debts.id, id)).run();
+  archive(db: DbOrTx, userId: string, id: string, now: number): number {
+    return db
+      .update(debts)
+      .set({ archivedAt: toDate(now), updatedAt: toDate(now) })
+      .where(owned(userId, id))
+      .returning({ id: debts.id })
+      .all().length;
   },
 
-  delete(db: DbOrTx, id: string): void {
-    db.delete(debts).where(eq(debts.id, id)).run();
+  delete(db: DbOrTx, userId: string, id: string): number {
+    return db.delete(debts).where(owned(userId, id)).returning({ id: debts.id }).all().length;
   },
 
   /** Σ capital aplicado por los pagos de la deuda. */
-  principalAppliedTotal(db: DbOrTx, debtId: string): number {
+  principalAppliedTotal(db: DbOrTx, userId: string, debtId: string): number {
     const row = db
       .select({ v: num(sql<number>`coalesce(sum(${transactions.debtPrincipalAppliedMinor}), 0)`) })
       .from(transactions)
-      .where(and(eq(transactions.debtId, debtId), eq(transactions.kind, 'DEBT_PAYMENT')))
+      .where(
+        and(eq(transactions.userId, userId), eq(transactions.debtId, debtId), eq(transactions.kind, 'DEBT_PAYMENT')),
+      )
       .get();
     return row?.v ?? 0;
   },
 
   /** Saldo derivado (§3.1): Σ ajustes − Σ capital aplicado. */
-  balanceOf(db: DbOrTx, debtId: string): number {
+  balanceOf(db: DbOrTx, userId: string, debtId: string): number {
     return debtBalance(
-      adjustmentRepository.sumDelta(db, { type: 'DEBT', id: debtId }),
-      debtRepository.principalAppliedTotal(db, debtId),
+      adjustmentRepository.sumDelta(db, userId, { type: 'DEBT', id: debtId }),
+      debtRepository.principalAppliedTotal(db, userId, debtId),
     );
   },
 
   /** Cuotas (INSTALLMENT) pagadas registradas en la app, sin el pagado inicial. */
-  installmentPaymentCount(db: DbOrTx, debtId: string): number {
+  installmentPaymentCount(db: DbOrTx, userId: string, debtId: string): number {
     const row = db
       .select({ n: num(sql<number>`count(*)`) })
       .from(transactions)
-      .where(and(eq(transactions.debtId, debtId), eq(transactions.debtPaymentType, 'INSTALLMENT')))
+      .where(
+        and(
+          eq(transactions.userId, userId),
+          eq(transactions.debtId, debtId),
+          eq(transactions.debtPaymentType, 'INSTALLMENT'),
+        ),
+      )
       .get();
     return row?.n ?? 0;
   },

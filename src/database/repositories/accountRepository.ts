@@ -15,6 +15,9 @@ export type AccountType = Account['type'];
 
 const num = <T>(expr: ReturnType<typeof sql<T>>) => expr.mapWith(Number);
 
+/** Cuenta `id` Y del usuario: toda consulta por id de este repositorio pasa por aqui. */
+const owned = (userId: string, id: string) => and(eq(accounts.id, id), eq(accounts.userId, userId));
+
 export const accountRepository = {
   insert(
     db: DbOrTx,
@@ -35,8 +38,19 @@ export const accountRepository = {
     return id;
   },
 
-  getById(db: DbOrTx, id: string): AccountRow | undefined {
-    const row = db.select().from(accounts).where(eq(accounts.id, id)).get();
+  /**
+   * Cuenta del usuario. Una cuenta de OTRO usuario es indistinguible de una inexistente (undefined).
+   *
+   * Todos los metodos por id de este repositorio reciben `userId` y lo incluyen en el WHERE: la
+   * propiedad se impone en la consulta, no se delega en que el servicio la haya comprobado antes.
+   * Los mutadores devuelven el numero de filas afectadas (0 = id inexistente o ajeno).
+   */
+  getById(db: DbOrTx, userId: string, id: string): AccountRow | undefined {
+    const row = db
+      .select()
+      .from(accounts)
+      .where(owned(userId, id))
+      .get();
     return row ? mapRow(row) : undefined;
   },
 
@@ -73,38 +87,50 @@ export const accountRepository = {
     return row?.m ?? -1;
   },
 
-  rename(db: DbOrTx, id: string, name: string, now: number): void {
-    db.update(accounts).set({ name, updatedAt: toDate(now) }).where(eq(accounts.id, id)).run();
+  rename(db: DbOrTx, userId: string, id: string, name: string, now: number): number {
+    return db
+      .update(accounts)
+      .set({ name, updatedAt: toDate(now) })
+      .where(owned(userId, id))
+      .returning({ id: accounts.id })
+      .all().length;
   },
 
-  archive(db: DbOrTx, id: string, now: number): void {
-    db.update(accounts)
+  archive(db: DbOrTx, userId: string, id: string, now: number): number {
+    return db
+      .update(accounts)
       .set({ archivedAt: toDate(now), updatedAt: toDate(now) })
-      .where(eq(accounts.id, id))
-      .run();
+      .where(owned(userId, id))
+      .returning({ id: accounts.id })
+      .all().length;
   },
 
   /** Quita `archivedAt` (la cuenta vuelve a estar activa). No toca ajustes ni movimientos. */
-  unarchive(db: DbOrTx, id: string, now: number): void {
-    db.update(accounts).set({ archivedAt: null, updatedAt: toDate(now) }).where(eq(accounts.id, id)).run();
+  unarchive(db: DbOrTx, userId: string, id: string, now: number): number {
+    return db
+      .update(accounts)
+      .set({ archivedAt: null, updatedAt: toDate(now) })
+      .where(owned(userId, id))
+      .returning({ id: accounts.id })
+      .all().length;
   },
 
-  delete(db: DbOrTx, id: string): void {
-    db.delete(accounts).where(eq(accounts.id, id)).run();
+  delete(db: DbOrTx, userId: string, id: string): number {
+    return db.delete(accounts).where(owned(userId, id)).returning({ id: accounts.id }).all().length;
   },
 
   /** true si la cuenta tiene transacciones o aportes a metas. */
-  hasMovements(db: DbOrTx, id: string): boolean {
+  hasMovements(db: DbOrTx, userId: string, id: string): boolean {
     const tx = db
       .select({ n: num(sql<number>`count(*)`) })
       .from(transactions)
-      .where(eq(transactions.accountId, id))
+      .where(and(eq(transactions.userId, userId), eq(transactions.accountId, id)))
       .get();
     if ((tx?.n ?? 0) > 0) return true;
     const gc = db
       .select({ n: num(sql<number>`count(*)`) })
       .from(goalContributions)
-      .where(eq(goalContributions.accountId, id))
+      .where(and(eq(goalContributions.userId, userId), eq(goalContributions.accountId, id)))
       .get();
     return (gc?.n ?? 0) > 0;
   },
@@ -113,11 +139,11 @@ export const accountRepository = {
    * Disponible derivado (§3.1):
    * Σ ajustes + Σ ingresos − Σ gastos − Σ aportes desde la cuenta.
    */
-  availableOf(db: DbOrTx, id: string): number {
+  availableOf(db: DbOrTx, userId: string, id: string): number {
     const adj = db
       .select({ v: num(sql<number>`coalesce(sum(${balanceAdjustments.deltaMinor}), 0)`) })
       .from(balanceAdjustments)
-      .where(eq(balanceAdjustments.accountId, id))
+      .where(and(eq(balanceAdjustments.userId, userId), eq(balanceAdjustments.accountId, id)))
       .get();
     const tx = db
       .select({
@@ -125,12 +151,12 @@ export const accountRepository = {
         expense: num(sql<number>`coalesce(sum(case when ${transactions.type} = 'EXPENSE' then ${transactions.amountMinor} else 0 end), 0)`),
       })
       .from(transactions)
-      .where(eq(transactions.accountId, id))
+      .where(and(eq(transactions.userId, userId), eq(transactions.accountId, id)))
       .get();
     const gc = db
       .select({ v: num(sql<number>`coalesce(sum(${goalContributions.amountMinor}), 0)`) })
       .from(goalContributions)
-      .where(eq(goalContributions.accountId, id))
+      .where(and(eq(goalContributions.userId, userId), eq(goalContributions.accountId, id)))
       .get();
     return (adj?.v ?? 0) + (tx?.income ?? 0) - (tx?.expense ?? 0) - (gc?.v ?? 0);
   },

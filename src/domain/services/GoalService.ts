@@ -104,7 +104,7 @@ function toSources(refunds: GoalRefund[]): ArchivedRefundSource[] {
 
 export function createGoalService(ctx: DomainContext) {
   function requireActiveGoal(tx: DbOrTx, id: string): GoalRow {
-    const goal = goalRepository.getById(tx, id);
+    const goal = goalRepository.getById(tx, ctx.userId, id);
     if (!goal) throw new NotFoundError('Meta', id);
     if (goal.status !== 'ACTIVE') throw new GoalNotActiveError(id);
     return goal;
@@ -120,8 +120,8 @@ export function createGoalService(ctx: DomainContext) {
   ): string {
     assertPositiveMinor(amountMinor, 'El monto');
     assertEpochMs(date, 'La fecha');
-    requireActiveAccount(tx, accountId);
-    const available = accountRepository.availableOf(tx, accountId);
+    requireActiveAccount(tx, ctx.userId, accountId);
+    const available = accountRepository.availableOf(tx, ctx.userId, accountId);
     if (amountMinor > available) throw new InsufficientFundsError(accountId, available, amountMinor);
     return goalContributionRepository.insert(tx, {
       userId: ctx.userId,
@@ -134,8 +134,8 @@ export function createGoalService(ctx: DomainContext) {
   }
 
   function refundsOf(db: DbOrTx, goalId: string): GoalRefund[] {
-    return goalContributionRepository.totalsByAccount(db, goalId).map((r) => {
-      const account = accountRepository.getById(db, r.accountId);
+    return goalContributionRepository.totalsByAccount(db, ctx.userId, goalId).map((r) => {
+      const account = accountRepository.getById(db, ctx.userId, r.accountId);
       return {
         accountId: r.accountId,
         accountName: account?.name ?? '',
@@ -158,7 +158,7 @@ export function createGoalService(ctx: DomainContext) {
   function viewOf(db: DbOrTx, g: GoalRow, savedActive: number): GoalView {
     if (g.status === 'SPENT') return { ...g, savedMinor: g.spentAmountMinor ?? 0, eta: null };
     const contributions = goalContributionRepository
-      .listByGoal(db, g.id)
+      .listByGoal(db, ctx.userId, g.id)
       .map((c) => ({ date: c.date, amountMinor: c.amountMinor }));
     const eta = goalEta({
       contributions,
@@ -221,7 +221,7 @@ export function createGoalService(ctx: DomainContext) {
         const now = ctx.now();
         if (input.targetMinor !== undefined) assertPositiveMinor(input.targetMinor, 'El objetivo');
         const targetDate = input.targetDate !== undefined ? targetDateMs(input.targetDate) : undefined;
-        goalRepository.update(tx, id, {
+        goalRepository.update(tx, ctx.userId, id, {
           name: input.name !== undefined ? cleanName(input.name, 'El nombre de la meta') : undefined,
           targetMinor: input.targetMinor,
           targetDate,
@@ -230,7 +230,7 @@ export function createGoalService(ctx: DomainContext) {
         let adjusted = false;
         if (input.savedMinor !== undefined) {
           assertNonNegativeMinor(input.savedMinor, 'El ahorro');
-          const current = goalRepository.savedOf(tx, id);
+          const current = goalRepository.savedOf(tx, ctx.userId, id);
           if (input.savedMinor !== current) {
             adjustmentRepository.insert(tx, {
               userId: ctx.userId,
@@ -255,9 +255,9 @@ export function createGoalService(ctx: DomainContext) {
     close(id: string): OperationResult<{ spentAmountMinor: number }> {
       return runOperation(ctx, (tx, fx) => {
         const goal = requireActiveGoal(tx, id);
-        const saved = goalRepository.savedOf(tx, id);
+        const saved = goalRepository.savedOf(tx, ctx.userId, id);
         if (saved < goal.targetMinor) throw new GoalNotReachedError(saved, goal.targetMinor);
-        goalRepository.markSpent(tx, id, saved, ctx.now());
+        goalRepository.markSpent(tx, ctx.userId, id, saved, ctx.now());
         fx.refresh('goals', 'statement');
         return { spentAmountMinor: saved };
       });
@@ -278,7 +278,7 @@ export function createGoalService(ctx: DomainContext) {
      */
     remove(id: string, options: RemoveGoalOptions = {}): OperationResult<RemoveGoalResult> {
       return runOperation(ctx, (tx, fx) => {
-        const goal = goalRepository.getById(tx, id);
+        const goal = goalRepository.getById(tx, ctx.userId, id);
         if (!goal) throw new NotFoundError('Meta', id);
         if (goal.status !== 'ACTIVE') throw new GoalNotActiveError(id, 'Una meta cerrada no se puede eliminar');
         const refunds = refundsOf(tx, id);
@@ -288,27 +288,23 @@ export function createGoalService(ctx: DomainContext) {
         let destinationId: string | null = null;
         if (archived.length > 0) {
           const requested = options.refundAccountId ?? null;
-          const destination = requested !== null ? accountRepository.getById(tx, requested) : undefined;
-          if (
-            requested === null ||
-            destination === undefined ||
-            destination.archivedAt !== null ||
-            destination.userId !== ctx.userId
-          ) {
+          // `getById` solo devuelve cuentas del usuario: una ajena es igual que una inexistente.
+          const destination = requested !== null ? accountRepository.getById(tx, ctx.userId, requested) : undefined;
+          if (requested === null || destination === undefined || destination.archivedAt !== null) {
             throw new RefundAccountRequiredError(id, redirectedMinor, toSources(archived), requested);
           }
           destinationId = destination.id;
         }
 
-        goalContributionRepository.deleteByGoal(tx, id);
-        adjustmentRepository.deleteFor(tx, { type: 'GOAL', id });
-        goalRepository.delete(tx, id);
+        goalContributionRepository.deleteByGoal(tx, ctx.userId, id);
+        adjustmentRepository.deleteFor(tx, ctx.userId, { type: 'GOAL', id });
+        goalRepository.delete(tx, ctx.userId, id);
 
         if (destinationId !== null) {
           const now = ctx.now();
           for (const source of archived) {
             // Tras borrar los aportes el disponible de la archivada subio en `amountMinor`: se cancela.
-            const current = accountRepository.availableOf(tx, source.accountId);
+            const current = accountRepository.availableOf(tx, ctx.userId, source.accountId);
             adjustmentRepository.insert(tx, {
               userId: ctx.userId,
               target: { type: 'ACCOUNT', id: source.accountId },
@@ -318,7 +314,7 @@ export function createGoalService(ctx: DomainContext) {
               now,
             });
           }
-          const destCurrent = accountRepository.availableOf(tx, destinationId);
+          const destCurrent = accountRepository.availableOf(tx, ctx.userId, destinationId);
           adjustmentRepository.insert(tx, {
             userId: ctx.userId,
             target: { type: 'ACCOUNT', id: destinationId },
@@ -342,15 +338,15 @@ export function createGoalService(ctx: DomainContext) {
     },
 
     get(id: string): GoalView | undefined {
-      const g = goalRepository.getById(ctx.db, id);
+      const g = goalRepository.getById(ctx.db, ctx.userId, id);
       if (!g) return undefined;
-      return viewOf(ctx.db, g, g.status === 'SPENT' ? 0 : goalRepository.savedOf(ctx.db, id));
+      return viewOf(ctx.db, g, g.status === 'SPENT' ? 0 : goalRepository.savedOf(ctx.db, ctx.userId, id));
     },
 
     /** Aportes de la meta (del mas antiguo al mas reciente) con su cuenta de origen y fecha en epoch ms. */
     contributions(goalId: string): GoalContributionView[] {
-      return goalContributionRepository.listByGoal(ctx.db, goalId).map((c) => {
-        const account = accountRepository.getById(ctx.db, c.accountId);
+      return goalContributionRepository.listByGoal(ctx.db, ctx.userId, goalId).map((c) => {
+        const account = accountRepository.getById(ctx.db, ctx.userId, c.accountId);
         return {
           id: c.id,
           goalId: c.goalId,

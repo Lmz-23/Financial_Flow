@@ -35,14 +35,14 @@ describe('destino de OTRO usuario en GoalService.remove (5a)', () => {
     });
     expect((err as RefundAccountRequiredError).byAccount).toEqual([{ accountId: a, accountName: 'Origen', amountMinor: 300 }]);
     expect(snapshot(env)).toBe(before);
-    expect(available(d, foreign)).toBe(5000);
+    expect(available(d2, foreign)).toBe(5000);
     expectIntegrity(d);
     expectIntegrity(d2);
     // Con un destino propio funciona, y la cuenta ajena no se toco.
     const own = mkAccount(d, 'Propia', 0);
     d.goals.remove(goal, { refundAccountId: own });
     expect(available(d, own)).toBe(300);
-    expect(available(d, foreign)).toBe(5000);
+    expect(available(d2, foreign)).toBe(5000);
     expect(count(env, 'accounts', `user_id = '${DEFAULT_USER_ID}'`)).toBe(2);
   });
 });

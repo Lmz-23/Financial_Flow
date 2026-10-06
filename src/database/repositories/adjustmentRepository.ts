@@ -12,15 +12,19 @@ export type AdjustmentTarget =
   | { type: 'DEBT'; id: string }
   | { type: 'GOAL'; id: string };
 
-function targetWhere(target: AdjustmentTarget) {
-  switch (target.type) {
-    case 'ACCOUNT':
-      return eq(balanceAdjustments.accountId, target.id);
-    case 'DEBT':
-      return eq(balanceAdjustments.debtId, target.id);
-    case 'GOAL':
-      return eq(balanceAdjustments.goalId, target.id);
-  }
+/** Ajustes del objetivo QUE ademas pertenecen al usuario (toda consulta por objetivo pasa por aqui). */
+function targetWhere(userId: string, target: AdjustmentTarget) {
+  const ofTarget = (() => {
+    switch (target.type) {
+      case 'ACCOUNT':
+        return eq(balanceAdjustments.accountId, target.id);
+      case 'DEBT':
+        return eq(balanceAdjustments.debtId, target.id);
+      case 'GOAL':
+        return eq(balanceAdjustments.goalId, target.id);
+    }
+  })();
+  return and(eq(balanceAdjustments.userId, userId), ofTarget);
 }
 
 export interface InsertAdjustment {
@@ -55,34 +59,39 @@ export const adjustmentRepository = {
   },
 
   /** Suma de deltas de los ajustes del objetivo. */
-  sumDelta(db: DbOrTx, target: AdjustmentTarget): number {
+  sumDelta(db: DbOrTx, userId: string, target: AdjustmentTarget): number {
     const row = db
       .select({ total: sql<number>`coalesce(sum(${balanceAdjustments.deltaMinor}), 0)`.mapWith(Number) })
       .from(balanceAdjustments)
-      .where(targetWhere(target))
+      .where(targetWhere(userId, target))
       .get();
     return row?.total ?? 0;
   },
 
-  listFor(db: DbOrTx, target: AdjustmentTarget): AdjustmentRow[] {
+  listFor(db: DbOrTx, userId: string, target: AdjustmentTarget): AdjustmentRow[] {
     return mapRows(
       db
         .select()
         .from(balanceAdjustments)
-        .where(targetWhere(target))
+        .where(targetWhere(userId, target))
         .orderBy(asc(balanceAdjustments.createdAt))
         .all(),
     );
   },
 
-  deleteFor(db: DbOrTx, target: AdjustmentTarget): void {
-    db.delete(balanceAdjustments).where(targetWhere(target)).run();
+  /** Devuelve el numero de ajustes borrados (0 = objetivo inexistente o ajeno). */
+  deleteFor(db: DbOrTx, userId: string, target: AdjustmentTarget): number {
+    return db
+      .delete(balanceAdjustments)
+      .where(targetWhere(userId, target))
+      .returning({ id: balanceAdjustments.id })
+      .all().length;
   },
 
-  countFor(db: DbOrTx, target: AdjustmentTarget, reason?: AdjustmentReason): number {
+  countFor(db: DbOrTx, userId: string, target: AdjustmentTarget, reason?: AdjustmentReason): number {
     const where = reason
-      ? and(targetWhere(target), eq(balanceAdjustments.reason, reason))
-      : targetWhere(target);
+      ? and(targetWhere(userId, target), eq(balanceAdjustments.reason, reason))
+      : targetWhere(userId, target);
     const row = db
       .select({ n: sql<number>`count(*)`.mapWith(Number) })
       .from(balanceAdjustments)

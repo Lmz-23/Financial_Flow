@@ -112,4 +112,49 @@ describe('AccountService.unarchive', () => {
     expect(count(env, 'balance_adjustments', "reason = 'ARCHIVE_CLOSE'")).toBe(2);
     expectIntegrity(d);
   });
+
+  it('con DOS cuentas archivadas, desarchivar una deja la otra archivada (no las desarchiva todas)', () => {
+    const env = setup();
+    const { d } = env;
+    const active = mkAccount(d, 'Activa', 1000);
+    const x = mkAccount(d, 'X', 500);
+    const y = mkAccount(d, 'Y', 700);
+    const goal = d.goals.create({ name: 'G', targetMinor: 90_000 }).result.id;
+    d.goals.contribute({ goalId: goal, accountId: x, amountMinor: 50 });
+    d.goals.contribute({ goalId: goal, accountId: y, amountMinor: 70 });
+    d.transactions.create({ type: 'EXPENSE', accountId: x, amountMinor: 10 });
+    d.transactions.create({ type: 'EXPENSE', accountId: y, amountMinor: 20 });
+    expect(d.accounts.remove(x).result.outcome).toBe('ARCHIVED');
+    expect(d.accounts.remove(y).result.outcome).toBe('ARCHIVED');
+    expect(d.accounts.summary().accounts.map((a) => a.id)).toEqual([active]);
+    const adjustments = count(env, 'balance_adjustments');
+
+    d.accounts.unarchive(x);
+
+    // X reaparece en lista, selectores y total; Y sigue fuera de todo.
+    const summary = d.accounts.summary();
+    expect(summary.accounts.map((a) => a.id).sort()).toEqual([active, x].sort());
+    expect(summary.accounts.some((a) => a.id === y)).toBe(false);
+    expect(summary.totalMinor).toBe(1000);
+    expect(d.accounts.get(x)?.archivedAt).toBeNull();
+    expect(d.accounts.get(y)?.archivedAt).not.toBeNull();
+    const origins = d.goals.contributions(goal);
+    expect(origins.find((c) => c.accountId === x)?.accountArchived).toBe(false);
+    expect(origins.find((c) => c.accountId === y)?.accountArchived).toBe(true);
+    // Y sigue rechazando cualquier operacion que cambie su saldo.
+    const before = snapshot(env);
+    expect(thrown(() => d.transactions.create({ type: 'INCOME', accountId: y, amountMinor: 1 }))).toBeInstanceOf(
+      AccountArchivedError,
+    );
+    expect(thrown(() => d.accounts.update(y, { balanceMinor: 5 }))).toBeInstanceOf(AccountArchivedError);
+    expect(thrown(() => d.goals.contribute({ goalId: goal, accountId: y, amountMinor: 1 }))).toBeInstanceOf(
+      AccountArchivedError,
+    );
+    expect(snapshot(env)).toBe(before);
+    // X acepta movimientos y no se crearon ajustes por desarchivar.
+    d.transactions.create({ type: 'INCOME', accountId: x, amountMinor: 300 });
+    expect(available(d, x)).toBe(300);
+    expect(count(env, 'balance_adjustments')).toBe(adjustments);
+    expectIntegrity(d);
+  });
 });

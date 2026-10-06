@@ -10,6 +10,12 @@ export type GoalStatus = Goal['status'];
 
 const num = (expr: ReturnType<typeof sql<number>>) => expr.mapWith(Number);
 
+/**
+ * Meta `id` Y del usuario: toda consulta por id de este repositorio filtra por userId en el WHERE.
+ * Los mutadores devuelven el numero de filas afectadas (0 = id inexistente o ajeno).
+ */
+const owned = (userId: string, id: string) => and(eq(goals.id, id), eq(goals.userId, userId));
+
 export const goalRepository = {
   insert(
     db: DbOrTx,
@@ -30,8 +36,13 @@ export const goalRepository = {
     return id;
   },
 
-  getById(db: DbOrTx, id: string): GoalRow | undefined {
-    const row = db.select().from(goals).where(eq(goals.id, id)).get();
+  /** Meta del usuario; la de otro usuario es indistinguible de una inexistente (undefined). */
+  getById(db: DbOrTx, userId: string, id: string): GoalRow | undefined {
+    const row = db
+      .select()
+      .from(goals)
+      .where(owned(userId, id))
+      .get();
     return row ? mapRow(row) : undefined;
   },
 
@@ -43,36 +54,39 @@ export const goalRepository = {
   /** `targetDate`: epoch ms; `null` la limpia; `undefined` la deja intacta. */
   update(
     db: DbOrTx,
+    userId: string,
     id: string,
     v: { name?: string; targetMinor?: number; targetDate?: number | null; now: number },
-  ): void {
+  ): number {
     const set: Partial<typeof goals.$inferInsert> = { updatedAt: toDate(v.now) };
     if (v.name !== undefined) set.name = v.name;
     if (v.targetMinor !== undefined) set.targetMinor = v.targetMinor;
     if (v.targetDate !== undefined) set.targetDate = toDateOrNull(v.targetDate);
-    db.update(goals).set(set).where(eq(goals.id, id)).run();
+    return db.update(goals).set(set).where(owned(userId, id)).returning({ id: goals.id }).all().length;
   },
 
   /** ACTIVE -> SPENT con la foto del ahorro. */
-  markSpent(db: DbOrTx, id: string, spentAmountMinor: number, now: number): void {
-    db.update(goals)
+  markSpent(db: DbOrTx, userId: string, id: string, spentAmountMinor: number, now: number): number {
+    return db
+      .update(goals)
       .set({ status: 'SPENT', spentAt: toDate(now), spentAmountMinor, updatedAt: toDate(now) })
-      .where(eq(goals.id, id))
-      .run();
+      .where(owned(userId, id))
+      .returning({ id: goals.id })
+      .all().length;
   },
 
-  delete(db: DbOrTx, id: string): void {
-    db.delete(goals).where(eq(goals.id, id)).run();
+  delete(db: DbOrTx, userId: string, id: string): number {
+    return db.delete(goals).where(owned(userId, id)).returning({ id: goals.id }).all().length;
   },
 
   /** Ahorro derivado (§3.1): Σ aportes + Σ ajustes de la meta. */
-  savedOf(db: DbOrTx, goalId: string): number {
+  savedOf(db: DbOrTx, userId: string, goalId: string): number {
     const row = db
       .select({ v: num(sql<number>`coalesce(sum(${goalContributions.amountMinor}), 0)`) })
       .from(goalContributions)
-      .where(eq(goalContributions.goalId, goalId))
+      .where(and(eq(goalContributions.userId, userId), eq(goalContributions.goalId, goalId)))
       .get();
-    return (row?.v ?? 0) + adjustmentRepository.sumDelta(db, { type: 'GOAL', id: goalId });
+    return (row?.v ?? 0) + adjustmentRepository.sumDelta(db, userId, { type: 'GOAL', id: goalId });
   },
 
   /** Ahorro derivado de todas las metas del usuario, por id. */

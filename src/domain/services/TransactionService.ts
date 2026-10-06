@@ -50,15 +50,15 @@ export function removeTransactionIn(
   fx: EffectsCollector,
   id: string,
 ): { id: string } {
-  const row = transactionRepository.getById(tx, id);
+  const row = transactionRepository.getById(tx, ctx.userId, id);
   if (!row) throw new NotFoundError('Transaccion', id);
-  const account = accountRepository.getById(tx, row.accountId);
+  const account = accountRepository.getById(tx, ctx.userId, row.accountId);
   if (account && account.archivedAt !== null) throw new AccountArchivedError(account.id);
-  transactionRepository.delete(tx, id);
+  transactionRepository.delete(tx, ctx.userId, id);
   fx.refresh('accounts', 'transactions', 'statement');
   if (row.debtId !== null) fx.refresh('debts');
   if (row.recurringItemId !== null && row.occurrenceDate !== null) {
-    const recurring = recurringRepository.getById(tx, row.recurringItemId);
+    const recurring = recurringRepository.getById(tx, ctx.userId, row.recurringItemId);
     if (
       recurring &&
       recurring.anchorDate !== null &&
@@ -68,7 +68,7 @@ export function removeTransactionIn(
         recurring.nextDueDate === null || row.occurrenceDate < recurring.nextDueDate
           ? row.occurrenceDate
           : recurring.nextDueDate;
-      recurringRepository.update(tx, recurring.id, {
+      recurringRepository.update(tx, ctx.userId, recurring.id, {
         nextDueDate: next,
         snoozedUntil: null,
         now: ctx.now(),
@@ -102,7 +102,7 @@ export function createTransactionService(ctx: DomainContext) {
       });
     }
     if (categoryId) {
-      const category = categoryRepository.getById(tx, categoryId);
+      const category = categoryRepository.getById(tx, ctx.userId, categoryId);
       if (!category) throw new NotFoundError('Categoria', categoryId);
       if (category.type !== type) throw new ValidationError('La categoria no corresponde al tipo de movimiento');
       return category.id;
@@ -121,7 +121,7 @@ export function createTransactionService(ctx: DomainContext) {
         }
         const date = input.date ?? ctx.now();
         assertEpochMs(date, 'La fecha');
-        requireActiveAccount(tx, input.accountId);
+        requireActiveAccount(tx, ctx.userId, input.accountId);
         const categoryId = resolveCategory(tx, input.type, input.categoryId, input.newCategoryName);
         const id = transactionRepository.insert(tx, {
           userId: ctx.userId,
@@ -153,7 +153,7 @@ export function createTransactionService(ctx: DomainContext) {
     },
 
     get(id: string): TransactionView | undefined {
-      return transactionRepository.getViewById(ctx.db, id);
+      return transactionRepository.getViewById(ctx.db, ctx.userId, id);
     },
 
     /** Categorias activas (base + del usuario) para los selectores. */

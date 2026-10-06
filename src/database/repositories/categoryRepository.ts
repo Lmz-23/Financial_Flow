@@ -8,8 +8,16 @@ export type CategoryRow = DatesToMs<Category>;
 export type CategoryType = Category['type'];
 
 export const categoryRepository = {
-  getById(db: DbOrTx, id: string): CategoryRow | undefined {
-    const row = db.select().from(categories).where(eq(categories.id, id)).get();
+  /**
+   * Categoria accesible al usuario: propia o del sistema (userId NULL). La de otro usuario es
+   * indistinguible de una inexistente (undefined).
+   */
+  getById(db: DbOrTx, userId: string, id: string): CategoryRow | undefined {
+    const row = db
+      .select()
+      .from(categories)
+      .where(and(eq(categories.id, id), or(eq(categories.userId, userId), isNull(categories.userId))))
+      .get();
     return row ? mapRow(row) : undefined;
   },
 
