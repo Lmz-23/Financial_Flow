@@ -5,6 +5,9 @@
 // Todos los montos del dominio son enteros en unidades menores (pesos x 100).
 // El formato es-CO se implementa a mano: Intl/toLocaleString puede no estar
 // completo en Hermes. Funciones puras, sin dependencias.
+//
+// `formatCOP` es el UNICO formateador de moneda del proyecto: recibe unidades
+// menores (como se guardan en BD). La UI no debe formatear pesos por su cuenta.
 // =============================================================================
 
 /** Monto entero en unidades menores (centavos). 1 peso = 100. */
@@ -65,19 +68,24 @@ function groupThousands(digits: string): string {
 }
 
 /**
- * Formato es-CO en pesos enteros: "$ 1.234.567". Negativos: "-$ 1.234.567".
- * Los centavos se redondean al peso (el diseño no muestra decimales).
+ * UNICO formateador de moneda del proyecto. Recibe unidades menores (Minor) y
+ * devuelve pesos es-CO enteros SIN espacio tras el "$": "$1.234.567".
+ * Negativos con el signo antes del "$": "-$50.000". Cero: "$0".
+ * Los centavos se redondean al peso (half-up sobre el valor absoluto; el diseno
+ * no muestra decimales) y un negativo que redondea a 0 no muestra signo.
+ * La UI no debe formatear pesos por su cuenta: debe llamar a esta funcion.
  */
 export function formatCOP(minor: Minor): string {
   assertMinor(minor);
   const pesos = Math.round(Math.abs(minor) / MINOR_PER_PESO);
-  const body = `$ ${groupThousands(String(pesos))}`;
+  const body = `$${groupThousands(String(pesos))}`;
   return minor < 0 && pesos !== 0 ? `-${body}` : body;
 }
 
 /**
  * Parseo tolerante de un monto escrito por el usuario, en pesos.
- * es-CO: '.' separa miles y ',' separa decimales. Acepta "$" y espacios.
+ * es-CO: '.' separa miles y ',' separa decimales. Acepta "$" y espacios, con o sin
+ * espacio tras el "$" ("$1.200.000" y "$ 1.200.000").
  * Devuelve null si el texto es vacío, negativo o ambiguo (ej. "1.20").
  *
  * @example parsePesos("1.200.000") // 1200000

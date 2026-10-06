@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
+  addDays,
+  addMonthsToYearMonth,
+  daysInMonth,
+  diffDays,
+  formatLocalDate,
+  parseLocalDate,
+} from '../../../src/domain/dates';
+import {
   iterateOccurrences,
+  nearestBiweeklyDate,
+  normalizeAnchor,
   nextOccurrenceAfter,
   nextPendingOccurrence,
   occurrencesInMonth,
@@ -83,14 +93,131 @@ describe('BIWEEKLY (15 y último día del mes)', () => {
       '2026-01-31',
     ]);
   });
-  it('SUPUESTO: el ancla fuera de quincena es la primera ocurrencia', () => {
-    expect(take('2025-03-10', 'BIWEEKLY', 4)).toEqual([
-      '2025-03-10',
+  it('ancla BIWEEKLY no normalizada: la secuencia parte de la fecha normalizada', () => {
+    // 10 mar -> 15 mar (5) vs 28 feb (10)
+    expect(take('2025-03-10', 'BIWEEKLY', 3)).toEqual(['2025-03-15', '2025-03-31', '2025-04-15']);
+    // 20 mar -> 15 mar (5) vs 31 mar (11)
+    expect(take('2025-03-20', 'BIWEEKLY', 3)).toEqual(['2025-03-15', '2025-03-31', '2025-04-15']);
+    // 1 mar -> 28 feb
+    expect(take('2025-03-01', 'BIWEEKLY', 3)).toEqual(['2025-02-28', '2025-03-15', '2025-03-31']);
+  });
+  it('occurrencesInMonth y nextPendingOccurrence con ancla no normalizada', () => {
+    expect(occurrencesInMonth('2025-03-10', 'BIWEEKLY', 2025, 3)).toEqual(['2025-03-15', '2025-03-31']);
+    expect(occurrencesInMonth('2025-03-01', 'BIWEEKLY', 2025, 3)).toEqual(['2025-03-15', '2025-03-31']);
+    expect(occurrencesInMonth('2025-03-01', 'BIWEEKLY', 2025, 2)).toEqual(['2025-02-28']);
+    expect(nextPendingOccurrence({ anchor: '2025-03-10', frequency: 'BIWEEKLY', confirmed: [] })).toBe(
       '2025-03-15',
-      '2025-03-31',
-      '2025-04-15',
-    ]);
-    expect(take('2025-03-20', 'BIWEEKLY', 3)).toEqual(['2025-03-20', '2025-03-31', '2025-04-15']);
+    );
+    expect(
+      nextPendingOccurrence({ anchor: '2025-03-01', frequency: 'BIWEEKLY', confirmed: ['2025-02-28'] }),
+    ).toBe('2025-03-15');
+    expect(nextOccurrenceAfter('2025-03-10', 'BIWEEKLY', '2025-01-01')).toBe('2025-03-15');
+  });
+});
+
+describe('nearestBiweeklyDate', () => {
+  it('mes de 31 días', () => {
+    expect(nearestBiweeklyDate('2025-03-01')).toBe('2025-02-28'); // 1 vs 14
+    expect(nearestBiweeklyDate('2025-03-07')).toBe('2025-02-28'); // 7 vs 8
+    expect(nearestBiweeklyDate('2025-03-08')).toBe('2025-03-15'); // 7 vs 8
+    expect(nearestBiweeklyDate('2025-03-20')).toBe('2025-03-15');
+    expect(nearestBiweeklyDate('2025-03-22')).toBe('2025-03-15'); // 7 vs 9
+    expect(nearestBiweeklyDate('2025-03-24')).toBe('2025-03-31'); // 9 vs 7
+  });
+  it('mes de 30 días (sin empates)', () => {
+    expect(nearestBiweeklyDate('2025-04-01')).toBe('2025-03-31');
+    expect(nearestBiweeklyDate('2025-04-07')).toBe('2025-03-31');
+    expect(nearestBiweeklyDate('2025-04-08')).toBe('2025-04-15');
+    expect(nearestBiweeklyDate('2025-04-22')).toBe('2025-04-15'); // 7 vs 8
+    expect(nearestBiweeklyDate('2025-04-23')).toBe('2025-04-30'); // 8 vs 7
+  });
+  it('febrero de 28 días (sin empates)', () => {
+    expect(nearestBiweeklyDate('2025-02-01')).toBe('2025-01-31');
+    expect(nearestBiweeklyDate('2025-02-08')).toBe('2025-02-15');
+    expect(nearestBiweeklyDate('2025-02-21')).toBe('2025-02-15'); // 6 vs 7
+    expect(nearestBiweeklyDate('2025-02-22')).toBe('2025-02-28'); // 7 vs 6
+  });
+  it('febrero de 29 días', () => {
+    expect(nearestBiweeklyDate('2024-02-21')).toBe('2024-02-15'); // 6 vs 8
+    expect(nearestBiweeklyDate('2024-02-23')).toBe('2024-02-29'); // 8 vs 6
+    expect(nearestBiweeklyDate('2024-03-01')).toBe('2024-02-29');
+  });
+  it('cambio de año hacia atrás y hacia delante', () => {
+    expect(nearestBiweeklyDate('2026-01-01')).toBe('2025-12-31');
+    expect(nearestBiweeklyDate('2026-01-07')).toBe('2025-12-31');
+    expect(nearestBiweeklyDate('2026-01-08')).toBe('2026-01-15');
+    expect(nearestBiweeklyDate('2025-12-30')).toBe('2025-12-31');
+    expect(nearestBiweeklyDate('2025-12-20')).toBe('2025-12-15');
+  });
+  it('idempotente con 15 y con último día', () => {
+    for (const d of ['2025-01-15', '2025-01-31', '2025-02-28', '2024-02-29', '2025-04-30', '2025-12-31']) {
+      expect(nearestBiweeklyDate(d)).toBe(d);
+    }
+  });
+  it('EMPATES: gana la fecha posterior (SUPUESTO)', () => {
+    // mes de 31 días: día 23 -> 15 (8) vs 31 (8) -> 31
+    expect(nearestBiweeklyDate('2025-01-23')).toBe('2025-01-31');
+    expect(nearestBiweeklyDate('2025-03-23')).toBe('2025-03-31');
+    expect(nearestBiweeklyDate('2025-12-23')).toBe('2025-12-31');
+    // febrero de 29 días: día 22 -> 15 (7) vs 29 (7) -> 29
+    expect(nearestBiweeklyDate('2024-02-22')).toBe('2024-02-29');
+    // meses de 30 y de 28 días: día 22 / 21 no son empate
+    expect(nearestBiweeklyDate('2025-04-22')).toBe('2025-04-15');
+    expect(nearestBiweeklyDate('2025-02-21')).toBe('2025-02-15');
+  });
+  it('barrido exhaustivo 2023-2026 (incluye bisiesto 2024): válida y ninguna candidata más cerca', () => {
+    let count = 0;
+    for (let date = '2023-01-01'; date < '2027-01-01'; date = addDays(date, 1)) {
+      count++;
+      const result = nearestBiweeklyDate(date);
+      const r = parseLocalDate(result);
+      expect(r.day === 15 || r.day === daysInMonth(r.year, r.month)).toBe(true);
+      const best = Math.abs(diffDays(date, result));
+      // Todas las quincenas válidas en el entorno (mes anterior, actual, siguiente).
+      const { year, month } = parseLocalDate(date);
+      for (const delta of [-2, -1, 0, 1, 2]) {
+        const ym = addMonthsToYearMonth(year, month, delta);
+        for (const day of [15, daysInMonth(ym.year, ym.month)]) {
+          const other = formatLocalDate(ym.year, ym.month, day);
+          expect(Math.abs(diffDays(date, other))).toBeGreaterThanOrEqual(best);
+          // empate: debe ganar la posterior
+          if (Math.abs(diffDays(date, other)) === best) expect(result >= other).toBe(true);
+        }
+      }
+    }
+    expect(count).toBe(1461);
+  });
+});
+
+describe('normalizeAnchor', () => {
+  it('BIWEEKLY fuera de quincena: ajusta y conserva el original', () => {
+    expect(normalizeAnchor('2025-03-01', 'BIWEEKLY')).toEqual({
+      date: '2025-02-28',
+      adjusted: true,
+      original: '2025-03-01',
+    });
+    expect(normalizeAnchor('2025-03-10', 'BIWEEKLY')).toEqual({
+      date: '2025-03-15',
+      adjusted: true,
+      original: '2025-03-10',
+    });
+  });
+  it('BIWEEKLY ya válida: adjusted false', () => {
+    expect(normalizeAnchor('2025-03-15', 'BIWEEKLY')).toEqual({
+      date: '2025-03-15',
+      adjusted: false,
+      original: '2025-03-15',
+    });
+    expect(normalizeAnchor('2024-02-29', 'BIWEEKLY').adjusted).toBe(false);
+  });
+  it('MONTHLY y WEEKLY: sin cambios', () => {
+    for (const f of ['MONTHLY', 'WEEKLY'] as const) {
+      expect(normalizeAnchor('2025-03-10', f)).toEqual({
+        date: '2025-03-10',
+        adjusted: false,
+        original: '2025-03-10',
+      });
+    }
   });
 });
 
