@@ -5,7 +5,7 @@
 // Regla PURA: no lee el reloj (el "ahora" es parametro) ni la BD. Solo considera APORTES (no ajustes
 // manuales), que es lo que el servicio le pasa en `contributions`.
 //
-// Precedencia (SUPUESTO de la pasada F2b-bis, a validar): REACHED > BY_TARGET_DATE > BY_PACE > UNKNOWN.
+// Precedencia (decision del usuario, ver docs/ARCHITECTURE.md §10.2 punto 25): REACHED > BY_TARGET_DATE > BY_PACE > UNKNOWN.
 //   - REACHED: ahorro >= objetivo.
 //   - BY_TARGET_DATE: hay `targetDate`; gana sobre el ritmo. Devuelve esa fecha y el aporte mensual
 //     necesario `ceil(falta / monthsLeft)`.

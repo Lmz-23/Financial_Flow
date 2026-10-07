@@ -52,7 +52,7 @@ function nextQuincena(date: LocalDate): LocalDate {
  * anterior, 15 del mes, último día del mes y 15 del mes siguiente.
  * Idempotente: una fecha ya válida se devuelve igual.
  *
- * EMPATES (SUPUESTO, pendiente de validar por el usuario): gana la fecha
+ * EMPATES (decisión CONFIRMADA por el usuario): gana la fecha
  * POSTERIOR, para no adelantar un pago. Solo existen dos empates, entre el 15 y
  * el último día: día 23 en meses de 31 días (8 y 8) y día 22 en febrero de 29
  * días (7 y 7). Meses de 30 y de 28 días no tienen empates.
