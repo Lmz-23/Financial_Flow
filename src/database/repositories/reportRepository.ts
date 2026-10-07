@@ -1,4 +1,13 @@
 // Consultas agregadas del reporte mensual y de las invariantes (I1-I6). Solo lectura.
+// PROPIEDAD DEL USUARIO (decision de diseno): las 8 funciones son consultas de solo lectura con la convencion
+// de firma `(db, userId, ...)` y filtran por usuario EN LA CONSULTA (`userId` en el WHERE; `users.id = userId`
+// en `invalidWidgetFlags`); no se delega en que el servicio lo haya comprobado antes. No tiene mutadores ni
+// `insert`. La consulta que une tablas (`genericTxOnDebtRecurring`, JOIN) filtra por usuario solo la tabla
+// de `transactions`.
+// Guarda: test/unit/repositoryOwnership.test.ts (analisis AST: firma `(db, userId, ...)` y un `.where(...)`
+// que referencia `userId` en CADA consulta) y test/integration/repositories/ownership.test.ts (comportamiento
+// con dos usuarios). LIMITE: la guarda comprueba que el `where` REFERENCIA `userId`, no que la columna o el
+// operador sean correctos, ni verifica los JOIN; eso lo cubren los tests de comportamiento y el fuzz.
 import { and, eq, sql } from 'drizzle-orm';
 import type { MonthAggregates } from '../../domain/rules/statement';
 import { balanceAdjustments, goals, recurringItems, transactions, users } from '../schema';

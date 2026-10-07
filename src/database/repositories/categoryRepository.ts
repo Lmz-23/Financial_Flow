@@ -1,3 +1,15 @@
+// PROPIEDAD DEL USUARIO (decision de diseno): toda funcion de este repositorio que opera por id recibe
+// `userId` y lo filtra EN LA CONSULTA (WHERE); no se delega en que el servicio lo haya comprobado antes.
+// Convencion de firma `(db, userId, id, ...)`; unica excepcion `insert(db, v)`, que lleva el userId dentro
+// de la fila `v` (el servicio pasa `userId: ctx.userId`). Un id de otro usuario es indistinguible de uno
+// inexistente (`undefined` / 0 filas).
+// Las categorias son del usuario O del sistema (`userId` NULL): el filtro es `userId = ? OR userId IS NULL`, asi que
+// las del sistema las ven todos y las propias solo su dueno. No tiene mutadores por id: solo consultas de lectura
+// y `insert`, que no devuelven conteo de filas (`insert` devuelve el id nuevo).
+// Guarda: test/unit/repositoryOwnership.test.ts (analisis AST: firma `(db, userId, ...)`, un `.where(...)` con
+// `userId` en CADA consulta, `insert` con `v.userId`) y test/integration/repositories/ownership.test.ts
+// (comportamiento con dos usuarios). LIMITE: la guarda comprueba que el `where` REFERENCIA `userId`, no que la
+// columna o el operador sean correctos; eso lo cubren los tests de comportamiento y el fuzz (test/property).
 import { and, asc, eq, isNull, or, sql } from 'drizzle-orm';
 import { newId } from '../ids';
 import { categories, type Category } from '../schema';
