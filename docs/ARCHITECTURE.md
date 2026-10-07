@@ -1,11 +1,12 @@
 # Arquitectura técnica: Financial Flow MVP
 
-Especificación de referencia del diseño objetivo del MVP. Última actualización: 2026-10-03.
+Especificación de referencia del diseño objetivo del MVP. Escrita el 2026-10-03; última actualización: 2026-10-07 (HEAD `0b34f13`, rama `develop`; el commit de este documento no puede citarse a sí mismo), con las decisiones del usuario y lo implementado entre F0 y F3 y la fase F2b (incluidas sus pasadas bis y ter, el endurecimiento de la propiedad del usuario y su guarda estructural por AST, ya commiteada).
 
 ## Tabla de contenidos
 
 - [Convenciones del documento](#convenciones-del-documento)
 - [Estado de implementación](#estado-de-implementación)
+  - [Pendientes para la próxima sesión](#pendientes-para-la-próxima-sesión)
 - [0. Problemas del repo que condicionan el diseño](#0-problemas-del-repo-que-condicionan-el-diseño)
 - [1. Resumen ejecutivo](#1-resumen-ejecutivo)
 - [2. Modelo de datos objetivo](#2-modelo-de-datos-objetivo)
@@ -17,6 +18,9 @@ Especificación de referencia del diseño objetivo del MVP. Última actualizaci�
   - [3.2 Reporte del mes](#32-reporte-del-mes)
   - [3.3 Invariantes](#33-invariantes)
   - [3.4 Contratos de operaciones](#34-contratos-de-operaciones)
+  - [3.5 Propiedad del usuario y convención de repositorios](#35-propiedad-del-usuario-y-convención-de-repositorios)
+  - [3.6 Errores tipados](#36-errores-tipados)
+  - [3.7 Definiciones del ETA de una meta](#37-definiciones-del-eta-de-una-meta)
 - [4. Capas y módulos](#4-capas-y-módulos)
   - [4.1 Estructura](#41-estructura)
   - [4.2 Qué se conserva, se retira o se crea](#42-qué-se-conserva-se-retira-o-se-crea)
@@ -33,6 +37,8 @@ Especificación de referencia del diseño objetivo del MVP. Última actualizaci�
   - [10.3 Verificaciones de Expo](#103-verificaciones-de-expo)
 - [11. Decisiones del usuario](#11-decisiones-del-usuario)
 - [12. Desviaciones aprobadas](#12-desviaciones-aprobadas)
+  - [12.1 F1 (datos): restricciones adicionales y más estrictas](#121-f1-datos-restricciones-adicionales-y-más-estrictas)
+  - [12.2 Desviaciones y ampliaciones posteriores](#122-desviaciones-y-ampliaciones-posteriores)
 
 ---
 
@@ -42,6 +48,8 @@ Especificación de referencia del diseño objetivo del MVP. Última actualizaci�
 - **NO VERIFICADO**: no se ha comprobado en código ni en documentación.
 - **[EXPO-DOC]**: hay que confirmarlo en https://docs.expo.dev/versions/v56.0.0/ antes de implementar.
 - **VERIFICADO (2026-10-03)**: comprobado contra la documentación de Expo v56 y las fuentes instaladas (informe de investigación del 2026-10-03).
+- **VERIFICADO EN CÓDIGO (2026-10-07)**: comprobado leyendo el código real del repo (`src/**`, `test/**`, archivos de configuración) al actualizar este documento. Salvo que se indique otra cosa, lo descrito como "implementado" está en este nivel; que además se haya ejecutado (tests, `tsc`, lint, `expo export`) lo declaran los informes de cada fase, no esta lectura.
+- **Código/comentarios obsoletos**: cuando un comentario del código contradice una decisión posterior del usuario, prevalece este documento y la sección 11 (se anota en la sección 12).
 
 ---
 
@@ -49,27 +57,83 @@ Especificación de referencia del diseño objetivo del MVP. Última actualizaci�
 
 Este documento describe el **diseño objetivo**. Las desviaciones aprobadas durante la implementación se anotan en la sección final [Desviaciones aprobadas](#12-desviaciones-aprobadas).
 
-Estado a fecha 2026-10-03:
+Estado a fecha 2026-10-07 (HEAD `0b34f13`):
 
-| Fase | Contenido | Estado |
-|---|---|---|
-| F0 | Configuración (higiene del repo) | Completada y verificada |
-| F1 | Datos | Implementada, en revisión |
-| F2a | Reglas puras | Implementada, en revisión |
-| F2b | Dominio | Pendiente |
-| F3 | Tema | Implementada, en revisión |
-| F4 | Plataforma (notificaciones) | Pendiente |
-| F5a | Navegación y Dashboard | Pendiente |
-| F5b | Funcionalidades | Pendiente |
-| F6 | Limpieza | Pendiente |
+| Fase | Contenido | Estado | Commits |
+|---|---|---|---|
+| F0 | Configuración (higiene del repo) | Completada, revisada, verificada y commiteada | `641f393` |
+| F1 | Datos (esquema, migración `0000`, cliente, semilla) | Completada, revisada, verificada y commiteada | `0e7fb57` |
+| F2a | Reglas puras | Completada, revisada, verificada y commiteada | `a6cc855` |
+| F2b | Dominio: repositorios, servicios y `createDomain`, con las pasadas bis y ter y el refuerzo de la propiedad del usuario | Completada, revisada, verificada y commiteada (incluida la guarda estructural por AST y la corrección de comentarios obsoletos) | `e86bd95` (repositorios); `fd60fcd` (servicios y pruebas); `560bb12` (F2b-bis: ocurrencias validadas contra la serie, cuentas archivadas protegidas, ETA de metas); `8b0609f` (F2b-ter: desarchivar cuentas, tope del ETA, validación de fechas); `9e5ae32` (propiedad del usuario en servicios y repositorios); `58b0502` (prueba aleatoria con modelo de referencia independiente); `119a972` (guarda estructural de propiedad por AST); `0b34f13` (corrección de comentarios obsoletos del empate quincenal y del ETA) |
+| F3 | Tema: tokens, `ThemeProvider`, fuentes, primitivas `ds/` | Completada, revisada, verificada y commiteada | `6303bb5` |
+| F4 | Plataforma (notificaciones) | Pendiente | |
+| F5a | Navegación y Dashboard | Pendiente | |
+| F5b | Funcionalidades (por carpetas) | Pendiente | |
+| F6 | Limpieza | Pendiente | |
 
-Los supuestos 1 a 20 están aprobados (sección 10.2) y R1 y R2 están resueltos (sección 10.1), de modo que no quedan bloqueos de diseño previos a F2b.
+Otros commits relacionados: `450af15` (documento de arquitectura inicial), `8357447` (ajuste de dominio: el quincenal ajusta la primera fecha y `formatCOP` sin espacio) y `4e50130` (ajuste de UI: primitivas `ds` en unidades menores). Las actualizaciones posteriores de este documento se commitean aparte y no se citan aquí. El commit `e7fd4a5` es el snapshot previo al rediseño y el tag `pre-mvp` apunta a él (el tag existe en `.git/refs/tags/pre-mvp`; que apunte exactamente a `e7fd4a5` lo declara el usuario y no se ha comprobado leyendo el objeto).
+
+**Estado del árbol (importante).** Los hooks y pantallas antiguos (`src/hooks/*`, `app/**`, `src/components/**` previos al rediseño) siguen importando módulos ya retirados (bolsillos, presupuesto, `cashflow` antiguo, repositorios de tarjetas y préstamos). Hasta F5/F6 el bundle de Metro no resuelve esos imports y hay errores preexistentes de `tsc` y de lint (`import/no-unresolved`): 276 `error TS` en la base actual (según el último informe; NO VERIFICADO en esta lectura). El dominio, la capa de datos, el tema y las primitivas `ds/` sí están verificados de forma aislada con vitest.
+
+La guarda estructural de repositorios por AST (`test/helpers/repositoryAst.ts`, `test/unit/repositoryOwnership.test.ts`) está commiteada (`119a972`) y verificada; sus límites están en [3.5](#35-propiedad-del-usuario-y-convención-de-repositorios). La corrección de los comentarios obsoletos del código está hecha (ver [12.2](#122-desviaciones-y-ampliaciones-posteriores)).
+
+`.claude/agent-memory/` pasa a estar versionada. Contiene la memoria de proyecto de los agentes (una carpeta por agente); la del orquestador incluye el estado de traspaso entre sesiones.
+
+### Pendientes para la próxima sesión
+
+Ninguno bloquea F4. Esta subsección es el único lugar donde se listan; el resto del documento los enlaza.
+
+**PRODUCTO (por fases)**
+
+- **F4 (plataforma):** adaptador de notificaciones con `reconcile`, `planNotifications`, permisos, canal de Android y respuestas "Ya pagué" / "Todavía no" (diseño en [7](#7-notificaciones-y-recurrentes)). El plugin `expo-notifications` ya está en `app.json`. `src/platform/` no existe aún.
+- **F5a:** navegación con Stack sin tabs y `Stack.Protected`, Dashboard, hooks, stores y la capa de aplicación `src/app-services/`, que ejecuta los `effects` tras el COMMIT y **aún no existe** (VERIFICADO EN CÓDIGO 2026-10-07; ver [6](#6-mapa-de-pantallas-y-navegación) y [9](#9-plan-por-fases)).
+- **F5b:** pantallas por carpetas: cuentas, transacciones, deudas, metas, recurrentes, onboarding de 4 pasos y ajustes.
+- **F6 (limpieza):** retirar el shim de `colors`, las primitivas antiguas de `src/components/ui/`, `src/domain/utils/` con su `formatCOP` homónima (ver [5](#5-sistema-de-tema)), hooks y pantallas antiguos, el alias de `expo-sqlite` y `test/mocks/expo-sqlite.ts` en `vitest.config.ts` (siguen presentes), y endurecer a `error` las reglas de ESLint de fronteras y de `colors` (hoy `warn`).
+- **Contratos que F5 debe implementar** (detalle en [3.4](#34-contratos-de-operaciones) y [6](#6-mapa-de-pantallas-y-navegación)):
+  - "Desarchivar" al atrapar `AccountArchivedError`.
+  - Elegir cuenta activa de destino al eliminar una meta con aportes de cuentas archivadas (`RefundAccountRequiredError`).
+  - `normalizeAnchor` en vivo en "Agregar recurrente".
+  - `MoneyInput`: ignorar el dígito que desborda en vez de vaciar el campo y tratar el separador "." como no-op lógico (probar en dispositivo; ver [5](#5-sistema-de-tema)).
+  - Mostrar `GoalView.eta` según su `kind` ([3.7](#37-definiciones-del-eta-de-una-meta)).
+  - Usar `accountArchived` en `refundPreview`.
+
+**GUARDA Y PRUEBAS**
+
+- Inspeccionar `.set({...})` en el analizador de `test/helpers/repositoryAst.ts` y añadir un test de estado final ("tras `rename` como A, la cuenta sigue siendo de A"): hoy un `update` que reasigne `userId` a otro usuario existente no lo detecta ningún mecanismo.
+- Test de `getViewById` con varias cuentas que aserte `accountName` (los JOIN no se verifican).
+- Alinear R5 y R6 con sus falsos positivos documentados: `userId` dentro de `values` fuera de `insert`, y un array de condiciones que recibe el filtro solo por `.push`.
+- Un segundo `.where` fuera de la cadena y las asignaciones posteriores al `export const` solo los cubre el comportamiento.
+- Sustituir `parseDiagnostics` (API interna de TypeScript) cuando haya una alternativa pública.
+- Revisar los comentarios `SUPUESTO` restantes en `src/domain/rules/statement.ts`, `amortization.ts` y `notificationPlan.ts`, y confirmar con el usuario cuáles ya son decisiones suyas.
+- Líneas "Mutador(es)" casi duplicadas en las cabeceras de `adjustmentRepository`, `goalContributionRepository` y `transactionRepository`.
+- `goalEta.ts:8` mide 125 caracteres.
+- Contador de operaciones omitidas (`stats.skipped`) e instantes exactos de borde de mes en la prueba aleatoria; comparaciones parciales de `debts.list` y `recurring.list` en ella.
+- FK compuestas `(id, userId)` en una migración futura (decisión de producto, no abordada; ver [3.5](#35-propiedad-del-usuario-y-convención-de-repositorios)).
+
+**VERIFICACIÓN EN DISPOSITIVO / DEVELOPMENT BUILD** (nada de esto se ha podido comprobar)
+
+- `UPDATE/DELETE ... RETURNING` sobre expo-sqlite (SQLite 3.50.3; plan B con `run()` y `changes`).
+- `migrate()` y `PRAGMA foreign_keys` sobre expo-sqlite real.
+- Fuentes IBM Plex en iOS.
+- Notificaciones, categorías con acciones y `getLastNotificationResponseAsync` en arranque en frío.
+- `Stack.Protected` y `formSheet`.
+- Modo oscuro en caliente.
+- Alineación de versiones de Expo: 14 paquetes desalineados y `@react-native-async-storage/async-storage` en `^3.1.1` frente a la `2.2.0` que espera el SDK (según el informe de verificación; no se ha vuelto a ejecutar `expo install --check`).
+
+**PROCESO**
+
+1. Dos veces se perdió o llegó solo como resumen el informe completo de un agente en segundo plano (el registro del agente tenía líneas demasiado largas para extraerlo). Revisar cómo se entregan los informes antes de que pase con algo de más peso; los agentes deben terminar con **un único mensaje final autocontenido**.
+2. Los límites de uso cortaron a agentes en mitad de ediciones (F2b-ter y la pasada mínima). Tras un corte, comprobar el estado real en disco (`git status`, `git diff` y tests) y reanudar con un agente que inspeccione.
+3. El hook `pipeline-advance.sh` solo leía `last_assistant_message`; el usuario ya lo corrigió para leer el transcript del subagente.
+4. El estado del pipeline (`.claude/pipeline-state.json`) lo edita solo el usuario.
+
+Los supuestos 1 a 20 están aprobados (sección 10.2) y R1 y R2 están resueltos (sección 10.1). Las decisiones posteriores (2026-10-04 a 2026-10-07) están en las secciones 10.2 (21 a 28) y 11.
 
 ---
 
 ## 0. Problemas del repo que condicionan el diseño
 
-Comprobados leyendo el código del estado previo al rediseño (commit `e7fd4a5`, "snapshot pre-mvp").
+Comprobados leyendo el código del estado previo al rediseño (commit `e7fd4a5`, "snapshot pre-mvp"; el tag `pre-mvp` existe). Esta lista describe el estado **anterior**: lo que ya se resolvió se indica en cada punto.
 
 1. **El saldo de bolsillo "Sin asignar" es siempre 0.** `PocketRepository.getAllByAccountWithBalances` busca la clave `'__null__'`, que nunca se escribe. El test de integridad no lo detecta porque trabaja con repositorios simulados que reimplementan la lógica (`test/unit/integrity.test.ts`).
 2. **Los saldos iniciales se cuentan como ingreso del mes.** El onboarding guarda el saldo inicial como Transaction `INCOME` "Saldo inicial" (`app/(auth)/onboarding/accounts.tsx:104-113`).
@@ -88,8 +152,8 @@ Comprobados leyendo el código del estado previo al rediseño (commit `e7fd4a5`,
     - `RecurringService` importa `lib/expo/notifications`, un módulo nativo, y por eso los tests necesitan simulaciones.
 11. **Navegación y configuración.**
     - `app/(tabs)/` tiene `pockets.tsx` y `settings.tsx` sin `Tabs.Screen`; probablemente aparecen como pestañas extra (NO VERIFICADO).
-    - `app.json` no incluía el plugin `expo-notifications`.
-    - Migraciones: había un `.ts` que copiaba a mano el `.sql` (`initialize.ts:34-46`).
+    - `app.json` no incluía el plugin `expo-notifications`. **Resuelto en F0**: ya está en `app.json`, junto con el plugin `expo-font` con los cinco `.ttf` de IBM Plex.
+    - Migraciones: había un `.ts` que copiaba a mano el `.sql` (`initialize.ts:34-46`). **Resuelto**: `initialize.ts` aplica `migrations.js` generado por drizzle-kit (ver 4.4).
 12. **Huecos en el diseño.**
     - "Agregar deuda" no pide fecha de pago (`dueLabel: 'Sin definir'`, Dashboard.dc.html:1410). Se resuelve con un campo de fecha opcional (D7).
     - La hoja "Ya pagué" no tiene selector de cuenta. Se resuelve: siempre pide cuenta y preselecciona la predeterminada del recurrente (D8).
@@ -119,12 +183,26 @@ Los saldos de cuenta, deuda y meta, `paidCount` y el Índice se calculan agregan
 - **P6. Montos como INTEGER en unidades menores**, con CHECK `> 0`. El sentido lo da el `type`, no el signo.
 - **P7. Borrar revierte exactamente lo que el hecho aplicó.** Como los saldos son derivados, borrar un hecho deshace su efecto sin código adicional.
 - **P8. Se retira todo lo que el MVP no usa** (pockets, presupuesto, distribución). El historial queda en git.
+- **P9. La propiedad del usuario se impone en la consulta.** Todo método por id de todo repositorio exige `userId` y lo filtra en el `WHERE`; un id ajeno es indistinguible de uno inexistente (sección 3.5).
+- **P10. Una cuenta archivada no cambia de saldo por ningún motivo.** Ninguna operación que cree, borre o redirija movimientos de una cuenta archivada se acepta; para tocarla hay que desarchivarla (sección 3.4).
 
 ---
 
 ## 2. Modelo de datos objetivo
 
-Base de datos limpia: un único `0000` regenerado. El archivo de BD cambia de nombre (ver [4.4](#44-mecanismo-de-migraciones)).
+Base de datos limpia: un único `0000` regenerado (`src/database/migrations/0000_harsh_excalibur.sql`). El archivo de BD cambia de nombre a `financial-flow-v1.db` (ver [4.4](#44-mecanismo-de-migraciones)).
+
+**Convenciones del esquema real (`src/database/schema.ts`):**
+
+- Dinero: INTEGER en unidades menores.
+- Instantes (`createdAt`, `updatedAt`, `date`, `spentAt`, `archivedAt`, `snoozedUntil`, `targetDate`, `onboardingCompletedAt`): INTEGER epoch en **milisegundos** (`mode: 'timestamp_ms'`). En las tablas de abajo, "int (epoch ms)" significa esto.
+- Fechas de calendario sin hora (`anchorDate`, `nextDueDate`, `occurrenceDate`): TEXT `'YYYY-MM-DD'` en hora local, con CHECK de patrón `GLOB` (NULL pasa el CHECK).
+- Ids: TEXT PK generado en JS con `newId()`. Booleanos: INTEGER 0/1.
+- Cada columna enum de texto lleva además un CHECK `IN (...)`.
+- Todas las FK a `users` son `ON DELETE RESTRICT`, salvo `categories.userId` (`CASCADE`).
+- Las FK **no** incluyen `userId` (ver límite conocido en [3.5](#35-propiedad-del-usuario-y-convención-de-repositorios)).
+
+Los CHECK adicionales que F1 aplicó respecto del diseño original se detallan en [12](#12-desviaciones-aprobadas).
 
 ### 2.1 Tablas
 
@@ -142,16 +220,19 @@ Base de datos limpia: un único `0000` regenerado. El archivo de BD cambia de no
 | onboardingCompletedAt | int nullable | |
 | createdAt, updatedAt | int | |
 
+CHECK: `themePreference IN ('light','dark','system')`, `reminderHour BETWEEN 0 AND 23` y cada `widget*` `IN (0, 1)` (NULL pasa).
+
 **accounts**
 - Campos: id, userId FK, name, type (`CASH`, `SAVINGS`, `CHECKING`, `DIGITAL_WALLET`: los cuatro tipos que muestra el diseño, Dashboard.dc.html:1260), order, archivedAt nullable, createdAt, updatedAt.
 - **Sin columna de saldo.**
 - Se retiran `institution`, `color`, `icon` y `cashflowClass` (D18).
+- CHECK `type IN (...)`. Índice `(userId)`.
 
 **categories**
 - Campos: id, userId nullable (NULL = categoría base), name, type INCOME/EXPENSE, order, isActive, createdAt.
 - Semilla con las listas del diseño. Gasto: Comida, Transporte, Servicios, Salud, Otro. Ingreso: Sueldo, Freelance, Ventas, Regalo, Otro.
 - Se elimina la categoría "Deudas" de la semilla: el pago de deuda no usa categoría.
-- `UNIQUE(userId, type, name)`.
+- `UNIQUE(userId, type, name)` (`uq_categories_user_type_name`). En SQLite los NULL son distintos entre sí, así que ese índice **no** protege las categorías base (userId NULL): por eso hay además un UNIQUE parcial `uq_categories_system_type_name` sobre `(type, name) WHERE userId IS NULL`. CHECK `type IN ('INCOME','EXPENSE')`.
 
 **transactions**
 
@@ -173,9 +254,9 @@ Base de datos limpia: un único `0000` regenerado. El archivo de BD cambia de no
 | occurrenceDate | text 'YYYY-MM-DD', nullable |
 | createdAt, updatedAt | |
 
-CHECK: `kind='DEBT_PAYMENT'` ⇔ (type='EXPENSE' AND debtId, debtPaymentType y debtPrincipalAppliedMinor no nulos).
+CHECK: `kind='DEBT_PAYMENT'` ⇔ (type='EXPENSE' AND debtId, debtPaymentType y debtPrincipalAppliedMinor no nulos). Se implementa en dos CHECK: `ck_tx_debt_payment` (⇒) y `ck_tx_standard_no_debt` (`kind='STANDARD'` ⇒ los tres campos de deuda NULL; cierra el "si y solo si"). Otros CHECK: `ck_tx_occurrence_required` (si `recurringItemId` no es NULL, `occurrenceDate` es obligatoria: si no, el UNIQUE parcial no la cubriría), `ck_tx_payment_type`, `ck_tx_type`, `ck_tx_kind` y `ck_tx_occurrence_date` (patrón `GLOB`).
 
-Índices: `(userId, date)`, `(accountId)`, `(debtId)`, y el **UNIQUE parcial `(recurringItemId, occurrenceDate) WHERE recurringItemId IS NOT NULL`**.
+Índices: `(userId, date)`, `(accountId)`, `(debtId)`, `(categoryId)`, y el **UNIQUE parcial `(recurringItemId, occurrenceDate) WHERE recurringItemId IS NOT NULL`**.
 
 Se eliminan: `TRANSFER`, `pocketId`, `status`, `isConfirmed` y los campos `transferTo*`. SUPUESTO: el MVP no tiene transacciones pendientes; lo pendiente vive en los recurrentes. Que no haya transferencias entre cuentas es la decisión D9.
 
@@ -183,13 +264,16 @@ Se eliminan: `TRANSFER`, `pocketId`, `status`, `isConfirmed` y los campos `trans
 - Campos: id, userId, name, installmentMinor (nullable: la cuota puede estar "sin definir"), monthlyRate (real, nullable), rateSource ('KNOWN' / 'ESTIMATED' / 'UNKNOWN'), initialPaidCount (int default 0), totalCount (int nullable), archivedAt (nullable), createdAt, updatedAt.
 - **Sin columna de saldo.**
 - La fecha de pago (`dueLabel`) se deriva del recurrente vinculado (ver más abajo).
+- CHECK: `installmentMinor` NULL o > 0; `monthlyRate` NULL o ≥ 0; `rateSource IN (...)`; `initialPaidCount ≥ 0`; `totalCount` NULL o > 0. Índice `(userId)`.
 
 **goals**
 - Campos: id, userId, name, targetMinor (CHECK > 0), status ('ACTIVE' / 'SPENT'), spentAt (nullable), spentAmountMinor (nullable), targetDate (nullable, opcional), createdAt, updatedAt.
-- CHECK: `status='SPENT'` ⇔ (spentAt y spentAmountMinor no nulos).
+- CHECK: `status='SPENT'` ⇔ (spentAt y spentAmountMinor no nulos). El esquema lo impone en los dos sentidos: una meta `ACTIVE` tiene `spentAt` y `spentAmountMinor` NULL. Además `spentAmountMinor` NULL o ≥ 0.
+- `targetDate` es un instante `timestamp_ms` (medianoche local de la fecha elegida); el servicio recibe `'YYYY-MM-DD'` y lo convierte. No hay CHECK sobre `targetDate` en el esquema (la validación está en el servicio; ver 3.4, GoalService).
+- Índice `(userId)`.
 
 **goal_contributions**
-- Campos: id, userId, goalId FK RESTRICT, accountId FK RESTRICT, amountMinor (CHECK > 0), date, createdAt.
+- Campos: id, userId, goalId FK RESTRICT, accountId FK RESTRICT, amountMinor (CHECK > 0), date (epoch ms), createdAt.
 - Índices: `(goalId)` y `(accountId)`.
 
 **balance_adjustments**
@@ -198,6 +282,9 @@ Se eliminan: `TRANSFER`, `pocketId`, `status`, `isConfirmed` y los campos `trans
 - CHECK: `deltaMinor = newMinor - previousMinor`.
 - CHECK: `targetType='ACCOUNT' OR newMinor >= 0`. Deudas y metas nunca quedan negativas; las cuentas sí pueden (D12).
 - Se usan tres FKs reales en lugar de una referencia polimórfica para que SQLite haga cumplir la integridad referencial.
+- Los tres FK (`accountId`, `debtId`, `goalId`) son **`ON DELETE CASCADE`**: el ajuste es un hecho sobre su objetivo y no tiene sentido sin él. Los servicios solo borran cuenta, deuda o meta cuando no tienen movimientos (y borran los ajustes de forma explícita).
+- CHECK adicionales: `targetType IN (...)` y `reason IN (...)`. Índices `(accountId)`, `(debtId)` y `(goalId)`.
+- El esquema solo admite los motivos `OPENING`, `MANUAL` y `ARCHIVE_CLOSE`; no hay un motivo propio para "reembolso de meta" (ver GoalService.remove en 3.4).
 
 **recurring_items**
 
@@ -213,7 +300,7 @@ Se eliminan: `TRANSFER`, `pocketId`, `status`, `isConfirmed` y los campos `trans
 | categoryId | nullable |
 | defaultAccountId | FK SET NULL, nullable. Cuenta predeterminada: es solo una sugerencia. La pantalla "Agregar recurrente" **debe pedir** este campo y la hoja "Ya pagué" siempre pide cuenta, preseleccionando esta (D8) |
 | frequency | 'WEEKLY' / 'BIWEEKLY' / 'MONTHLY' (se retira ANNUAL: el diseño solo tiene 3 opciones). **BIWEEKLY ("quincenal") = los días 15 y último día de cada mes; no es cada 14 días (D6)** |
-| anchorDate | text 'YYYY-MM-DD', nullable |
+| anchorDate | text 'YYYY-MM-DD', nullable. Se guarda **ya normalizada** (para BIWEEKLY es siempre 15 o último día; ver 3.4) |
 | nextDueDate | text nullable (NULL = "sin fecha", por ejemplo lo creado en onboarding) |
 | snoozedUntil | int nullable |
 | status | 'ACTIVE' / 'PAUSED' |
@@ -223,9 +310,11 @@ CHECK: `kind='DEBT_INSTALLMENT'` ⇔ (debtId no nulo AND type='EXPENSE' AND amou
 
 CHECK: `kind='STANDARD'` ⇒ (amountMinor > 0 AND name no nulo).
 
+CHECK adicionales: `isPassive = 0 OR type = 'INCOME'` (`recurring_items.isPassive` solo en INCOME; `ck_rec_passive_income`), `type`, `kind`, `frequency` y `status` con `IN (...)`, y patrón `GLOB` en `anchorDate` y `nextDueDate`. El "si y solo si" de `kind='DEBT_INSTALLMENT'` ⇔ `debtId` no nulo es un CHECK propio (`ck_rec_kind_debt`). Índices: UNIQUE `(debtId)` (`uq_rec_debt`), `(userId, status)`, `(categoryId)` y `(defaultAccountId)`.
+
 **Relaciones:** users 1–N con todo. accounts 1–N con transactions, goal_contributions y adjustments. debts 1–N con transactions y adjustments, y 1–0..1 con recurring_items. goals 1–N con contributions y adjustments. recurring_items 1–N con transactions (una por ocurrencia).
 
-**PRAGMA foreign_keys = ON** al abrir la conexión, tanto en Expo como en tests (si no, RESTRICT no se aplica). VERIFICADO (2026-10-03): expo-sqlite **no** lo trae activo por defecto y se activa por conexión; better-sqlite3 sí lo trae activo, pero los tests lo ejecutan igualmente de forma explícita.
+**PRAGMA foreign_keys = ON** al abrir la conexión, tanto en Expo como en tests (si no, RESTRICT no se aplica). VERIFICADO (2026-10-03): expo-sqlite **no** lo trae activo por defecto y se activa por conexión; better-sqlite3 sí lo trae activo, pero los tests lo ejecutan igualmente de forma explícita (`test/helpers/db.ts`). VERIFICADO EN CÓDIGO (2026-10-07): `src/database/client.ts` ejecuta `PRAGMA foreign_keys = ON` justo tras abrir la conexión y **falla cerrado** (lanza) si al releerlo no vale 1.
 
 ### 2.2 Estrategia por tipo de hecho
 
@@ -315,77 +404,116 @@ Los comprueba IntegrityService y los tests.
 
 ### 3.4 Contratos de operaciones
 
-Todas son síncronas dentro de `db.transaction(tx => …)`. Devuelven `{ result, effects }`, donde `effects` son las claves de la interfaz que hay que refrescar y los recurrentes a reprogramar; la capa de aplicación los ejecuta después del COMMIT. Cuando una operación indica autoActivate(widget), esa activación va en la misma transacción.
+Todas son síncronas dentro de `db.transaction(tx => …)` (`runOperation` en `src/domain/services/shared.ts`, que además lanza `TypeError` si el callback devuelve una promesa). Devuelven `{ result, effects }`, donde `effects` son `{ refresh, reschedule }`: las claves de la interfaz que hay que refrescar (`accounts`, `transactions`, `debts`, `goals`, `recurring`, `settings`, `statement`, sin duplicados) y los ids de recurrentes a reprogramar; la capa de aplicación los ejecuta después del COMMIT y los servicios nunca los ejecutan. Cuando una operación indica autoActivate(widget), esa activación va en la misma transacción. Las consultas de solo lectura (`list`, `get`, `summary`, etc.) no abren transacción ni devuelven `effects`.
+
+El dominio se construye con `createDomain(db, { userId?, now? })` (`src/domain/createDomain.ts`): `userId` por defecto `'default-user'` y `now` por defecto `Date.now()`; devuelve `accounts`, `transactions`, `debts`, `goals`, `recurring`, `settings`, `onboarding`, `reports` e `integrity`. El reloj inyectable `ctx.now()` es el único reloj de los servicios.
+
+**Validaciones de borde comunes** (`shared.ts`):
+- Montos: enteros seguros en unidades menores (`assertPositiveMinor`, `assertNonNegativeMinor`, `assertInteger`), con `ValidationError`.
+- Nombres: `cleanName` recorta y rechaza vacíos.
+- Fechas `'YYYY-MM-DD'`: `assertLocalDate(value, label)` exige formato y día existentes y rechaza años `< MIN_LOCAL_DATE_YEAR` (constante `MIN_LOCAL_DATE_YEAR = 100`) con `ValidationError`. Motivo: `localDateToEpochMs` usa `new Date(y, …)`, que interpreta los años 0 a 99 como 1900 a 1999 y guardaría silenciosamente otra fecha; `src/domain/dates.ts` no se modificó y la defensa está en el borde del servicio. Se aplica en todos los puntos de entrada con fecha de calendario: `targetDate` de metas (crear y actualizar), `occurrenceDate` (`confirmOccurrence` y `registerPayment`), `anchorDate` de recurrentes (crear y actualizar; incluye el onboarding, que reutiliza `createStandardRecurringIn`) y `nextDueDate` de deudas (crear y actualizar).
+- Instantes: `assertEpochMs` exige entero seguro y rango de `Date` (±8,64e15 ms) con `ValidationError`.
 
 **AccountService**
-- `create({name, type, openingMinor})`: inserta la cuenta y, si el saldo inicial no es 0, un ajuste OPENING (anterior 0).
+- `create({name, type, openingMinor})`: inserta la cuenta y, si el saldo inicial no es 0, un ajuste OPENING (anterior 0). El saldo inicial puede ser negativo.
 - `update(id, {name?, balanceMinor?})`, en una transacción:
+  - Rechaza una cuenta archivada con `AccountArchivedError` (una cuenta archivada no cambia de saldo).
   - Renombrar actualiza solo `accounts.name`. Las transacciones apuntan por id, así que el nombre nuevo aparece en todas sin más.
   - Si cambia el saldo: calcula el saldo actual dentro de la transacción y crea un ajuste MANUAL con anterior, nuevo y diferencia. Si la diferencia es 0, no hace nada.
 - `remove(id)` (D2):
+  - Sobre una cuenta **ya archivada** devuelve `ValidationError` ("La cuenta ya esta archivada"); sobre una inexistente o ajena, `NotFoundError`.
   - Si la cuenta no tiene transacciones ni aportes, borrado real junto con sus ajustes; los recurrentes que la tenían como predeterminada quedan sin cuenta.
   - Si tiene movimientos, se **archiva**:
     1. marca `archivedAt`;
     2. si el disponible no es 0, crea un ajuste ARCHIVE_CLOSE que lo deja en 0 (queda registrado);
     3. desvincula los recurrentes;
     4. el historial sigue en los reportes; la cuenta desaparece de listas, selectores y del total.
+  - Resultado: `{ outcome: 'DELETED' | 'ARCHIVED' }`.
+- **`unarchive(id)`** (decisión del usuario entre 2026-10-04 y 2026-10-07; la fecha exacta no está registrada):
+  - Quita `archivedAt` **sin crear ajustes**: el ARCHIVE_CLOSE que la dejó en 0 queda como historial y el disponible sigue en 0. La cuenta vuelve a listas, selectores y total, y puede recibir movimientos.
+  - Errores: `NotFoundError` si no existe o es de otro usuario; `ValidationError` si la cuenta no está archivada (SUPUESTO: no hay un error tipado específico).
+  - Efectos: `refresh ['accounts', 'goals']` (los aportes y reembolsos de metas exponen `accountArchived`); no refresca `statement`.
+  - DESCARTADO por el usuario: desarchivar automáticamente al intentar operar. La UI ofrece "Desarchivar" a partir de `AccountArchivedError.accountId` y reintenta (pantalla pendiente de F5).
+- **Regla de las cuentas archivadas (decisión del usuario entre 2026-10-04 y 2026-10-07):** una cuenta archivada no cambia de saldo por ningún motivo. Se rechaza con `AccountArchivedError` (mensaje: "La cuenta está archivada. Desarchívala para modificar su saldo.") toda operación que crearía, borraría o movería dinero de ella: crear transacciones, ajustar el saldo, aportar a una meta, pagar una deuda, confirmar una ocurrencia y **borrar una transacción de esa cuenta** (esto último cubre `TransactionService.remove`, `RecurringService.unconfirm` y el borrado de la transacción de un pago de deuda, que pasan por `removeTransactionIn`). La única excepción es la redirección de aportes al eliminar una meta (ver GoalService), que no toca el saldo de la archivada sino que compensa sus aportes con un `ARCHIVE_CLOSE`.
 
 **TransactionService**
 - `create({type, accountId, amountMinor, categoryId|newCategoryName, isPassive, date, description})`:
-  - Si viene una categoría nueva, la crea en la misma transacción.
-  - Valida que la cuenta no esté archivada.
-  - Si `isPassive`, autoActivate(cashflow).
+  - Si viene una categoría nueva, la crea en la misma transacción (o reutiliza una existente con el mismo nombre y tipo). `categoryId` y `newCategoryName` son excluyentes (`ValidationError`).
+  - Valida que la cuenta exista, sea del usuario y no esté archivada (`NotFoundError` / `AccountArchivedError`).
+  - Si `isPassive` (solo ingresos), autoActivate(cashflow).
   - Siempre crea `kind='STANDARD'`. Los pagos de deuda solo entran por DebtService.
 - `remove(id)`:
   - Borra la transacción. Saldo de cuenta, saldo de deuda, paidCount y reportes se revierten solos porque son derivados.
-  - Si estaba ligada a una ocurrencia, `nextDueDate = min(nextDueDate, occurrenceDate)` y se limpia `snoozedUntil`.
+  - **Se rechaza con `AccountArchivedError` si la cuenta de la transacción está archivada.**
+  - Si estaba ligada a una ocurrencia, `nextDueDate = min(nextDueDate, occurrenceDate)` y se limpia `snoozedUntil`, **solo si** el recurrente existe, tiene ancla (no NULL) y la ocurrencia pertenece a su serie actual (`isOccurrenceOfSeries`); si no, `nextDueDate` no se toca.
+  - `removeTransactionIn` (exportada desde `TransactionService.ts`) es el **único camino de reversión**: lo usan `TransactionService.remove` y `RecurringService.unconfirm`.
 
 **DebtService**
-- `create({name, balanceMinor, installmentMinor?, rate: {known: r} | {unknown: {months}}, nextDueDate?})`:
-  - Inserta la deuda y un ajuste OPENING.
-  - Tasa estimada: `estimateMonthlyRate(saldo, cuota, meses)`, `rateSource=ESTIMATED`, `totalCount=meses`. El texto de la pantalla es "Calculamos la tasa con la fórmula estándar de amortización."
+- `create({name, balanceMinor, installmentMinor?, rate: {known: r} | {unknown: {months}}, nextDueDate?, initialPaidCount?})`:
+  - Inserta la deuda y, si el saldo es > 0, un ajuste OPENING. `initialPaidCount` es opcional y vale 0 por defecto (SUPUESTO de F2b).
+  - Tasa estimada: `estimateMonthlyRate(saldo, cuota, meses)`, `rateSource=ESTIMATED`, `totalCount=meses`. Si no hay solución (sin cuota, saldo 0 o `cuota × meses ≤ saldo`) la tasa queda desconocida: `rateSource=UNKNOWN`, `monthlyRate` NULL (SUPUESTO). El texto de la pantalla es "Calculamos la tasa con la fórmula estándar de amortización."
   - Tasa conocida: `rateSource=KNOWN`, `totalCount` NULL.
-  - Si hay cuota y fecha, crea el recurrente vinculado (`DEBT_INSTALLMENT`).
+  - Si hay cuota y fecha, crea el recurrente vinculado (`DEBT_INSTALLMENT`). Su frecuencia es MONTHLY (SUPUESTO: la arquitectura original no la definía).
   - autoActivate(debts).
-- `update(id, {name?, balanceMinor?, installmentMinor?, nextDueDate?})`: un cambio de saldo es un ajuste MANUAL con nuevo ≥ 0; una fecha nueva actualiza o crea el recurrente.
+- `update(id, {name?, balanceMinor?, installmentMinor?, nextDueDate?})`: un cambio de saldo es un ajuste MANUAL con nuevo ≥ 0. `nextDueDate` actualiza o crea el recurrente vinculado: **la fecha dada pasa a ser el ancla** y `nextDueDate` del recurrente queda en la primera ocurrencia desde ese ancla que no tenga transacción ligada (puede ser posterior a la fecha dada si esa ocurrencia ya estaba pagada). Crearlo exige que haya cuota (`ValidationError` si no).
 - **`registerPayment({debtId, accountId, amountMinor, type: INSTALLMENT|EXTRA, date})`**, en una transacción:
   1. Calcula el saldo actual de la deuda.
   2. `capital aplicado = min(monto, saldo)`.
   3. Inserta una transacción EXPENSE `kind=DEBT_PAYMENT` por el **monto completo** (un abono mayor al saldo cuenta completo como gasto y la deuda queda en 0; ver sección 11).
   4. Si `type=INSTALLMENT` y hay recurrente vinculado con fecha: la transacción se liga a esa ocurrencia y se avanza `nextDueDate`.
   5. Rechaza el pago si la deuda está archivada. Si el saldo ya es 0, se rechaza con "Deuda liquidada" (D13).
+  6. Rechaza el pago si la cuenta está archivada (`AccountArchivedError`).
+  - Entrada opcional `occurrenceDate` (cuota que cubre; por defecto la `nextDueDate` del recurrente) y `description` (por defecto `Pago <nombre de la deuda>`). `EXTRA` ignora `occurrenceDate`.
+  - Recurrente vinculado **sin fecha** (ancla NULL): sin `occurrenceDate`, el pago se registra **sin ligar** a ninguna ocurrencia (`linkedToOccurrence=false`); con `occurrenceDate` explícita se lanza `OccurrenceNotInSeriesError` (sin ancla no hay serie y una ocurrencia ajena a la serie nunca se acepta). SUPUESTO: con ancla pero sin `nextDueDate`, una ocurrencia explícita de la serie sí se liga.
+  - Resultado: `{ transactionId, principalAppliedMinor, overpaymentMinor, newBalanceMinor, linkedToOccurrence }`.
+  - **Orden de validaciones** (fijado por `test/integration/domain/validation_order.test.ts`; se lanza el primer error que aplique): 1 deuda inexistente o ajena (`NotFoundError`) o archivada (`DebtArchivedError`); 2 monto (`ValidationError`); 3 cuenta inexistente o ajena (`NotFoundError`) o archivada (`AccountArchivedError`); 4 fecha del pago fuera de rango (`ValidationError`); 5 deuda liquidada (`DebtSettledError`); 6 `occurrenceDate` mal formada o con año < 100 (`ValidationError`); 7 fuera de la serie (`OccurrenceNotInSeriesError`); 8 ya confirmada (`OccurrenceAlreadyConfirmedError`).
 - `remove(id)` (D3):
   - Sin pagos: borrado real junto con ajustes y recurrente.
-  - Con pagos: se archiva y se borra el recurrente. Los pagos siguen como gasto de deuda del mes en que ocurrieron (`kind` no depende de que la deuda exista).
+  - Con pagos: se archiva y se borra el recurrente (las transacciones que lo referenciaban quedan con `recurringItemId` NULL). Los pagos siguen como gasto de deuda del mes en que ocurrieron (`kind` no depende de que la deuda exista).
+  - Una deuda ya archivada se rechaza con `DebtArchivedError`.
+- Consultas: `list()` (deudas no archivadas con `balanceMinor`, `paidCount`, `nextDueDate`, `recurringId` y `monthsRemaining`), `get(id)` y `payments(debtId)` (del más reciente al más antiguo); con un id ajeno devuelven `undefined` / `[]` (ver 3.5).
 - Funciones puras: `estimateMonthlyRate` usa **bisección con cota superior que se va duplicando**, igual que el diseño (líneas 1213-1224). Devuelve null si `cuota × meses ≤ saldo`. Se retira Newton (problema 6). `projectPayoff` se conserva; `calculateAvailableCredit`, `calculateMinPayment` y `calculateBillingInfo` se retiran.
 - La proyección usa `projectPayoff(saldo, cuota, tasa)` cuando hay tasa y `ceil(saldo/cuota)` cuando no (D16). El prototipo ignora el interés.
 - **Riesgo de modelo:** un pago reduce el saldo por su monto completo y no se modela interés devengado, igual que el diseño (línea 1451). Las diferencias con el extracto del banco se corrigen con un ajuste.
 
 **GoalService**
-- `create({name, targetMinor, initialMinor?, accountId?})`: inserta la meta y, si hay ahorro inicial, un aporte. autoActivate(goals).
-- `contribute({goalId, accountId, amountMinor, date})`: solo para metas ACTIVE. Inserta un aporte; no crea transacción. Se rechaza si el monto supera el disponible de la cuenta (D12).
-- `update(id, {name?, targetMinor?, savedMinor?})`: un cambio de saved es un ajuste MANUAL de la meta y no toca cuentas. Solo para metas ACTIVE.
-- **`close(id)`**: requiere ACTIVE y saved ≥ objetivo (D11). Fija `status=SPENT`, `spentAt=now` y `spentAmountMinor=saved`. No pide cuenta, no crea transacción y no mueve dinero. El monto suma a `gastoMetas` del mes del cierre (D1).
-- `remove(id)` (D4):
-  - Meta activa: borra en una transacción la meta, sus aportes y sus ajustes. El dinero vuelve solo a cada cuenta de origen gracias al registro por aporte. La interfaz confirma antes: "Se devolverán $a a Efectivo, $b a Ahorros".
-  - Meta gastada: no se ofrece borrarla (reescribiría gasto histórico) y ya no aparece en la lista.
-- ETA de una meta: promedio de aportes de los últimos 3 meses, o la fecha objetivo si existe (D20).
+- `create({name, targetMinor, initialMinor?, accountId?, targetDate?})`: inserta la meta y, si hay ahorro inicial, un aporte (el ahorro inicial exige `accountId`; `ValidationError` si falta). `targetDate` es `'YYYY-MM-DD'` (pasa por `assertLocalDate`) y se guarda como medianoche local en epoch ms. autoActivate(goals).
+- `contribute({goalId, accountId, amountMinor, date})`: solo para metas ACTIVE (`GoalNotActiveError` si no). Inserta un aporte; no crea transacción. Se rechaza si el monto supera el disponible de la cuenta (`InsufficientFundsError`, D12) y si la cuenta está archivada (`AccountArchivedError`).
+- `update(id, {name?, targetMinor?, savedMinor?, targetDate?})`: un cambio de saved es un ajuste MANUAL de la meta y no toca cuentas. `targetDate` `null` la limpia; sin definir, no cambia. Solo para metas ACTIVE.
+- **`close(id)`**: requiere ACTIVE y saved ≥ objetivo (D11; `GoalNotReachedError` si no). Fija `status=SPENT`, `spentAt=now` y `spentAmountMinor=saved`. No pide cuenta, no crea transacción y no mueve dinero. El monto suma a `gastoMetas` del mes del cierre (D1). Refresca `goals` y `statement`.
+- **`remove(id, { refundAccountId? })`** (D4, ampliada por la regla de cuentas archivadas):
+  - Meta gastada: se rechaza con `GoalNotActiveError` (reescribiría gasto histórico) y ya no aparece en la lista.
+  - Meta activa: borra en una transacción la meta, sus aportes y sus ajustes. El dinero de cada aporte vuelve a su cuenta de origen gracias al registro por aporte, **sin pedir nada**, cuando esa cuenta está activa.
+  - Los aportes que salieron de cuentas **archivadas** no bloquean el borrado, pero una archivada no cambia de saldo, así que ese dinero se redirige a una **cuenta ACTIVA de destino que elige el usuario** (`refundAccountId`; un único destino para todas las cuentas archivadas de origen). En la misma transacción se crean: por cada cuenta archivada de origen, un ajuste `ARCHIVE_CLOSE` de −X (deja su disponible como estaba antes de borrar los aportes), y en el destino un único ajuste `MANUAL` de +total. Ninguno es ingreso ni gasto. El esquema solo admite los motivos OPENING, MANUAL y ARCHIVE_CLOSE, por eso se reutilizan estos dos.
+  - Sin destino válido (no indicado, inexistente, archivado, de otro usuario o la propia cuenta archivada) se lanza `RefundAccountRequiredError` con `totalMinor`, `byAccount` (desglose por cuenta archivada: `accountId`, `accountName`, `amountMinor`) e `invalidAccountId` (la cuenta indicada que no sirvió, o `null` si no se indicó ninguna). Es la única excepción documentada a "un id ajeno es un `NotFoundError`" (ver 3.5). Sin aportes de cuentas archivadas, `refundAccountId` se ignora y ni se valida.
+  - Resultado: `{ refunds, redirectedMinor, refundAccountId }`.
+- **`refundPreview(id)`**: devuelve `{ refunds, requiresDestinationMinor }`. Cada reembolso lleva `accountId`, `accountName`, `amountMinor` y `accountArchived`; `requiresDestinationMinor` es la suma de los aportes de cuentas archivadas, es decir, lo que exige elegir destino. La interfaz confirma antes de borrar: "Se devolverán $a a Efectivo, $b a Ahorros" y, si `requiresDestinationMinor > 0`, pide la cuenta de destino (pantalla pendiente de F5). Con un id ajeno o inexistente devuelve `refunds: []` y `requiresDestinationMinor: 0` (SUPUESTO, coherente con ids inexistentes).
+- Consultas: `list(status?)`, `get(id)` y `contributions(goalId)` (aportes del más antiguo al más reciente, con `accountName`, `accountArchived` y `date` en epoch ms). `GoalView.targetDate` es epoch ms y `GoalView.eta` es `null` en metas SPENT.
+- ETA de una meta (D20): regla pura `goalEta` en `src/domain/rules/goalEta.ts`. Definiciones y tope en [3.7](#37-definiciones-del-eta-de-una-meta).
 
 **RecurringService**
-- `create / update / remove` para el tipo STANDARD. Un recurrente de ingreso con `isPassive` activa el Índice (SUPUESTO).
-- `create` y `update` reciben `defaultAccountId`, que la pantalla "Agregar recurrente" debe pedir (D8). Es solo una sugerencia: no sustituye la elección de cuenta al confirmar.
+- `create / update / remove` para el tipo STANDARD (los recurrentes `DEBT_INSTALLMENT` se gestionan desde DebtService; operar sobre ellos aquí lanza `NotSupportedError`). Un recurrente de ingreso con `isPassive` activa el Índice (SUPUESTO). Solo un ingreso puede ser pasivo (`ValidationError`); la categoría debe existir y ser del tipo del recurrente.
+- `create` y `update` reciben `defaultAccountId`, que la pantalla "Agregar recurrente" debe pedir (D8). Es solo una sugerencia: no sustituye la elección de cuenta al confirmar. Si se indica, debe ser una cuenta activa del usuario.
+- `create` y `update` guardan el ancla **ya normalizada** con `normalizeAnchor` (ver más abajo). `update` que cambia la frecuencia o la fecha reubica `nextDueDate` en la primera ocurrencia sin transacción desde la nueva ancla y limpia `snoozedUntil`; con ancla NULL deja el recurrente "sin fecha".
 - `remove` deja las transacciones con `recurringItemId` NULL.
 - **`confirmOccurrence({recurringId, occurrenceDate, accountId, amountMinor?, date?})`**:
   - `accountId` es obligatorio: la hoja "Ya pagué" siempre pide cuenta, preseleccionando `defaultAccountId` si existe (D8).
   - Si el recurrente es de deuda, lanza `UseDebtPaymentFlow` y la interfaz redirige a Registrar pago de deuda.
+  - Rechaza recurrentes pausados (`RecurringPausedError`), recurrentes sin fecha (`RecurringWithoutDateError`; SUPUESTO: sin ancla no hay serie contra la cual validar) y ocurrencias ajenas a la serie (`OccurrenceNotInSeriesError`, validada con `isOccurrenceOfSeries`).
   - Si no: inserta la transacción (type y isPassive del recurrente, `recurringItemId`, `occurrenceDate`), avanza `nextDueDate` y limpia `snoozedUntil`.
+  - **Orden de validaciones** (fijado por `validation_order.test.ts`; se lanza el primer error que aplique): 1 recurrente inexistente o ajeno (`NotFoundError`); 2 cuota de deuda (`UseDebtPaymentFlow`); 3 pausado; 4 sin fecha; 5 sin cuenta (`AccountRequiredError`); 6 `occurrenceDate` mal formada o con año < 100 (`ValidationError`); 7 fuera de la serie; 8 cuenta inexistente (`NotFoundError`) o archivada (`AccountArchivedError`); 9 ya confirmada (`OccurrenceAlreadyConfirmedError`); 10 monto o fecha del pago (`ValidationError`).
 - **Avanzar `nextDueDate`:** siguiente fecha calculada sin partir de `now` (nunca desde `now`) y que no tenga ya una transacción ligada.
   - Mensual: se calcula desde `anchorDate`; conserva el día del ancla y, si el mes es más corto, usa el último día (31 de enero → 28 de febrero → 31 de marzo).
   - Semanal: se calcula desde `anchorDate`; +7 días.
-  - Quincenal (BIWEEKLY): los días 15 y último día del mes (D6). La secuencia es fija: 15 → último día del mes → 15 del mes siguiente → … El último día es 28 o 29 en febrero, 30 o 31 según el mes. **No es +14 días.** Esta regla no depende del día del ancla; solo la fecha de partida sale de lo que el usuario elija. **AMBIGUO (no definido en las decisiones aprobadas):** qué ocurre si la primera fecha elegida por el usuario para un recurrente quincenal no es ni el 15 ni el último día del mes (¿se rechaza, se ajusta a la siguiente fecha válida o se acepta como primera ocurrencia?). Debe decidirse antes de implementar `recurrence.ts` y la pantalla "Agregar recurrente".
-- `unconfirm(recurringId, occurrenceDate)`: delega en `TransactionService.remove`, con un solo camino de reversión. Desmarcar el círculo en Próximos pagos borra la transacción (D14).
+  - Quincenal (BIWEEKLY): los días 15 y último día del mes (D6). La secuencia es fija: 15 → último día del mes → 15 del mes siguiente → … El último día es 28 o 29 en febrero, 30 o 31 según el mes. **No es +14 días.** Esta regla no depende del día del ancla.
+  - **Primera fecha de un quincenal (ambigüedad resuelta por el usuario):** si la primera fecha elegida no es el 15 ni el último día del mes, se **ajusta a la fecha válida más cercana** (`nearestBiweeklyDate`; candidatas: último día del mes anterior, 15, último día y 15 del mes siguiente, midiendo la distancia en días de calendario). En un **empate gana la fecha posterior** (decisión CONFIRMADA por el usuario; no se adelanta un pago). Solo hay dos empates: el día 23 de los meses de 31 días (8 y 8 días) y el 22 de febrero de un año bisiesto (7 y 7). Una fecha del 1 al 7 se ajusta hacia atrás, al último día del mes anterior. El ajuste es idempotente: una fecha ya válida no cambia.
+  - **Contrato entre capas:** `normalizeAnchor(anchor, frequency)` (pura, `src/domain/rules/recurrence.ts`) devuelve `{ date, adjusted, original }`; para MONTHLY y WEEKLY no cambia nada. La pantalla "Agregar recurrente" debe llamarla **en vivo** cada vez que cambie la fecha o la frecuencia y mostrar la fecha ajustada mientras el usuario elige (nunca en silencio tras guardar). Los servicios guardan el ancla ya normalizada, e `iterateOccurrences` normaliza por defensa, de modo que datos sin normalizar nunca producen una primera ocurrencia inválida.
+  - `isOccurrenceOfSeries(anchor, frequency, date)` (aritmética de calendario O(1)) valida la pertenencia a la serie: una fecha anterior al ancla (normalizado en BIWEEKLY) no pertenece.
+  - Si el usuario fija la fecha de un recurrente de deuda con `DebtService.update({ nextDueDate })`, esa fecha es el ancla (ver DebtService).
+- `unconfirm(recurringId, occurrenceDate)`: delega en `removeTransactionIn`, con un solo camino de reversión. Desmarcar el círculo en Próximos pagos borra la transacción (D14). `NotFoundError` si esa ocurrencia no está confirmada. Se rechaza con `AccountArchivedError` si la cuenta de la transacción está archivada.
 - `snooze(recurringId)`: aplica la política de [7](#7-notificaciones-y-recurrentes).
-- **Consulta `upcoming(userId)`**: recurrentes activos con fecha, excluyendo los de deudas con saldo 0 o archivadas (se deriva, no hay estado que sincronizar). El nombre y el monto de los de deuda vienen de la deuda. Estado de cada ítem: pendiente, vencido o "pagado" (hay transacción para una ocurrencia del mes actual y la siguiente fecha cae fuera del mes; SUPUESTO de presentación).
+- **Consulta `upcoming()`** (usa el usuario del contexto): recurrentes activos con fecha, excluyendo los de deudas con saldo 0 o archivadas (se deriva, no hay estado que sincronizar). El nombre y el monto de los de deuda vienen de la deuda. Estado de cada ítem: pendiente, vencido o "pagado" (hay transacción para una ocurrencia del mes actual y la siguiente fecha cae fuera del mes; SUPUESTO de presentación). Valores del código: `PENDING`, `OVERDUE`, `PAID`.
+- **Consulta `pendingOccurrences()`**: entrada del plan de notificaciones de F4 (`planNotifications`); instantes en epoch ms y cuotas de deudas liquidadas marcadas `debtSettled`.
 
 **Por qué no se duplica en Próximos pagos:** la cuota de una deuda es un recurrente con `debtId` UNIQUE, nombre y monto nulos (se toman de la deuda) y su fecha es la única fuente del `dueLabel` de la deuda. Ese recurrente lo crea DebtService, no "Agregar recurrente". Mitigación: "Agregar recurrente" pregunta "¿Es la cuota de una deuda?" y, si sí, vincula con una deuda existente en vez de crear un ítem nuevo.
 
@@ -402,37 +530,138 @@ Todas son síncronas dentro de `db.transaction(tx => …)`. Devuelven `{ result,
 
 VERIFICADO (2026-10-03): `db.transaction` de drizzle sobre expo-sqlite es **síncrona**: el callback es síncrono, usa solo `tx.*` y no lleva `await`. `withExclusiveTransactionAsync` de expo-sqlite no es la vía.
 
+Los tests de atomicidad (`test/integration/domain/atomicity.test.ts`) instalan triggers `RAISE(ABORT)` en la BD (`failOn` en `test/integration/domain/_helpers.ts`) para forzar un fallo a mitad de cada operación y comprueban que no queda ningún efecto.
+
+### 3.5 Propiedad del usuario y convención de repositorios
+
+**Regla de servicios.** Un id de **otro usuario** se trata como inexistente: `NotFoundError`, indistinguible del de un id que no existe y sin efectos en la BD, en todos los puntos de entrada de los servicios. Las lecturas con id ajeno devuelven `undefined` o `[]` (`get`, `payments`, `contributions` y `refundPreview`; SUPUESTO, coherente con el comportamiento con ids inexistentes). **Única excepción documentada:** `RefundAccountRequiredError` con `invalidAccountId` (al eliminar una meta, una cuenta de destino ajena se reporta como "destino no válido", no como `NotFoundError`).
+
+**Refuerzo en los repositorios (decisión expresa del usuario).** Ya hubo un bug real: `accounts.remove` y `accounts.get` aceptaban ids ajenos. Por eso la propiedad no se delega solo en el servicio:
+
+- **Convención `(db, userId, id, ...)`:** TODOS los métodos por id de TODOS los repositorios exigen `userId` como segundo parámetro y lo incluyen **en el `WHERE` de la consulta**. Única excepción: `insert(db, v)`, que recibe `v.userId`. Los métodos de lista y agregados reciben `(db, userId, ...)` y filtran igual.
+- **Mutadores:** devuelven el número de filas afectadas con `.returning({ id }).all().length` (0 = id inexistente o ajeno). Esto exige `UPDATE ... RETURNING` y `DELETE ... RETURNING`, disponibles desde SQLite 3.35: `expo-sqlite` 56.0.5 empaqueta SQLite 3.50.3 y el `better-sqlite3` de test (13.0.3 en `package.json`), 3.53.4 (versiones de SQLite tomadas del informe de verificación; NO re-comprobadas en esta lectura). **NO probado en dispositivo.** Plan B si `RETURNING` fallara en expo-sqlite: `run()` y el campo `changes`.
+- **Defensa en profundidad:** los servicios mantienen sus comprobaciones previas con `NotFoundError`; la comprobación del repositorio es un segundo cerrojo, no un sustituto.
+- **Comprobado por el analizador AST en los 10 repositorios** (los `*Repository.ts` en disco): `accountRepository`, `adjustmentRepository`, `categoryRepository`, `debtRepository`, `goalContributionRepository`, `goalRepository`, `recurringRepository`, `reportRepository`, `settingsRepository` y `transactionRepository`. De ellos, 8 tienen `insert` (todos salvo `reportRepository` y `settingsRepository`). En los servicios hay 18 llamadas `<x>.insert(...)`, en 5 de los 12 archivos de `src/domain/services/*.ts` (el analizador inspecciona los 12; `AccountService` 4, `DebtService` 5, `GoalService` 5, `RecurringService` 2 y `TransactionService` 2).
+
+**Límite conocido: las FK de la BD no incluyen `userId`.** Un `INSERT` con `userId` de B y `accountId` de A lo acepta la BD. Por eso los servicios validan **todos** los ids embebidos (cuenta, categoría, deuda, meta, recurrente) con el `userId` del contexto antes de insertar, y la guarda estructural exige `userId: ctx.userId` en cada `insert` de los servicios. Decisión futura posible, **no abordada**: FK compuestas `(id, userId)` con una migración que reconstruya las tablas.
+
+**Guarda estructural por AST** (`test/helpers/repositoryAst.ts`, ejecutada por `test/unit/repositoryOwnership.test.ts`). VERIFICADO EN CÓDIGO (2026-10-07): commiteada en `119a972` y verificada. Sustituye a la versión anterior, que usaba reflexión sobre `fn.toString()` y expresiones regulares sobre líneas.
+
+- **Cómo funciona.** El analizador usa la API de `typescript` (`ts.createSourceFile` y recorrido de nodos): es un análisis **sintáctico y por nombres**; no resuelve tipos ni símbolos, no ejecuta ni importa nada, y los comentarios y las cadenas **no existen en el árbol**, así que no hay heurísticas de texto. El test lo aplica al código real, descubierto **en disco** (cada `src/database/repositories/*Repository.ts` y cada `src/domain/services/*.ts`, de modo que un archivo nuevo no escapa por no estar en una lista), comprueba que el analizador ve exactamente las funciones que expone el objeto cargado (`Object.keys`) y también prueba el propio analizador con fuentes sintéticas aceptadas y rechazadas y con mutaciones en memoria del código real.
+- **Reglas para cada `*Repository.ts`:**
+  - **R1, exportación.** El archivo exporta un solo valor, `export const <archivo> = { ... }` (literal de objeto; se admiten `as`, `satisfies` y paréntesis). Ninguna función suelta exportada, ni `export *`, ni `export default`; los `export type` e `interface` sí se admiten. Cada miembro es un método o una flecha; spread, getters/setters, claves calculadas o referencias (`f,`) fallan.
+  - **R2, firma.** Primer parámetro: el identificador `db` (sin valor por defecto, sin `?`, sin `...`). Segundo parámetro: el identificador `userId` de tipo `string`, sin desestructurar, sin valor por defecto, sin `?` ni `...`. Del tercero en adelante, libres, siempre que no redeclaren `userId`. La función no puede ser `async` ni generadora. **Única excepción por nombre: `insert(db, v)`**, cuyo segundo parámetro es un identificador simple.
+  - **R3, consultas.** Cada raíz `select`, `selectDistinct`, `update` o `delete` (subconsultas incluidas) debe colgar de `db` y tener **exactamente un** `.where(...)` (con dos, el último sustituye al primero en drizzle) cuyo argumento filtre por usuario (R4). Cualquier otro uso de `db` falla: `db.query`, `db.run`, `db.transaction`, alias, desestructuración o pasarlo a una función cualquiera; solo se admite como receptor de esas operaciones y de `insert`, y como primer argumento de una delegación `<x>Repository.f(db, userId, ...)`.
+  - **R4, qué cuenta como filtro.** Un `eq(col, userId)` (en cualquier orden) con `col` igual a `<tabla>.userId` o `users.id`. En `and(...)` y `or(...)` basta **un** argumento que filtre (necesario para `categoryRepository`: categorías propias o del sistema). Un ternario filtra si filtran **ambas** ramas. Un helper del propio archivo (`owned`, `targetWhere`) cuenta si la propia guarda lo verifica con el mismo método (tiene un parámetro `userId`, todos sus `return` filtran y se le pasa `userId` en esa posición). Una plantilla `sql` con un tramo `${userId}` y un tramo con una columna de propietario. Un identificador local `const` cuyo inicializador filtra. **No se desciende a subconsultas**: una subconsulta que filtra no hace que filtre la consulta exterior.
+  - **R5, usos de `userId`.** Todo uso de `userId` como referencia de valor debe ser argumento directo de `eq(...)`, de un helper verificado, de una delegación `<x>Repository.f(db, userId, ...)` o un tramo de una plantilla `sql`. Fallan los comentarios que simulan uso, `void userId`, `userId.length`, los ternarios con `userId`, las variables sin uso real y las redeclaraciones. Una función sin consultas debe delegar con `userId` en segunda posición.
+  - **R6, inserciones.** `.values(...)` recibe un literal de objeto con **una única** propiedad `userId`, sin spread ni claves calculadas, cuyo valor es `v.userId` (en `insert`) o `userId` (en otra función).
+- **Reglas para los servicios (`src/domain/services/*.ts`):**
+  - **S1.** Toda llamada `<x>.insert(...)` (cualquier receptor; incluye alias de repositorio y `tx` como primer argumento) exige un segundo argumento que sea un literal de objeto con **una única** propiedad `userId` cuyo valor es exactamente `ctx.userId`: sin spread, sin claves calculadas, sin ternarios, sin `ctx!.userId` ni `ctx?.userId`. Si el argumento es una variable, falla con un mensaje que explica que no es verificable. El formato de líneas no importa.
+  - **S2.** `x['insert'](...)`, una referencia a `.insert` sin llamarla (`const f = repo.insert`) y `{ insert } = repo` también fallan.
+- **Límites de la guarda** (lo que NO verifica):
+  - No verifica la **semántica** del filtro: `or(eq(t.userId, userId), sql\`1=1\`)` pasa porque basta un disyunto; no comprueba que la tabla de la columna sea la consultada ni el operador fuera de `eq`.
+  - El `sql` solo exige que existan un `${userId}` y una columna de propietario, sin relacionarlos entre sí; y cualquier `<x>.userId` cuenta como columna de propietario.
+  - La cláusula `.set({...})` de los `update` no se inspecciona: un `update` que cambiara `userId` no se vería.
+  - Las consultas dentro de helpers de módulo no se analizan (solo que sus `return` filtren y sus usos de `userId`).
+  - Los JOIN no se verifican: solo el `where` de la consulta.
+  - `eq`, `and`, `or` y `sql` se reconocen por NOMBRE, no por su origen en `drizzle-orm`.
+  - Los alias de `userId` no se siguen (usar un alias como filtro falla por R5, de forma conservadora).
+  - Los valores devueltos (por ejemplo, los conteos de filas de los mutadores) no los ve la guarda.
+  - Que `ctx.userId` sea el correcto depende de `createDomain`.
+  - Las FK de la BD no incluyen `userId` (ver el límite conocido más arriba).
+  - **Fragilidad:** el analizador detecta errores de sintaxis con `parseDiagnostics`, una API **interna** de TypeScript (no pública); puede romperse al actualizar `typescript` (el repo usa `~6.0.3`).
+- **Lo no cubierto por el AST lo cubren los tests de comportamiento y el fuzz:** `test/integration/repositories/ownership.test.ts` (un caso por función de cada repositorio, llamando a los repositorios directamente con el `userId` de B y ids de A, con un control positivo con el de A para que no sea vacuo; la lista de funciones se deriva dinámicamente con `Object.keys` de cada repositorio cargado desde disco, de modo que una función nueva sin caso rompe el test); `test/integration/domain/ownership.test.ts` (todos los puntos de entrada con id, con un segundo usuario aislado creado con `secondUserDomain`) y la prueba aleatoria (sección 8).
+
+### 3.6 Errores tipados
+
+`src/domain/services/errors.ts`: todos extienden `DomainError` y llevan un `code` (`DomainErrorCode`); la UI distingue por `code` o por `instanceof`.
+
+| Clase | `code` | Cuándo | Campos extra |
+|---|---|---|---|
+| `ValidationError` | `VALIDATION` | Entrada inválida (monto, nombre vacío, fecha, combinación no permitida, cuenta no archivada al desarchivar, cuenta ya archivada al eliminar) | |
+| `NotFoundError` | `NOT_FOUND` | Id inexistente **o de otro usuario** | `entity`, `entityId` |
+| `AccountArchivedError` | `ACCOUNT_ARCHIVED` | Operación que cambiaría el saldo de una cuenta archivada | `accountId` |
+| `AccountRequiredError` | `ACCOUNT_REQUIRED` | `confirmOccurrence` sin cuenta | |
+| `InsufficientFundsError` | `INSUFFICIENT_FUNDS` | Aporte mayor al disponible (D12) | `accountId`, `availableMinor`, `requestedMinor` |
+| `DebtSettledError` | `DEBT_SETTLED` | Pago a una deuda con saldo 0 (D13) | `debtId` |
+| `DebtArchivedError` | `DEBT_ARCHIVED` | Operación sobre una deuda archivada | `debtId` |
+| `GoalNotActiveError` | `GOAL_NOT_ACTIVE` | Aporte, ajuste, segundo cierre o borrado de una meta SPENT | `goalId` |
+| `GoalNotReachedError` | `GOAL_NOT_REACHED` | Cerrar una meta con saved < objetivo (D11) | `savedMinor`, `targetMinor` |
+| `OccurrenceAlreadyConfirmedError` | `OCCURRENCE_ALREADY_CONFIRMED` | La ocurrencia ya tiene transacción | `recurringId`, `occurrenceDate` |
+| `OccurrenceNotInSeriesError` | `OCCURRENCE_NOT_IN_SERIES` | La fecha no pertenece a la serie (ancla + frecuencia) | `recurringId`, `occurrenceDate` |
+| `RecurringWithoutDateError` | `RECURRING_WITHOUT_DATE` | Confirmar un recurrente sin fecha | `recurringId` |
+| `RecurringPausedError` | `RECURRING_PAUSED` | Confirmar un recurrente pausado | `recurringId` |
+| `RefundAccountRequiredError` | `REFUND_ACCOUNT_REQUIRED` | Eliminar una meta con aportes de cuentas archivadas sin un destino activo válido | `goalId`, `totalMinor`, `byAccount`, `invalidAccountId` |
+| `UseDebtPaymentFlow` | `USE_DEBT_PAYMENT_FLOW` | Confirmar por el camino genérico la cuota de una deuda (I4) | `debtId`, `recurringId`, `occurrenceDate` |
+| `OnboardingAlreadyCompletedError` | `ONBOARDING_ALREADY_COMPLETED` | Repetir el onboarding | |
+| `NotSupportedError` | `NOT_SUPPORTED` | Operación fuera del alcance del servicio (p. ej. editar una cuota de deuda como recurrente genérico) | |
+
+### 3.7 Definiciones del ETA de una meta
+
+Elegidas durante F2b-bis y F2b-ter porque la especificación no las daba. La precedencia y las definiciones del ETA son **decisiones del usuario** (sección 10.2, punto 25, y sección 11). Sigue siendo SUPUESTO solo el tratamiento de **exactamente 1200 meses** (se incluye; ver el tope más abajo). La cabecera de `src/domain/rules/goalEta.ts` ya cita esa decisión (corregida en `0b34f13`; ver [12.2](#122-desviaciones-y-ampliaciones-posteriores)). Regla pura `goalEta` en `src/domain/rules/goalEta.ts`: no lee el reloj ni la BD; solo cuentan los **aportes** (no los ajustes) con fecha ≤ `now`.
+
+Resultado (`GoalEta`): `{ kind: 'REACHED' }`, `{ kind: 'BY_TARGET_DATE', date, overdue, monthsLeft, requiredMonthlyMinor }`, `{ kind: 'BY_PACE', date, monthsLeft, monthlyAverageMinor }` o `{ kind: 'UNKNOWN' }` ("por calcular").
+
+- **Precedencia:** `REACHED` > `BY_TARGET_DATE` > `BY_PACE` > `UNKNOWN`. `REACHED` si ahorro ≥ objetivo.
+- **BY_TARGET_DATE** (hay `targetDate`; gana sobre el ritmo): `monthsLeft` = el menor `k ≥ 1` con `hoy + k meses ≥ targetDate` (día ajustado al último del mes si hace falta: 31 ene + 1 mes = 28 feb); una fecha objetivo hoy cuenta como 1. `requiredMonthlyMinor = ceil(falta / monthsLeft)`. Si la fecha ya pasó: `overdue = true`, `monthsLeft = 0` y `requiredMonthlyMinor` = lo que falta. Se calcula en O(1) (equivalente al bucle original; según el informe de la fase, verificado con 7.037.994 casos contra una referencia independiente, y corrige un fallo cerca del año 9999; esa corrida no se repitió al escribir este documento). Una `targetDate` que no es una fecha válida da `UNKNOWN`.
+- **BY_PACE** (sin `targetDate`): ventana = aportes en `[00:00 local del mes calendario de hace 2 meses, now]`, sumados y **divididos siempre entre 3** (el mes actual parcial cuenta como mes entero: sesgo conservador a principios de mes). `monthsLeft = ceil(3 × falta / suma)`; fecha estimada = hoy + `monthsLeft` meses; `monthlyAverageMinor = round(suma / 3)`.
+- **Tope (100 años):** si `monthsLeft` supera `MAX_PACE_MONTHS = 1200`, o no es un entero seguro, o la fecha resultante no es un `LocalDate` válido de 4 dígitos, el resultado es `UNKNOWN`. 1200 se incluye y 1201 es `UNKNOWN` (SUPUESTO).
+- **UNKNOWN** también si no hay `targetDate` ni aportes en la ventana.
+- `GoalView.eta` es `null` en metas SPENT.
+
 ---
 
 ## 4. Capas y módulos
 
 ### 4.1 Estructura
 
+Estructura **diseño objetivo**, con el estado real a 2026-10-07 anotado en cada línea (VERIFICADO EN CÓDIGO):
+
 ```
 src/
   database/
-    client.ts            ← openDatabaseSync + PRAGMA + drizzle (única importación de expo-sqlite)
-    schema.ts
-    migrations/          ← generado por drizzle-kit (.sql + meta + migrations.js), no se edita a mano
-    repositories/        ← accounts, transactions, debts, goals, contributions, adjustments,
-                           recurring, categories, settings, reports (consultas agregadas)
+    client.ts            ← openDatabaseSync + PRAGMA + drizzle (única importación de expo-sqlite)  [existe]
+    schema.ts, types.ts  ← esquema; tipos AppDatabase y DbOrTx                                      [existen]
+    ids.ts, seed.ts      ← newId(); semilla (usuario 'default-user' y categorías base)              [existen]
+    initialize.ts        ← migrate(db, migrations) + seed                                           [existe]
+    migrations/          ← generado por drizzle-kit (.sql + meta + migrations.js), no se edita a mano [existe]
+    repositories/        ← accountRepository, adjustmentRepository, categoryRepository, debtRepository,
+                           goalContributionRepository, goalRepository, recurringRepository,
+                           reportRepository (consultas agregadas), settingsRepository,
+                           transactionRepository, mapping.ts, index.ts                              [existen]
   domain/
-    money.ts, dates.ts   ← unidades menores, formato es-CO, límites de mes, fecha local
-    rules/               ← puras: amortization.ts, recurrence.ts, statement.ts, notificationPlan.ts
+    money.ts, dates.ts   ← unidades menores, formato es-CO (formatCOP), límites de mes, fecha local [existen]
+    rules/               ← puras: amortization.ts, recurrence.ts, statement.ts, notificationPlan.ts,
+                           goalEta.ts                                                               [existen]
     services/            ← Account, Transaction, Debt, Goal, Recurring, Settings, Onboarding,
-                           Report (antes Cashflow), Integrity
-    createDomain(db)     ← fábrica: inyecta la BD (Expo en la app, better-sqlite3 en tests)
-  platform/              ← notifications.ts (adaptador expo-notifications), fonts
-  app-services/          ← comandos: llaman al dominio y después ejecutan efectos
+                           Report (antes Cashflow), Integrity; errors.ts, shared.ts, index.ts       [existen]
+    createDomain.ts      ← createDomain(db, { userId?, now? }): inyecta la BD (Expo en la app,
+                           better-sqlite3 en tests)                                                 [existe]
+    entities/            ← vacío (solo `.gitkeep`)                                                   [existe, vacío]
+    utils/               ← currency.ts y date.ts ANTIGUOS (formateadores viejos); se retiran en F6.
+                           OJO: currency.ts exporta OTRA `formatCOP` (homonimia, ver 5)             [existen]
+  platform/              ← notifications.ts (adaptador expo-notifications), fonts                   [NO existe aún: F4]
+  app-services/          ← comandos: llaman al dominio y después ejecutan efectos                   [NO existe aún: F5]
   store/                 ← useSettingsStore (caché de users), useInvalidation, useOnboardingDraft, useUIStore
+                           (hoy solo hay los stores antiguos: useUserStore, useUIStore,
+                           useNotificationStore)                                                    [pendiente: F5a]
   hooks/                 ← un hook por dominio (useAccounts, useMonthStatement, useDebts, useGoals,
                            useUpcoming, useTransactions); se suscriben a claves de invalidación
-  theme/                 ← tokens.ts (desde design-tokens.json), ThemeProvider, useTheme
-  components/ui/         ← primitivas temáticas
-app/                     ← solo pantallas: usan hooks y comandos
+                           (hoy son los hooks antiguos con imports rotos)                           [pendiente: F5]
+  theme/                 ← tokens.ts (copia local de design-tokens.json), ThemeProvider.tsx,
+                           theme.ts, fontFamilies.ts, fontAssets.ts, navigationTheme.ts, index.ts;
+                           shim temporal: colors.ts, spacing.ts, typography.ts, shadows.ts          [existen]
+  components/ui/ds/      ← primitivas nuevas del Design System: Text, Amount, Button, Widget,
+                           InviteCard, Input, MoneyInput, Pill, SegmentedControl, ProgressBar,
+                           Sheet, ListRow, AccountPicker (+ constants, tone, utils, useFocusRing)   [existen]
+  components/ui/         ← primitivas ANTIGUAS (Button, Input, ProgressBar, Card, Modal, …); se retiran en F6
+app/                     ← solo pantallas: usan hooks y comandos (hoy, pantallas antiguas; `app/_layout.tsx`
+                           ya monta el ThemeProvider y carga las fuentes con useFonts)
 ```
 
-Regla de ESLint `no-restricted-imports`: `app/**` no importa `src/database/**`; `src/domain/**` no importa `expo-*`, `react-native` ni `src/platform`.
+Las primitivas nuevas viven en `ui/ds/` mientras `ui/` conserve las antiguas; cuando las pantallas se rehagan (F6) se borran las antiguas y `ds/` sube un nivel.
+
+Reglas de ESLint `no-restricted-imports` (`eslint.config.js`), hoy en nivel **`warn`** (se endurecen a `error` en F6): `app/**` no importa `src/database/**` ni `drizzle-orm`; `src/domain/**` no importa `expo-*`, `react-native`, `src/platform` ni `src/database/client`; y el import de `colors` estático (shim) está avisado en `app/**` y en `src/components/**` fuera de `src/components/ui/**`.
 
 **Refresco de la interfaz:** un store de invalidación por clave (`accounts`, `transactions`, `debts`, `goals`, `recurring`, `settings`, `statement`). Cada comando lo actualiza después del COMMIT y los hooks vuelven a consultar. Mantiene el patrón actual (sin caché financiero) y no añade dependencias.
 - Alternativa descartada: `useLiveQuery` de drizzle con el listener de cambios de expo-sqlite. VERIFICADO (2026-10-03): `useLiveQuery` exige `enableChangeListener: true`. No se usa: no está verificado con agregados y JOINs y acopla los hooks al driver.
@@ -442,7 +671,7 @@ Regla de ESLint `no-restricted-imports`: `app/**` no importa `src/database/**`; 
 
 - **Se conserva y adapta:** `projectPayoff` y la bisección de `DebtService` (pasan a `rules/amortization.ts`); `CashflowService` se reescribe como `ReportService`; la idea de `RecurringService` (reescrito); `lib/expo/notifications` (pasa a ser adaptador); `domain/utils/currency` y `date`; los componentes de formulario (se reestilizan); `debtService.test.ts` (se adapta).
 - **Se retira (código, tablas y pantallas):**
-  - Presupuesto y distribución (fuera del MVP, v1.1): `BudgetService`, `DistributionService`, `useBudget`, `budgets_monthly`, `distribution_rules`, `app/(tabs)/budget.tsx`, `app/settings/distribution.tsx`. Justificación: ambos servicios dependen de `debtCards`, `debtLoans` y `pockets`, que desaparecen. Conservarlos "inertes" obligaría a reescribirlos solo para que compilen. Además, el presupuesto de v1.1 es por categoría, distinto del actual global, así que el costo de reintroducirlos es casi el mismo que hacerlos de nuevo. Se marca el commit `e7fd4a5` (snapshot pre-mvp) como referencia; que exista además un tag `pre-mvp` NO está verificado.
+  - Presupuesto y distribución (fuera del MVP, v1.1): `BudgetService`, `DistributionService`, `useBudget`, `budgets_monthly`, `distribution_rules`, `app/(tabs)/budget.tsx`, `app/settings/distribution.tsx`. Justificación: ambos servicios dependen de `debtCards`, `debtLoans` y `pockets`, que desaparecen. Conservarlos "inertes" obligaría a reescribirlos solo para que compilen. Además, el presupuesto de v1.1 es por categoría, distinto del actual global, así que el costo de reintroducirlos es casi el mismo que hacerlos de nuevo. El commit `e7fd4a5` (snapshot pre-mvp) es la referencia y el tag `pre-mvp` existe.
   - Pockets completo: repositorio, hooks, `app/pockets/*`, `app/(tabs)/pockets.tsx`, `PocketPicker`.
   - `debtCardRepository` y `debtLoanRepository` (se unifican en la entidad única Debt).
   - `useIntegrityCheck`, mientras sea solo para depuración.
@@ -450,7 +679,8 @@ Regla de ESLint `no-restricted-imports`: `app/**` no importa `src/database/**`; 
   - `test/mocks/expo-sqlite.ts`, `test/unit/integrity.test.ts` y la parte simulada de `cashflowService.test.ts`.
   - Persistencia de `useUserStore` en AsyncStorage.
 - **Presupuesto en la interfaz:** como no hay tab bar, no se muestra nada. Opcionalmente, una fila deshabilitada "Presupuesto · Próximamente" en Ajustes que no navega ni guarda. Se recomienda omitirla, porque el diseño no la tiene.
-- **Dependencias retiradas:** `tamagui` y `victory-native` no se importaban en `app/` ni en `src/` y se retiran (sección 11). El original dejaba NO VERIFICADO que no hubiera uso indirecto.
+- **Dependencias retiradas:** `tamagui` y `victory-native` no se importaban en `app/` ni en `src/` y se retiraron en F0 (sección 11); ya no figuran en `package.json`. El original dejaba NO VERIFICADO que no hubiera uso indirecto.
+- **Pendiente de retirada (F6):** los formateadores de moneda viejos de `src/domain/utils/currency.ts` y de las pantallas antiguas (el único formateador vigente es `formatCOP` de `src/domain/money`, ver [5](#5-sistema-de-tema); ojo con la homonimia con la `formatCOP` vieja de `utils/currency.ts`), el alias de `expo-sqlite` y `test/mocks/expo-sqlite.ts` en `vitest.config.ts`, el shim de `colors` y las primitivas antiguas de `src/components/ui/`.
 
 ### 4.3 Estado de la interfaz
 
@@ -458,11 +688,11 @@ Zustand solo para: caché de ajustes (se carga desde SQLite al iniciar y se escr
 
 ### 4.4 Mecanismo de migraciones
 
-- `drizzle.config.ts` con `driver: 'expo'`: drizzle-kit genera `.sql`, `meta/_journal.json` y **`migrations.js`**, que importa los `.sql`. VERIFICADO (2026-10-03).
-- En el bundle: `babel-plugin-inline-import` para `.sql` en `babel.config.js` y `sourceExts` con `'sql'` en `metro.config.js`. VERIFICADO (2026-10-03); ambos archivos ya están configurados (F0).
-- En ejecución: `migrate(db, migrations)` en `initialize`, con la pantalla de inicio retenida hasta que termine. [EXPO-DOC: si `useMigrations` sigue vigente en SDK 56; no lo cubrió el informe.]
-- En tests: `drizzle-orm/better-sqlite3/migrator` con `migrationsFolder` apuntando a los mismos `.sql`. La fuente única es `schema.ts`; drizzle-kit genera el `.sql` y `migrations.js`. El espejo `.ts` manual **no debe existir**.
-- Protección contra divergencias: script `db:check` (`drizzle-kit check` + `generate` sin diferencias en git) en CI y antes de hacer commit.
+- `drizzle.config.ts` con `driver: 'expo'`: drizzle-kit genera `.sql`, `meta/_journal.json` y **`migrations.js`**, que importa los `.sql`. VERIFICADO (2026-10-03); VERIFICADO EN CÓDIGO (2026-10-07): `drizzle.config.ts` (`dialect: 'sqlite'`, `driver: 'expo'`, `out: ./src/database/migrations`) y `src/database/migrations/migrations.js` existen.
+- En el bundle: `babel-plugin-inline-import` para `.sql` en `babel.config.js` (`['inline-import', { extensions: ['.sql'] }]`) y `sourceExts` con `'sql'` en `metro.config.js`. VERIFICADO (2026-10-03); ambos archivos ya están configurados (F0). `babel.config.js` mantiene `babel-preset-expo`, que activa React Compiler por `experiments.reactCompiler` de `app.json`.
+- En ejecución: `initializeDatabase()` (`src/database/initialize.ts`) llama a `migrate(db, migrations)` de `drizzle-orm/expo-sqlite/migrator` y luego a `seedDatabase`; es idempotente y devuelve una promesa compartida, y `app/_layout.tsx` la espera antes de renderizar. [EXPO-DOC: si `useMigrations` sigue vigente en SDK 56; no lo cubrió el informe.]
+- En tests: `drizzle-orm/better-sqlite3/migrator` con `migrationsFolder` apuntando a los mismos `.sql`. La fuente única es `schema.ts`; drizzle-kit genera el `.sql` y `migrations.js`. El espejo `.ts` manual **no debe existir** (y ya no existe).
+- Protección contra divergencias: `npm run db:check` = `drizzle-kit check && node scripts/check-migrations.js`. El script copia las migraciones a un directorio temporal bajo `node_modules/.cache`, ejecuta `drizzle-kit generate` sobre la copia y **falla cerrado**: falla si genera algo nuevo (el esquema diverge de las migraciones), si `drizzle-kit` falla o su salida indica un error, o si no puede confirmar positivamente "nothing to migrate"; no modifica el repo. Regenerar: editar `schema.ts`, `npm run db:generate` y versionar el resultado. Está pensado para CI y antes de hacer commit (no existe carpeta `.github` en el repo y no se comprobó ningún otro mecanismo automático: NO VERIFICADO que se ejecute fuera de la invocación manual).
 - **Riesgo con instalaciones de desarrollo:** un dispositivo con la BD vieja tiene `__drizzle_migrations` con el hash anterior del `0000`. Mitigación: cambiar el nombre del archivo (`financial-flow-v1.db`). Con eso se parte de una BD limpia sin pasos manuales (base de datos limpia con migración regenerada).
 
 ---
@@ -471,19 +701,21 @@ Zustand solo para: caché de ajustes (se carga desde SQLite al iniciar y se escr
 
 La paleta del Design System reemplaza la actual.
 
-- **Tokens:** `src/theme/tokens.ts` importa `Design/design-tokens.json` (o una copia en `src/theme/`; SUPUESTO: copiar para no depender de la carpeta Design en el bundle). Los transforma a camelCase: surfacePage, surfaceCard, surfaceRaised, borderSubtle, inkPrimary, inkSecondary, inkOnBrand, brandPrimary, signalGrowth, signalDebt, signalGoal y focusRing (resolviendo la referencia `{brand-primary}`). También tipografía (display-lg…amount-sm), espaciado (space-1…7), radios (xs, sm, md, lg, full) y la sombra solo para hojas. Es una única fuente de verdad sin generación de código.
-- **ThemeProvider único** en `app/_layout.tsx`: `scheme = preference === 'system' ? useColorScheme() : preference`. Expone `useTheme()` → `{ scheme, colors, type, space, radius, shadowSheet }`. El selector del store se renombra a `useThemePreference`. También alimenta el tema de React Navigation y la barra de estado [EXPO-DOC: de dónde exporta expo-router v56 `ThemeProvider` y los temas de navegación].
-- **Fuentes:** IBM Plex Sans e IBM Plex Mono, con `@expo-google-fonts/ibm-plex-sans` (400, 500, 600) e `ibm-plex-mono` (400, 500). En React Native, con fuentes propias cada peso es una familia distinta, así que los estilos de texto mapean el peso a la familia (`IBMPlexSans_600SemiBold`, etc.) y no usan `fontWeight`. [EXPO-DOC: en v56, plugin de config de expo-font para incrustar en build o `useFonts` en ejecución con la pantalla de inicio retenida. Se recomienda el plugin si está disponible.] NO VERIFICADO: el nombre de las familias de fuente en iOS con el plugin.
-- **Primitivas** (se hacen antes que las pantallas): Text (variant), Amount (mono, con signo y color de señal), Button (primary/ghost/danger), Widget (radio md, borde, sin sombra; variante hero con radio lg), InviteCard (borde punteado), Input, MoneyInput, Pill/SegmentedControl, ProgressBar, Sheet (radio lg + shadowSheet), ListRow y AccountPicker.
+- **Tokens:** `src/theme/tokens.ts` es una **copia local y tipada** de `Design/design-tokens.json` (la fuente de verdad; decisión: copiar para no depender de la carpeta `Design/` en el bundle). Es un archivo puro, sin imports de react-native ni expo. `test/unit/theme/tokens.test.ts` compara la copia con el JSON y falla si divergen, así que cualquier cambio de diseño debe replicarse en `tokens.ts`. Los colores se exponen en camelCase: surfacePage, surfaceCard, surfaceRaised, borderSubtle, inkPrimary, inkSecondary, inkOnBrand, brandPrimary, signalGrowth, signalDebt, signalGoal y focusRing (resolviendo la referencia `{brand-primary}`), en versión clara y oscura. También tipografía (display-lg…amount-sm), espaciado (space-1…7), radios (xs, sm, md, lg, full) y la sombra solo para hojas (`shadowSheet`). Es una única fuente de verdad sin generación de código.
+- **ThemeProvider único** (`src/theme/ThemeProvider.tsx`, montado en `app/_layout.tsx`): `scheme = resolveScheme(preference, useColorScheme())`, es decir, `preference === 'system'` sigue al sistema (y si este no informa, claro) y `'light'`/`'dark'` mandan. Expone `useTheme()` → `{ scheme, colors, type, space, radius, shadowSheet }`. `preference` entra por prop (por defecto `'system'`) y un contexto mínimo (`useThemeController`) permite cambiarla; con preferencia explícita fuerza `Appearance.setColorScheme` para que teclado y controles nativos coincidan. Alimenta el `ThemeProvider` de navegación que exporta `expo-router` y la barra de estado (`expo-status-bar`). La integración con el store de ajustes (y el selector `useThemePreference`) es de F5a: aún no existe `src/store/useSettingsStore`.
+- **Fuentes:** IBM Plex Sans e IBM Plex Mono, con `@expo-google-fonts/ibm-plex-sans` (400, 500, 600) e `ibm-plex-mono` (400, 500). En React Native, con fuentes propias cada peso es una familia distinta, así que los estilos de texto mapean el peso a la familia (`fontFamilies` en `src/theme/fontFamilies.ts`: `IBMPlexSans_400Regular`, `IBMPlexSans_500Medium`, `IBMPlexSans_600SemiBold`, `IBMPlexMono_400Regular`, `IBMPlexMono_500Medium`) y no usan `fontWeight`. Se usan **ambos mecanismos**: el plugin `expo-font` de `app.json` incrusta los cinco `.ttf` en el build, y además `app/_layout.tsx` los carga con `useFonts(fontAssets)` (`src/theme/fontAssets.ts`) para que los nombres de familia sean deterministas e iguales en iOS y Android (con solo el plugin, iOS puede registrar el nombre PostScript del `.ttf`, p. ej. `IBMPlexSans-Regular`). NO VERIFICADO en dispositivo: que los nombres resultantes sean los esperados en iOS (pendiente de development build).
+- **Primitivas** (`src/components/ui/ds/`; se hacen antes que las pantallas): Text (variant), Amount (mono, con signo y color de señal), Button (primary/ghost/danger), Widget (radio md, borde, sin sombra; variante hero con radio lg), InviteCard (borde punteado), Input, MoneyInput, Pill, SegmentedControl, ProgressBar, Sheet (radio lg + shadowSheet), ListRow y AccountPicker. Ninguna importa el `colors` estático: todas usan `useTheme`.
+- **Moneda: un único formateador.** `formatCOP` de `src/domain/money.ts` es el único formateador de pesos del proyecto. Opera en **unidades menores**, es manual (sin `Intl`: puede no estar completo en Hermes) y produce `$1.234.567` **sin espacio** tras el `$` (fiel al diseño, que usa `toLocaleString('es-CO')`) y `-$50.000` para negativos; los centavos se redondean al peso. `Amount`, `MoneyInput` y `AccountPicker` reciben unidades menores y lo usan; ningún componente de UI formatea pesos por su cuenta, y `test/unit/theme/ui-utils.test.ts` lo impide (prohíbe en `ds/` `toLocaleString`, `Intl.NumberFormat`, `.toFixed(`, `formatCurrency`, `groupThousands`, plantillas con `$` literal y `'$' +`, y exige que `AccountPicker`, `MoneyInput` y `utils` importen `formatCOP`). `parsePesos` acepta con y sin espacio tras el `$`. **Homonimia (VERIFICADO EN CÓDIGO 2026-10-07):** existe OTRA función `formatCOP(amount: number)` en `src/domain/utils/currency.ts`. Es código **viejo**: recibe **pesos** (no unidades menores), usa `Intl.NumberFormat` y su docblock da `"$-50.000"` para negativos. La usan pantallas y componentes antiguos (por ejemplo `src/components/forms/AmountInput.tsx`, `AccountPicker.tsx` y `PocketPicker.tsx`). La homonimia se resuelve en F6 al retirar `src/domain/utils/`. **El código nuevo debe importar siempre `formatCOP` de `src/domain/money`**, nunca de `utils/currency`. Los demás formateadores viejos (`formatCOPShort`, etc.) y los de las pantallas antiguas se retiran también en F6.
+- **`MoneyInput`:** `value` y `onChangeValue` son `Minor | null`; interpreta solo los dígitos escritos como pesos enteros (el MVP no tiene decimales). Emite `null` si el valor desborda el rango entero seguro (14 dígitos). **Hallazgo menor:** en ese caso el campo se vacía en lugar de ignorar el dígito que desborda. Además, el borrado de un separador "." es un no-op lógico (el texto se vuelve a formatear): **pendiente de probar en dispositivo**.
 - **Migración incremental:**
   1. **Shim:** `src/theme/colors.ts` mantiene sus nombres viejos pero apunta a la paleta nueva clara y estática (bg → surfacePage, surface1 → surfaceCard, textPrimary → inkPrimary, accentGreen → signalGrowth, accentRed → signalDebt, accentBlue → brandPrimary, accentAmber → signalGoal, **accentYellow → signalGoal**, accentPurple → brandPrimary). Así todas las pantallas viejas cambian de aspecto sin tocarlas y desaparecen los `undefined`.
-  2. ESLint `no-restricted-imports` sobre `colors` en modo warn; cuenta pendientes sin bloquear.
+  2. ESLint `no-restricted-imports` sobre `colors` en modo warn; cuenta pendientes sin bloquear (estado actual: sigue en `warn`).
   3. Cada pantalla rehecha usa solo `useTheme` y primitivas.
   4. Cuando la cuenta de usos llega a 0, se borra el shim y la regla pasa a error.
 
   Como la mayoría de las pantallas viejas se retiran (sección 6), el shim vive poco. **Tratamiento de accentYellow:** no se crea el token. Su uso semántico (advertencia o "en progreso") no existe en el sistema de diseño. En el shim se aproxima con signalGoal y desaparece con las pantallas que lo usan (budget, card, pay-installment, gauge, pockets).
 - **Limitación mientras dure la migración:** el shim es estático (claro) y no sigue el modo oscuro. Es aceptable durante el desarrollo, pero no para publicar.
-- **Inicio de la app:** cambiar el color de fondo de la pantalla de inicio en `app.json` (#208AEF) a surfacePage o brandPrimary. `userInterfaceStyle: automatic` ya está.
+- **Inicio de la app:** el color de fondo de la pantalla de inicio en `app.json` ya es `#F3F6F4` (surfacePage claro; antes `#208AEF`). `userInterfaceStyle: automatic` ya está.
 
 ---
 
@@ -506,12 +738,16 @@ La paleta del Design System reemplaza la actual.
 | 11 | Transacciones (lista) | `app/(app)/transactions/index.tsx` | `(tabs)/transactions.tsx` | Rehacer |
 | 12 | Detalle de transacción | `app/(app)/transactions/[id].tsx` | `(modals)/transaction-detail.tsx` | Rehacer |
 | 13 | Agregar transacción | `app/(app)/transactions/new.tsx` (params: type, passive) | `(modals)/add-transaction.tsx` | Rehacer |
-| 14 | Agregar recurrente | `app/(app)/recurring/new.tsx` | — | Crear. **Debe pedir la cuenta predeterminada (`defaultAccountId`)**, campo que no estaba en el diseño original (D8). Si el recurrente es quincenal, ver la regla de BIWEEKLY (días 15 y último día del mes) y su ambigüedad abierta en 3.4 |
+| 14 | Agregar recurrente | `app/(app)/recurring/new.tsx` | — | Crear. **Debe pedir la cuenta predeterminada (`defaultAccountId`)**, campo que no estaba en el diseño original (D8). Si el recurrente es quincenal (días 15 y último día del mes), debe llamar a `normalizeAnchor(fecha, frecuencia)` **en vivo** y mostrar el ajuste de la primera fecha a la más cercana válida (en empate, la posterior) mientras el usuario elige, nunca en silencio tras guardar (3.4; ambigüedad resuelta por el usuario) |
 | 15 | Ajustes | `app/(app)/settings.tsx` | `(tabs)/settings.tsx`, `settings/*` | Rehacer en una sola pantalla |
 | + | Hoja de confirmación de pago ("Ya pagué") | `app/(app)/recurring/[id]/confirm.tsx` (param: occurrence) | — | Crear. Con **selector de cuenta**, que el diseño no muestra: siempre pide cuenta y preselecciona la predeterminada del recurrente (D8) |
 | + | Onboarding: Cuentas, Flujo, Invitación, Todo listo | `app/onboarding/{accounts,flow,widgets,done}.tsx` | `(auth)/onboarding/*` | Rehacer; se pasa de `(auth)` a `onboarding`. El paso 2 admite fecha opcional (D7) |
 
 **Se retiran:** `(tabs)/*`, `(modals)/category-detail` (las categorías se crean en línea), `settings/{categories,distribution,appearance,notifications,index}`, `pockets/*`, `debt/card/[id]`, `debt/loan/[id]` y los `_layout` correspondientes.
+
+**Contratos de F5 que salen de las reglas de cuentas archivadas (3.4), todavía sin pantalla:**
+- **Desarchivar:** al recibir `AccountArchivedError`, la UI ofrece "Desarchivar" con `AccountService.unarchive(error.accountId)` y reintenta. `accounts.summary()` solo lista cuentas activas; el id de la archivada viene de `AccountArchivedError.accountId` (una lista de cuentas archivadas para desarchivar desde Ajustes no está definida: decisión de producto pendiente).
+- **Eliminar una meta:** la pantalla llama primero a `GoalService.refundPreview(id)`; si `requiresDestinationMinor > 0`, muestra el desglose (`refunds` con `accountArchived`) y pide elegir una **cuenta activa** de destino, y luego llama a `GoalService.remove(id, { refundAccountId })`. Si recibe `RefundAccountRequiredError`, vuelve a pedir la cuenta (`invalidAccountId` indica la que no sirvió).
 
 "Cerrar sesión" aparece en Ajustes según el spec, pero no hay autenticación (`default-user`). Se oculta en el MVP (D19).
 
@@ -519,7 +755,7 @@ La paleta del Design System reemplaza la actual.
 
 ## 7. Notificaciones y recurrentes
 
-- **Plan puro** (`domain/rules/notificationPlan.ts`, se puede testear): a partir de los recurrentes de `upcoming()`, los ajustes y `now` produce las notificaciones deseadas, con identificadores deterministas:
+- **Plan puro** (`domain/rules/notificationPlan.ts`, implementado en F2a y probado en `test/unit/rules/notificationPlan.test.ts`; la entrada la prepara `RecurringService.pendingOccurrences()`): a partir de los recurrentes pendientes, los ajustes y `now` produce las notificaciones deseadas, con identificadores deterministas:
   - `rec:{id}:{occ}:pre`: 2 días antes a `reminderHour`. Texto: "Tu pago de X vence en 2 días".
   - `rec:{id}:{occ}:due`: el día del vencimiento. Texto: "¿Ya pagaste X?" con categoría de acciones.
   - `rec:{id}:{occ}:snooze` si hay `snoozedUntil` en el futuro.
@@ -535,19 +771,30 @@ La paleta del Design System reemplaza la actual.
   - Se repite cada día mientras siga sin pagar, hasta 7 días después del vencimiento.
   - Después no hay más avisos, y el ítem queda como "Vencido" en Próximos pagos hasta que el usuario lo confirme.
   - Nunca se marca solo.
-- **Permisos:** se piden al crear el primer recurrente con fecha o al activar el interruptor en Ajustes, no al arrancar. Android 13+ necesita POST_NOTIFICATIONS y un canal. Falta añadir el plugin `expo-notifications` a `app.json` (el plugin existe, VERIFICADO 2026-10-03; que `app.json` ya lo incluya se debe comprobar en F4). Se necesita un development build para probar el plugin y las acciones (VERIFICADO 2026-10-03). [EXPO-DOC: canales de Android y POST_NOTIFICATIONS en v56.]
+- **Permisos:** se piden al crear el primer recurrente con fecha o al activar el interruptor en Ajustes, no al arrancar. Android 13+ necesita POST_NOTIFICATIONS y un canal. El plugin `expo-notifications` **ya está en `app.json`** (añadido en F0; VERIFICADO EN CÓDIGO 2026-10-07 sin opciones de canal ni de icono: la configuración del canal de Android y de los permisos sigue pendiente de F4). Se necesita un development build para probar el plugin y las acciones (VERIFICADO 2026-10-03). [EXPO-DOC: canales de Android y POST_NOTIFICATIONS en v56.]
 - Desactivar recordatorios cancela `rec:*`; desactivar el resumen cancela `weekly-summary`.
-- **Recurrentes quincenales:** las fechas de vencimiento de un recurrente BIWEEKLY son los días 15 y último día del mes (D6); los identificadores `rec:{id}:{occ}:*` usan la fecha de la ocurrencia resultante.
+- **Recurrentes quincenales:** las fechas de vencimiento de un recurrente BIWEEKLY son los días 15 y último día del mes (D6; la primera fecha ya viene normalizada por el servicio, ver 3.4); los identificadores `rec:{id}:{occ}:*` usan la fecha de la ocurrencia resultante.
 
 ---
 
 ## 8. Estrategia de pruebas
 
-- **Pruebas sobre SQLite real en node:** `better-sqlite3` en memoria + `drizzle-orm/better-sqlite3` + migrador con la **misma carpeta** de migraciones. Un helper `createTestDomain()` devuelve `createDomain(db)` sobre una BD nueva por test. Cada BD de test ejecuta `PRAGMA foreign_keys = ON` de forma explícita.
-  - No hace falta simular expo-sqlite, porque el dominio nunca importa `client.ts`.
-  - Se elimina el alias de vitest.
-  - Hay que aprobar la compilación nativa de better-sqlite3 en el gestor de paquetes. El original mencionaba pnpm (`onlyBuiltDependencies`), pero el repo contiene `package-lock.json` (npm) y no `pnpm-lock.yaml`; el gestor efectivo debe confirmarse. Alternativa sin compilación: `sql.js` (WASM) con el driver sql-js de drizzle.
-  - Riesgo: diferencias de versión de SQLite entre expo-sqlite y better-sqlite3. Mitigación: no usar funciones exóticas.
+- **Pruebas sobre SQLite real en node:** `better-sqlite3` (13.0.3 en `package.json`) en memoria + `drizzle-orm/better-sqlite3` + migrador con la **misma carpeta** de migraciones. `createTestDb()` (`test/helpers/db.ts`) devuelve `{ db, sqlite, close }` sobre una BD nueva por test y ejecuta `PRAGMA foreign_keys = ON` de forma explícita (better-sqlite3 lo trae activo; expo-sqlite no). `setup()` (`test/integration/domain/_helpers.ts`) añade la semilla y `createDomain(db, { now })` con un **reloj controlado** (base: 2026-03-10 12:00 local).
+  - No hace falta simular expo-sqlite, porque el dominio nunca importa `client.ts`. El alias de `expo-sqlite` y `test/mocks/expo-sqlite.ts` siguen en `vitest.config.ts`: son un resto que se retira en F6.
+  - **Gestor de paquetes: `npm`** (el repo contiene `package-lock.json` y no `pnpm-lock.yaml`; los scripts se ejecutan con `npm run ...`). La compilación nativa de better-sqlite3 no requiere configuración adicional de `pnpm`. Alternativa sin compilación, no usada: `sql.js` (WASM) con el driver sql-js de drizzle.
+  - Riesgo: diferencias de versión de SQLite entre expo-sqlite y better-sqlite3 (3.50.3 y 3.53.4 según el informe; ver 3.5 por `RETURNING`). Mitigación: no usar funciones exóticas.
+  - `vitest.config.ts` fuerza `TZ=America/Bogota` (`env: { TZ }`), toma `test/**/*.test.ts` y usa `globals: true`, entorno `node`.
+- **Helpers de integración** (`test/integration/domain/_helpers.ts`): `setup`, `expectIntegrity` (comprueba I1 a I6 con `IntegrityService`), `mkAccount`, `available`, `count`, `localMs`, `thrown`, `failOn` y `clearFail` (triggers `RAISE(ABORT)` para forzar fallos), `snapshot` (foto completa, todas las columnas, de las **9 tablas**: para probar "sin efectos") y `secondUserDomain` (crea un segundo usuario por SQL y devuelve un dominio que opera como él sobre la misma BD y el mismo reloj).
+- **Estructura de `test/`:**
+  - `test/unit/rules/**`: reglas puras (`amortization`, `dates`, `goalEta`, `money`, `notificationPlan`, `recurrence`, `statement`).
+  - `test/unit/theme/**`: tema (`tokens`, `scheme`, `shadow`, `fonts`, `colors-shim`, `ui-utils`: incluye la prohibición de formatear pesos en `ds/`).
+  - `test/helpers/repositoryAst.ts`: analizador AST de la guarda estructural (reglas R1-R6 y S1-S2, límites en 3.5). Es un helper, no un archivo de tests.
+  - `test/unit/repositoryOwnership.test.ts`: guarda estructural de repositorios y de los `insert` de servicios (3.5); 104 tests.
+  - `test/integration/schema/**`: CHECK, UNIQUE y migración + semilla (`transactions`, `other_tables`, `migrations_seed`).
+  - `test/integration/domain/**`: servicios sobre SQLite real: `accounts_transactions`, `debt_payments`, `goals`, `recurring`, `settings_onboarding`, `reports`, `integrity`, `atomicity` (triggers `RAISE(ABORT)`), `validation_order` (orden documentado de validaciones), `local_dates` (años < 100 en el borde), `unarchive`, `corrections` (pasada F2b-bis), `goals_refund_eta` y `goal_refund_edges` (redirección al eliminar metas y ETA), `ownership` (ids de otro usuario en todos los puntos de entrada).
+  - `test/integration/repositories/ownership.test.ts`: propiedad por repositorio, llamando a los repositorios directamente; 109 tests.
+  - `test/property/**`: prueba aleatoria con modelo de referencia independiente (ver abajo).
+- **Cifras de la suite** en el último punto verificado: **34 archivos y 769 tests** (de ellos, 104 son de `test/unit/repositoryOwnership.test.ts` y 109 de `test/integration/repositories/ownership.test.ts`). La suite normal tarda unos 43 s (antes unos 39 s: el coste de la guarda por AST y de los 92 casos de repositorio). Cifras tomadas del informe de verificación de la guarda; los 34 archivos coinciden con los `*.test.ts` en disco, pero los totales de tests y los tiempos no se re-ejecutaron al escribir este documento.
 - **Escenarios de la regla central** (de extremo a extremo sobre los servicios reales, verificando saldos derivados y reporte):
   1. Pagar una cuota: baja la cuenta, el gasto de deuda del mes sube y el de vida no, baja la deuda, sube paidCount y avanza el recurrente.
   2. Abono mayor al saldo: la deuda queda en 0, el gasto es el monto completo y el capital aplicado es igual al saldo.
@@ -563,13 +810,30 @@ La paleta del Design System reemplaza la actual.
   12. Borrar una meta activa devuelve el dinero a cada cuenta de origen.
   13. Archivar una cuenta crea el ajuste de cierre.
   14. Confirmar una ocurrencia exige cuenta; sin `accountId` se rechaza.
-- **Invariantes:** se comprueba I1–I6 después de cada escenario. Opcionalmente, pruebas por propiedades con `fast-check` (dependencia nueva, SUPUESTO) con secuencias aleatorias de operaciones.
+  15. Eliminar una transacción de una cuenta archivada se rechaza con `AccountArchivedError` (`remove`, `unconfirm` y borrado de un pago de deuda); `unarchive` quita `archivedAt` sin ajustes nuevos.
+  16. Eliminar una meta activa con aportes de cuentas archivadas exige una cuenta activa de destino: crea los `ARCHIVE_CLOSE` y el `MANUAL` en una transacción y sin destino válido lanza `RefundAccountRequiredError`.
+  17. Un id de otro usuario es `NotFoundError` y deja la BD idéntica (`snapshot`).
+- **Invariantes:** se comprueba I1–I6 después de cada escenario (`expectIntegrity`).
+- **Prueba aleatoria con modelo de referencia independiente (`test/property/**`).** Sustituye a la idea original de `fast-check` (no se añadió esa dependencia). Por cada semilla se crea una BD en memoria con **dos usuarios** (el principal y "otro", con datos de todas las clases) y se ejecutan N operaciones aleatorias sobre los servicios de dominio. Un modelo propio (libro mayor, calendario, series y ETA con `BigInt`: `model.ts` y `calendar.ts`) **no reutiliza ningún código de `src/domain/rules`** y predice el resultado de cada operación:
+  - Si la operación es **aceptada**, compara el estado completo (`accounts.summary/get`, `debts.list`, `goals.list/get` con `eta`, `reports.monthStatement/netWorth`, `recurring.list/upcoming` e `IntegrityService.check`) y que el otro usuario no cambie ni se mezcle.
+  - Si es **rechazada**, debe lanzar el error tipado que predice el modelo y dejar las 9 tablas idénticas.
+  - Incluye ids de otro usuario en todas las clases de operación (el modelo los trata como inexistentes).
+  - **Determinista:** semillas fijas, reloj inyectado, `TZ=America/Bogota`; nada depende de `Date.now()` ni de `Math.random()`. Reproducible con `FUZZ_REPRO=<semilla>:<longitud> npx vitest run test/property` (ejecuta solo esa secuencia e imprime su traza); `FUZZ_STATS=1` imprime el desglose por tipo, código y cobertura.
+  - **Modo corto** (por defecto, dentro de la suite normal, `npx vitest run test/property`): 24 secuencias × 40 operaciones, unos 10 s. **Modo completo** (`npm run test:property`, que fija `FUZZ_FULL=1`; el script usa sintaxis de shell POSIX): 300 secuencias × 60 operaciones más 5 × 1000, unos 7 minutos (419 s); la última corrida registrada fue de 22.286 operaciones (17.311 + 4.975) y 0 divergencias (cifras del informe de verificación; no repetidas al escribir este documento).
+  - Límite: es una prueba por muestreo; no prueba ausencia de errores. El calendario del modelo asume UTC-5 (Bogotá).
 - **Reglas puras:**
   - Bisección contra valores conocidos (saldo 1.200.000, cuota 180.000, 10 meses).
-  - Recurrencia: día 31, febrero, años bisiestos, semanal y quincenal. Quincenal (D6): la secuencia es 15 → último día del mes → 15 del mes siguiente, con último día 28, 29, 30 o 31 según el mes (febrero normal y bisiesto incluidos); se verifica explícitamente que **no** avanza +14 días.
+  - Recurrencia: día 31, febrero, años bisiestos, semanal y quincenal. Quincenal (D6): la secuencia es 15 → último día del mes → 15 del mes siguiente, con último día 28, 29, 30 o 31 según el mes (febrero normal y bisiesto incluidos); se verifica explícitamente que **no** avanza +14 días. Primera fecha: `nearestBiweeklyDate` y `normalizeAnchor` (ajuste al más cercano, empate a la fecha posterior) e `isOccurrenceOfSeries`.
+  - ETA (`goalEta`): precedencia, ventana de ritmo, tope de 1200 meses y casos de fechas inválidas.
+  - Moneda: `formatCOP` sin espacio, negativos, redondeo al peso y rango seguro; `parsePesos` con y sin espacio tras el `$`.
   - Límites de mes con `TZ=America/Bogota` fijado en la config de vitest.
   - Plan de notificaciones: pre, due, snooze, tope de 7 días, toggles apagados, deuda liquidada excluida.
 - **Fuera de vitest:** los adaptadores Expo (notificaciones, fuentes) y las pantallas se validan a mano en un development build. Opcional: tests de componentes con jest-expo, que queda fuera del MVP.
+- **Lecciones de verificación (herramientas):**
+  - `expo export` exige `--clear` al verificar el bundle.
+  - La base de errores de `tsc` varía (362 a 364 en su momento) si faltan `.expo/types` y `expo-env.d.ts` (archivos generados). La cifra actual del informe es 276 `error TS` en la base (todos de imports a módulos retirados hasta F5/F6; ver Estado de implementación).
+  - `npm run lint` (`expo lint`) usa caché y **subestima** los errores: usar `--no-cache` al verificar.
+  - `vitest.config.ts` fuerza `TZ=America/Bogota`; ejecutar los tests sin esa configuración daría fechas distintas.
 
 ---
 
@@ -577,10 +841,10 @@ La paleta del Design System reemplaza la actual.
 
 | Fase | Especialista | Contenido | Depende de | Archivos que toca |
 |---|---|---|---|---|
-| F0 Higiene | devops | `.gitignore` (+`.opencode/`, `.claude/pipeline-state.json`), versionar `eslint.config.js`, decidir qué hacer con el trabajo sin commit (recomendado: commit o tag `pre-mvp` antes de retirar), dependencias (better-sqlite3, babel-plugin-inline-import, fuentes Plex, retirar tamagui/victory-native), `babel.config.js`, `metro.config.js`, `drizzle.config.ts` con driver expo, plugins de `app.json` (expo-notifications, fuentes, color de inicio), `vitest.config.ts`, script `db:check` | — | Solo configuración en la raíz |
+| F0 Higiene | devops | `.gitignore` (+`.opencode/`, `.claude/pipeline-state.json`), versionar `eslint.config.js`, decidir qué hacer con el trabajo sin commit (resuelto: el tag `pre-mvp` existe, sobre el commit `e7fd4a5`), dependencias (better-sqlite3, babel-plugin-inline-import, fuentes Plex, retirar tamagui/victory-native), `babel.config.js`, `metro.config.js`, `drizzle.config.ts` con driver expo, plugins de `app.json` (expo-notifications, fuentes, color de inicio), `vitest.config.ts`, script `db:check` | — | Solo configuración en la raíz |
 | F1 Datos | data-engineer | `schema.ts` nuevo, borrar migraciones viejas y regenerar `0000`, `client.ts` (PRAGMA, nombre nuevo), `initialize.ts`, semilla de categorías, helper de BD para tests | F0 | `src/database/**`, `test/helpers/db.ts` |
 | F2a Reglas puras | backend-coder | money, dates, amortization, recurrence, statement, notificationPlan + tests | F0 (en paralelo con F1) | `src/domain/rules/**`, `src/domain/{money,dates}.ts`, `test/unit/rules/**` |
-| F2b Dominio | backend-coder | Repositorios, servicios, `createDomain`, IntegrityService, comandos con efectos, tests de integración; retirar servicios y repositorios viejos | F1, F2a | `src/database/repositories/**`, `src/domain/services/**`, `src/app-services/**`, `test/integration/**` |
+| F2b Dominio | backend-coder | Repositorios, servicios, `createDomain`, IntegrityService, tests de integración y prueba aleatoria; retirar servicios y repositorios viejos (los comandos con efectos de `src/app-services/**` no se hicieron en F2b: ver notas de alcance) | F1, F2a | `src/database/repositories/**`, `src/domain/services/**`, `src/app-services/**`, `test/integration/**` |
 | F3 Tema | frontend-coder | tokens, ThemeProvider, fuentes, primitivas, shim de `colors`, regla ESLint; dueño de `app/_layout.tsx` (proveedores, splash, init) | F0 (en paralelo con F1 y F2) | `src/theme/**`, `src/components/ui/**`, `app/_layout.tsx`, `eslint.config.js` (solo la regla) |
 | F4 Plataforma | mobile-coder | Adaptador de notificaciones (reconcile, categorías, listener de respuesta, permisos, canal Android) | F2a (plan), F2b (upcoming, snooze) | `src/platform/**` |
 | F5a Navegación y Dashboard | frontend-coder | Borrar `(tabs)`, crear `(app)/_layout` y onboarding con guard, Dashboard, stores y hooks base | F2b, F3 | `app/(app)/_layout.tsx`, `app/(app)/index.tsx`, `app/onboarding/**`, `src/store/**`, `src/hooks/index.ts` |
@@ -590,6 +854,11 @@ La paleta del Design System reemplaza la actual.
 **Paralelización segura:** F1 ∥ F2a ∥ F3; F4 ∥ F5a; los cinco subequipos de F5b entre sí. **Archivos compartidos con un solo dueño:** `src/hooks/index.ts` (F5a; los subequipos importan directamente su hook en vez de editar el barrel), `app/_layout.tsx` (F3), `app.json`, `package.json` y la config (F0; quien necesite una dependencia la pide a devops).
 
 El estado actual de cada fase está en [Estado de implementación](#estado-de-implementación).
+
+**Notas de alcance respecto de la tabla (estado real a 2026-10-07):**
+- F2b entregó repositorios, servicios, `createDomain` e `IntegrityService` con sus tests, pero **no** `src/app-services/**` (comandos que ejecutan los efectos tras el COMMIT): ese directorio no existe y pasa a F4/F5a. Los servicios devuelven `effects`, que esa capa debe ejecutar.
+- Los servicios y repositorios viejos que dependían de tablas retiradas ya no existen en `src/`, pero los hooks y pantallas antiguos todavía los importan hasta F5/F6 (ver el estado del árbol en [Estado de implementación](#estado-de-implementación)).
+- F3 dejó el shim de `colors` y la regla de ESLint en `warn`; ambos se retiran en F6.
 
 ---
 
@@ -604,19 +873,24 @@ El estado actual de cada fase está en [Estado de implementación](#estado-de-im
 - **R5.** Cola de notificaciones en iOS (límite de ~64, VERIFICADO 2026-10-03) y comportamiento de las acciones en segundo plano (NO VERIFICADO).
 - **R6.** Shim de tema estático: el modo oscuro queda roto en las pantallas viejas mientras dure la migración. Se mitiga con la regla de ESLint y F6 como requisito para publicar.
 - **R7.** Diferencias entre la SQLite de tests y la de los dispositivos.
-- **R8.** El trabajo sin commit (onboarding, budget, settings, debt detail) choca con este diseño. Hay que congelarlo antes de F5. El commit `e7fd4a5` ("snapshot pre-mvp") conserva el estado previo al rediseño.
+- **R8.** El trabajo sin commit (onboarding, budget, settings, debt detail) choca con este diseño. **Mitigado:** el commit `e7fd4a5` ("snapshot pre-mvp") y el tag `pre-mvp` conservan el estado previo al rediseño.
 - **R9.** El target web (`app.json` con web output static) con expo-sqlite no está cubierto. SUPUESTO: el MVP es solo iOS y Android.
+- **R10.** `UPDATE/DELETE ... RETURNING` en expo-sqlite (la propiedad del usuario en los repositorios depende de ello; 3.5). Requiere SQLite ≥ 3.35 (el paquete trae 3.50.3 según el informe). NO probado en dispositivo. Plan B: `run()` y `changes`.
+- **R11.** Las FK de la BD no incluyen `userId`: un `INSERT` con `userId` de B y un `accountId` de A lo acepta la BD. Se mitiga con la validación de todos los ids embebidos en los servicios y con la guarda estructural (3.5). Opción futura no abordada: FK compuestas `(id, userId)` con migración.
+- **R12.** Las guardas estructurales verifican forma, no semántica: la guarda de repositorios (AST) comprueba que el `where` referencia `userId`, no que el filtro sea correcto (límites completos en 3.5, incluida su dependencia de `parseDiagnostics`, API interna de TypeScript); lo cubren los tests de comportamiento y la prueba aleatoria (por muestreo).
+- **R13.** Estado del árbol: hooks y pantallas antiguos importan módulos retirados; el bundle no resuelve hasta F5/F6 y hay errores `tsc` y lint preexistentes.
+- **R14.** Versiones de Expo desalineadas (14 paquetes) y `async-storage` 3.1.1 frente a la 2.2.0 esperada por el SDK: pendiente de alinear antes de probar en dispositivo (según el informe de verificación; no se volvió a ejecutar la comprobación).
 
 ### 10.2 Decisiones aprobadas
 
-Fecha de aprobación: **2026-10-03**. Los supuestos 1 a 20 quedan todos aprobados, con las correcciones de los puntos 6 y 8.
+Fecha de aprobación de los puntos 1 a 20: **2026-10-03**. Quedan todos aprobados, con las correcciones de los puntos 6 y 8. Los puntos 21 a 28 son decisiones posteriores del usuario (2026-10-04 a 2026-10-07; la fecha exacta de cada una no está registrada) y se añaden sin borrar las anteriores.
 
 1. `gastoMetas` (metas cerradas) entra en el gasto total y en el denominador del Índice (`gastoTotal = gastoVida + gastoDeuda + gastoMetas`).
 2. Eliminar una cuenta con movimientos la archiva y crea un ajuste a 0; sin movimientos se borra de verdad.
 3. Eliminar una deuda con pagos la archiva y conserva los pagos como gasto; sin pagos se borra de verdad.
-4. Eliminar una meta activa devuelve cada aporte a su cuenta; las metas gastadas no se pueden eliminar.
+4. Eliminar una meta activa devuelve cada aporte a su cuenta; las metas gastadas no se pueden eliminar. (Ampliado por el punto 23: los aportes de cuentas archivadas se redirigen a una cuenta activa elegida por el usuario.)
 5. Política de "recuérdamelo luego": un aviso diario a `reminderHour`, hasta 7 días después del vencimiento.
-6. "Quincenal" (BIWEEKLY) = los días 15 y último día del mes. No es cada 14 días.
+6. "Quincenal" (BIWEEKLY) = los días 15 y último día del mes. No es cada 14 días. (Completado por el punto 21: qué pasa con la primera fecha.)
 7. "Agregar deuda" y el paso 2 del onboarding necesitan un campo de fecha (opcional); sin fecha no hay recordatorios.
 8. La hoja "Ya pagué" incluye un selector de cuenta, preseleccionando la cuenta predeterminada del recurrente. La pantalla "Agregar recurrente" debe pedir esa cuenta predeterminada (`defaultAccountId`).
 9. Sin transferencias entre cuentas ni edición de transacciones en el MVP.
@@ -630,7 +904,18 @@ Fecha de aprobación: **2026-10-03**. Los supuestos 1 a 20 quedan todos aprobado
 17. Montos en unidades menores (×100) y solo COP en el MVP.
 18. Se retiran institution, color e icon de cuentas, y cupo, corte y pago mínimo de tarjetas.
 19. Se oculta "Cerrar sesión".
-20. El ETA de una meta se calcula con el promedio de aportes de los últimos 3 meses, o con la fecha objetivo si existe.
+20. El ETA de una meta se calcula con el promedio de aportes de los últimos 3 meses, o con la fecha objetivo si existe. (Definiciones y tope: punto 25 y 3.7.)
+
+**Decisiones posteriores (2026-10-04 a 2026-10-07):**
+
+21. **Quincenal: primera fecha.** Si la primera fecha elegida no es el 15 ni el último día del mes, se ajusta a la fecha válida más cercana (`nearestBiweeklyDate`); en empate gana la fecha posterior (CONFIRMADA por el usuario). Solo hay dos empates (día 23 en meses de 31 días y día 22 de febrero bisiesto). La pantalla muestra el ajuste en vivo con `normalizeAnchor`; los servicios guardan el ancla normalizada. Resuelve la ambigüedad que este documento marcaba como abierta en 3.4 y en la fila 14 de la sección 6.
+22. **Formateador de moneda único:** `formatCOP` de `src/domain/money.ts` (unidades menores, manual, sin `Intl`), `$1.234.567` sin espacio y `-$50.000`. Ningún componente formatea pesos por su cuenta (un test lo impide). Los formateadores viejos, incluida la `formatCOP` homónima de `src/domain/utils/currency.ts` (pesos), se retiran en F6 (ver 5).
+23. **Cuentas archivadas:** (a) una cuenta archivada no cambia de saldo por ningún motivo: borrar una transacción suya se rechaza con `AccountArchivedError` (como crear, ajustar, aportar, pagar y confirmar); (b) eliminar una meta activa con aportes de cuentas archivadas no se bloquea: el usuario elige una cuenta activa de destino (`remove(id, { refundAccountId? })`; sin destino válido, `RefundAccountRequiredError`); (c) los aportes de cuentas activas vuelven a su origen sin pedir nada.
+24. **`AccountService.unarchive(id)`:** quita `archivedAt` sin ajustes nuevos. DESCARTADO por el usuario: desarchivar automáticamente.
+25. **Tope del ETA por ritmo (100 años) y definiciones del ETA:** `UNKNOWN` ("por calcular") si `monthsLeft > 1200`, y las definiciones de precedencia, ventana y meses hasta la fecha objetivo (3.7).
+26. **Año < 100:** las fechas `'YYYY-MM-DD'` con año < 100 se rechazan con `ValidationError` en el borde del servicio (`assertLocalDate`, `MIN_LOCAL_DATE_YEAR = 100`).
+27. **Propiedad del usuario en repositorios:** un id ajeno es `NotFoundError` indistinguible de uno inexistente; además, por decisión expresa (hubo un bug real), todos los métodos por id de todos los repositorios exigen `userId` y lo filtran en la consulta, con guarda estructural (3.5).
+28. **La prueba aleatoria con modelo independiente entra al repositorio** (`test/property/**`, commit `58b0502`) y corre en modo corto en la suite normal (sección 8).
 
 ### 10.3 Verificaciones de Expo
 
@@ -647,12 +932,14 @@ Documentación de referencia: https://docs.expo.dev/versions/v56.0.0/
 **NO VERIFICADO** (el informe no pudo comprobarlo):
 - Arranque en frío de las notificaciones.
 - Acciones de categoría en Expo Go.
-- Nombre de las familias de fuente en iOS con el plugin.
-- Comportamiento sobre dispositivo.
+- Nombre de las familias de fuente en iOS (se cargan además con `useFonts` para hacerlos deterministas, pero falta comprobarlo en un development build).
+- `UPDATE/DELETE ... RETURNING` en expo-sqlite sobre dispositivo (3.5).
+- `Stack.Protected` y `presentation: 'formSheet'` en ejecución (solo se verificó que existen en la documentación y las fuentes de expo-router 56.2).
+- Comportamiento sobre dispositivo en general.
 
 **[EXPO-DOC] pendiente** (no cubierto por el informe):
-- **expo-sqlite / drizzle:** vigencia de `useMigrations` en SDK 56.
-- **expo-font:** plugin de config frente a `useFonts`; expo-splash-screen para retener la pantalla de inicio.
+- **expo-sqlite / drizzle:** vigencia de `useMigrations` en SDK 56 (el código usa `migrate` del migrador `drizzle-orm/expo-sqlite/migrator`).
+- **expo-font:** en el código se usan el plugin de config **y** `useFonts`; queda por confirmar en la documentación v56 si esa combinación es la recomendada; expo-splash-screen para retener la pantalla de inicio.
 - **expo-router 56.2:** typed routes, ThemeProvider de navegación, y qué pasa con los archivos de `(tabs)` sin `Tabs.Screen`.
 - **expo-notifications:** canales de Android y POST_NOTIFICATIONS; si una acción en segundo plano ejecuta JS; `opensAppToForeground`.
 - **`useColorScheme`** con `userInterfaceStyle: automatic` y cambio de modo en caliente.
@@ -683,11 +970,60 @@ Decisiones ya cerradas por el usuario. Prevalecen sobre cualquier otro texto del
 - **`eslint.config.js` versionado; `.opencode/` y `pipeline-state.json` ignorados** en `.gitignore`.
 - **Texto de Agregar deuda:** "Calculamos la tasa con la fórmula estándar de amortización."
 - **`tamagui` y `victory-native` retirados.**
+- **"Quincenal": primera fecha** (decisión posterior a la D6): se ajusta a la fecha válida (15 o último día) más cercana; en empate gana la posterior. La pantalla lo muestra en vivo, nunca en silencio tras guardar.
+- **Moneda:** un único formateador, `formatCOP` de `src/domain/money.ts` (la `formatCOP` vieja de `utils/currency.ts` es código a retirar en F6; unidades menores, `$1.234.567` sin espacio, `-$50.000`); ningún componente formatea pesos por su cuenta.
+- **Cuentas archivadas:** no cambian de saldo por ningún motivo (borrar una transacción suya se rechaza con `AccountArchivedError`); eliminar una meta con aportes de cuentas archivadas no se bloquea, el usuario elige una cuenta activa de destino; `AccountService.unarchive(id)` quita `archivedAt` sin ajustes nuevos; **desarchivar automáticamente está descartado**.
+- **ETA de metas:** tope de 100 años (`UNKNOWN` / "por calcular" si `monthsLeft > 1200`) y las definiciones de 3.7.
+- **Fechas con año < 100** se rechazan con `ValidationError` en el borde del servicio.
+- **Propiedad del usuario:** un id de otro usuario es un `NotFoundError` indistinguible del inexistente, y todos los métodos por id de todos los repositorios exigen `userId` y lo filtran en la consulta (porque ya hubo un bug real con `accounts.remove/get`), con guarda estructural.
+- **La prueba aleatoria con modelo de referencia independiente** forma parte del repositorio.
 
 ---
 
 ## 12. Desviaciones aprobadas
 
-Esta sección registra las desviaciones respecto de este documento que se aprueben durante la implementación.
+Esta sección registra las desviaciones respecto del diseño original de este documento (2026-10-03) que se aprobaron o se dieron durante la implementación. Lo ya incorporado al cuerpo del documento se resume aquí para trazabilidad.
 
-- **F1 (datos):** aplicó CHECK adicionales más estrictos que los descritos en este documento. El detalle se documentará tras la revisión de la fase.
+### 12.1 F1 (datos): restricciones adicionales y más estrictas
+
+Leídas de `src/database/schema.ts` (VERIFICADO EN CÓDIGO 2026-10-07). Todas son más estrictas que lo descrito en el diseño original.
+
+| Tabla | Restricción | Detalle |
+|---|---|---|
+| Todas las columnas enum | CHECK `IN (...)` | `ck_users_theme`, `ck_accounts_type`, `ck_categories_type`, `ck_debts_rate_source`, `ck_goals_status`, `ck_rec_type/kind/frequency/status`, `ck_tx_type/kind/payment_type`, `ck_adj_target_type/reason`: la BD hace cumplir los enums, no solo TypeScript |
+| `users` | `ck_users_reminder_hour` | `reminderHour BETWEEN 0 AND 23` |
+| `users` | `ck_users_widget_*` | cada `widget*` `IN (0, 1)` (NULL pasa) |
+| `categories` | `uq_categories_system_type_name` | UNIQUE parcial `(type, name) WHERE userId IS NULL`; el UNIQUE `(userId, type, name)` no protege a las categorías base porque en SQLite los NULL son distintos |
+| `debts` | `ck_debts_installment`, `ck_debts_rate`, `ck_debts_initial_paid`, `ck_debts_total_count` | cuota NULL o > 0; tasa NULL o ≥ 0; `initialPaidCount ≥ 0`; `totalCount` NULL o > 0 |
+| `goals` | `ck_goals_spent_fields` | además de `SPENT` ⇒ `spentAt` y `spentAmountMinor` no nulos, una meta `ACTIVE` exige ambos NULL |
+| `goals` | `ck_goals_spent_amount` | `spentAmountMinor` NULL o ≥ 0 |
+| `recurring_items` | `ck_rec_passive_income` | `isPassive` solo en INCOME |
+| `recurring_items` | `ck_rec_kind_debt` | `(kind = 'DEBT_INSTALLMENT') = (debtId IS NOT NULL)` |
+| `recurring_items` | `ck_rec_debt_installment`, `ck_rec_standard` | cuota de deuda ⇒ EXPENSE con `amountMinor` y `name` NULL; STANDARD ⇒ `amountMinor > 0` y `name` no nulo |
+| `recurring_items` | `ck_rec_anchor_date`, `ck_rec_next_due_date` | patrón `GLOB` de `'YYYY-MM-DD'` |
+| `recurring_items` | índices extra | `(userId, status)`, `(categoryId)`, `(defaultAccountId)`; UNIQUE `(debtId)` |
+| `transactions` | `ck_tx_standard_no_debt` | `kind='STANDARD'` ⇒ `debtId`, `debtPaymentType` y `debtPrincipalAppliedMinor` NULL (cierra el "si y solo si") |
+| `transactions` | `ck_tx_occurrence_required` | `recurringItemId` no NULL ⇒ `occurrenceDate` no NULL |
+| `transactions` | `ck_tx_principal_range`, `ck_tx_occurrence_date` | `0 ≤ capital ≤ monto`; patrón `GLOB` |
+| `transactions` | índice extra | `(categoryId)` |
+| `balance_adjustments` | FK `ON DELETE CASCADE` | hacia cuenta, deuda y meta (el diseño original no lo especificaba); los servicios igualmente borran los ajustes de forma explícita |
+| `balance_adjustments` | índices | `(accountId)`, `(debtId)`, `(goalId)` |
+| FK a `users` | `ON DELETE RESTRICT` | salvo `categories.userId` (`CASCADE`) |
+
+Sin CHECK en el esquema: `goals.targetDate` (la validación está en el servicio). Las FK no incluyen `userId` (3.5).
+
+### 12.2 Desviaciones y ampliaciones posteriores
+
+- **Timestamps:** todos los instantes del esquema son `timestamp_ms` (epoch en milisegundos; el diseño original los llamaba solo "int"); los montos, enteros en unidades menores.
+- **Quincenal:** el diseño original dejaba abierta la primera fecha (ver 3.4 y 6, fila 14, antes "AMBIGUO"); se resolvió con `nearestBiweeklyDate` / `normalizeAnchor` (decisión 21).
+- **Gestor de paquetes:** `npm` (el original hablaba de `pnpm` con `onlyBuiltDependencies`); el repo tiene `package-lock.json`.
+- **Plugins de `app.json`:** `expo-notifications` y `expo-font` (5 `.ttf`) ya están desde F0; las fuentes se cargan además con `useFonts`.
+- **Moneda:** `formatCOP` en `src/domain/money.ts` (unidades menores) en lugar de `src/domain/utils/currency.ts`, que queda como código viejo hasta F6 y exporta otra `formatCOP(amount: number)` en pesos (homonimia, ver 5): el código nuevo importa siempre de `src/domain/money`.
+- **Contratos ampliados respecto de 3.4 (original):** `GoalService.remove(id, { refundAccountId? })`, `refundPreview`, `AccountService.unarchive`, `GoalView.eta`, `targetDate` en metas, `RecurringService.pendingOccurrences()`, `DebtService.registerPayment` con `occurrenceDate`/`description`, y el conjunto de errores tipados de 3.6.
+- **`fast-check` no se añadió:** la prueba aleatoria se hizo con un modelo de referencia propio (sección 8).
+- **`src/app-services/**` no se creó en F2b** (pasa a F4/F5a).
+- **Comentarios obsoletos del código: corregidos.** Se detectaron al actualizar este documento y ya están resueltos:
+  - `src/domain/rules/recurrence.ts` (`nearestBiweeklyDate`) decía "EMPATES (SUPUESTO, pendiente de validar por el usuario)"; ahora dice "decisión CONFIRMADA por el usuario" (empate a la fecha posterior; decisión 21). Corregido en `0b34f13`.
+  - `src/domain/rules/goalEta.ts` (cabecera) decía "Precedencia (SUPUESTO de la pasada F2b-bis, a validar)"; ahora cita la decisión del usuario (punto 25 y 3.7). Corregido en `0b34f13`. Lo que sigue siendo SUPUESTO es solo el tratamiento de exactamente 1200 meses (el comentario de `MAX_PACE_MONTHS` ya lo marca así).
+  - Las cabeceras de `categoryRepository`, `settingsRepository` y `reportRepository` (contradicción sobre mutadores en la primera; cabecera ausente o sin la convención de propiedad en las otras) y los límites documentados en `test/helpers/repositoryAst.ts` se corrigieron en `119a972`.
+  - Quedan menores sin resolver (líneas "Mutador(es)" casi duplicadas y `SUPUESTO` por revisar): ver [Pendientes para la próxima sesión](#pendientes-para-la-próxima-sesión).
