@@ -1,3 +1,14 @@
+// PROPIEDAD DEL USUARIO (decision de diseno): toda funcion de este repositorio recibe `(db, userId, ...)`.
+// Aqui `userId` es la propia identidad del usuario (la tabla es `users`): cada consulta filtra por
+// `users.id = userId` EN LA CONSULTA (WHERE); no se delega en que el servicio lo haya comprobado antes.
+// No tiene `insert`: el usuario se crea en src/database/seed.ts. `getWidget` delega en `get(db, userId)`.
+// Los mutadores (`setTheme`, `setNotifications`, `setWidget`, `autoActivateWidget`, `markOnboardingCompleted`)
+// son `void` y NO devuelven el numero de filas afectadas (un `userId` inexistente es un UPDATE de 0 filas).
+// Guarda: test/unit/repositoryOwnership.test.ts (analisis AST: firma `(db, userId, ...)` y un `.where(...)`
+// que referencia `userId` en CADA consulta; en `autoActivateWidget` el `sql` con `${users.id}` y `${userId}`)
+// y test/integration/repositories/ownership.test.ts (comportamiento con dos usuarios). LIMITES: la guarda
+// comprueba que el `where` REFERENCIA `userId`, no que la columna o el operador sean correctos, y no inspecciona
+// la clausula `.set({...})` de los `update`; eso lo cubren los tests de comportamiento y el fuzz (test/property).
 import { eq, sql } from 'drizzle-orm';
 import { users, type User } from '../schema';
 import type { DbOrTx } from '../types';
