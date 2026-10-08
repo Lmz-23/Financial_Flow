@@ -22,7 +22,7 @@ export function InactiveWidgets({ active }: { active: Record<WidgetKey, boolean>
   const inactive = OPTIONS.filter((option) => !active[option.key]);
   if (inactive.length === 0) return null;
   return (
-    <View style={{ gap: space[3] - 2, marginTop: space[1] }}>
+    <View style={{ gap: space[3], marginTop: space[1] }}>
       <Text variant="label">Más opciones</Text>
       {inactive.map((option) => (
         <InviteCard

@@ -19,8 +19,35 @@ export function needsReconcile(effects: DomainEffects): boolean {
   return effects.reschedule.length > 0 || effects.refresh.some((key) => RECONCILE_KEYS.includes(key));
 }
 
+/**
+ * Invalidacion posterior al COMMIT. La cache de ajustes se recarga ANTES de avisar a los hooks para
+ * que lean valores nuevos; si esa recarga falla (p. ej. NotFoundError sin usuario) se registra un
+ * aviso y la invalidacion de claves se ejecuta igualmente: los datos ya estan guardados.
+ */
+export function invalidateAfterCommit(
+  keys: readonly RefreshKey[],
+  refreshSettings: () => void,
+  invalidate: (keys: readonly RefreshKey[]) => void,
+): void {
+  if (keys.includes('settings')) {
+    try {
+      refreshSettings();
+    } catch (error) {
+      console.warn('Fallo la recarga de la cache de ajustes:', error);
+    }
+  }
+  invalidate(keys);
+}
+
 export function runEffects(effects: DomainEffects, deps: EffectsDeps): void {
-  if (effects.refresh.length > 0) deps.invalidate(effects.refresh);
+  if (effects.refresh.length > 0) {
+    // Tras el COMMIT ningun fallo de la interfaz puede romper el comando (los datos ya se guardaron).
+    try {
+      deps.invalidate(effects.refresh);
+    } catch (error) {
+      console.warn('Fallo la invalidacion de la interfaz:', error);
+    }
+  }
   if (needsReconcile(effects)) {
     // Sin await: la reconciliacion es asincrona e idempotente y no debe retrasar la interfaz.
     void deps.reconcile().catch((error) => {

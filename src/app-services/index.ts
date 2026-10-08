@@ -3,17 +3,14 @@
 import { useInvalidation } from '../store/useInvalidation';
 import { createCommands } from './commands';
 import { getDomain } from './domain';
-import { runEffects } from './effects';
+import { invalidateAfterCommit, runEffects } from './effects';
 import { reconcileNotifications } from './notificationsPort';
 import { refreshSettings } from './startup';
 
 export const commands = createCommands(getDomain, (effects) =>
   runEffects(effects, {
-    invalidate: (keys) => {
-      // La cache de ajustes se recarga ANTES de avisar a los hooks para que lean valores nuevos.
-      if (keys.includes('settings')) refreshSettings();
-      useInvalidation.getState().invalidate(keys);
-    },
+    invalidate: (keys) =>
+      invalidateAfterCommit(keys, refreshSettings, (k) => useInvalidation.getState().invalidate(k)),
     reconcile: reconcileNotifications,
   }),
 );

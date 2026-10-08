@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { needsReconcile, runEffects } from '../../../src/app-services/effects';
+import { invalidateAfterCommit, needsReconcile, runEffects } from '../../../src/app-services/effects';
 import type { DomainEffects } from '../../../src/domain/services/shared';
 
 function deps(reconcile: () => Promise<void> = () => Promise.resolve()) {
@@ -44,5 +44,39 @@ describe('runEffects', () => {
     await Promise.resolve();
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
+  });
+
+  it('un fallo de invalidate no rompe el comando y aun reconcilia', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const d = deps();
+    d.invalidate.mockImplementation(() => {
+      throw new Error('sin usuario');
+    });
+    expect(() => runEffects({ refresh: ['settings'], reschedule: [] }, d)).not.toThrow();
+    expect(d.invalidate).toHaveBeenCalledTimes(1);
+    expect(d.reconcile).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
+  });
+
+  it('invalidateAfterCommit: si refreshSettings lanza, igual invalida las claves y no propaga', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const invalidate = vi.fn();
+    const refreshSettings = vi.fn(() => {
+      throw new Error('NotFoundError');
+    });
+    expect(() => invalidateAfterCommit(['settings', 'accounts'], refreshSettings, invalidate)).not.toThrow();
+    expect(invalidate).toHaveBeenCalledWith(['settings', 'accounts']);
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
+  });
+
+  it('invalidateAfterCommit: recarga ajustes antes de invalidar y solo con la clave settings', () => {
+    const order: string[] = [];
+    invalidateAfterCommit(['settings'], () => order.push('refresh'), () => order.push('invalidate'));
+    expect(order).toEqual(['refresh', 'invalidate']);
+    const refreshSettings = vi.fn();
+    invalidateAfterCommit(['accounts'], refreshSettings, vi.fn());
+    expect(refreshSettings).not.toHaveBeenCalled();
   });
 });

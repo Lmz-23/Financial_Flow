@@ -18,7 +18,7 @@ export function DebtsWidget({ summary }: { summary: DebtsSummary }) {
       />
       {summary.debts.length > 0 ? (
         <>
-          <Amount value={summary.totalMinor} variant="amountMd" style={{ fontSize: 22, lineHeight: 28 }} />
+          <Amount value={summary.totalMinor} variant="amountMd" />
           <LinkButton label="Ver todas" onPress={() => router.push(routes.debts())} />
         </>
       ) : (

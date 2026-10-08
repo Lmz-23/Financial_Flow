@@ -3,9 +3,11 @@ import { useRouter } from 'expo-router';
 
 import type { UpcomingItem } from '../../domain/services/RecurringService';
 import { shortDateLabel } from '../../lib/dateLabels';
+import { upcomingNoticeText } from '../../lib/upcomingNotice';
 import { routes, upcomingConfirmRoute } from '../../navigation/routes';
 import { useTheme } from '../../theme';
 import { Amount, Pill, Text, Widget } from '../ui/ds';
+import { MIN_TOUCH } from '../ui/ds/constants';
 import { CheckIcon } from './icons';
 import { WidgetHeader } from './parts';
 
@@ -20,7 +22,7 @@ function UpcomingRow({ item }: { item: UpcomingItem }) {
   const dueText = shortDateLabel(item.nextDueDate);
 
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[3] - 2, minHeight: 44 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[3], minHeight: MIN_TOUCH }}>
       <Pressable
         // Desmarcar un pago (D14) necesita la fecha de la ocurrencia confirmada, que `upcoming()` no
         // expone; hasta entonces un pendiente solo se marca (abre la hoja) y un pagado no es pulsable.
@@ -52,7 +54,7 @@ function UpcomingRow({ item }: { item: UpcomingItem }) {
         >
           {item.name}
         </Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[3] - 2 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[3] }}>
           {paid ? (
             <Text variant="label" tone="growth">
               {doneWord}
@@ -85,6 +87,7 @@ function UpcomingRow({ item }: { item: UpcomingItem }) {
 /** "Proximos pagos": pagos e ingresos recurrentes con fecha; el circulo abre la hoja de confirmacion. */
 export function UpcomingPaymentsWidget({ items }: { items: UpcomingItem[] }) {
   const router = useRouter();
+  const notice = upcomingNoticeText(items);
   return (
     <Widget gap={14}>
       <WidgetHeader
@@ -97,10 +100,7 @@ export function UpcomingPaymentsWidget({ items }: { items: UpcomingItem[] }) {
           <UpcomingRow key={item.recurringId} item={item} />
         ))}
       </View>
-      <Text variant="label">
-        Te avisamos 2 días antes y el día del vencimiento te preguntamos si ya pagaste. También puedes marcarlo tú mismo
-        cuando quieras.
-      </Text>
+      {notice === null ? null : <Text variant="label">{notice}</Text>}
     </Widget>
   );
 }
