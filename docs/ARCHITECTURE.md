@@ -1,6 +1,6 @@
 # Arquitectura técnica: Financial Flow MVP
 
-Especificación de referencia del diseño objetivo del MVP. Escrita el 2026-10-03; última actualización: 2026-10-07 (HEAD `0b34f13`, rama `develop`; el commit de este documento no puede citarse a sí mismo), con las decisiones del usuario y lo implementado entre F0 y F3 y la fase F2b (incluidas sus pasadas bis y ter, el endurecimiento de la propiedad del usuario y su guarda estructural por AST, ya commiteada). Sincronizado además con las decisiones del usuario del 2026-10-07 sobre el Índice de Flujo de Caja, el título del resumen semanal y el tope del ETA (puntos 29 a 32 de 10.2), y con una decisión que sigue abierta (meses restantes de una deuda con tasa).
+Especificación de referencia del diseño objetivo del MVP. Escrita el 2026-10-03; última actualización: 2026-10-07 (HEAD `0b34f13`, rama `develop`; el commit de este documento no puede citarse a sí mismo), con las decisiones del usuario y lo implementado entre F0 y F3 y la fase F2b (incluidas sus pasadas bis y ter, el endurecimiento de la propiedad del usuario y su guarda estructural por AST, ya commiteada). Sincronizado además con las decisiones del usuario del 2026-10-07 sobre el Índice de Flujo de Caja, el título del resumen semanal y el tope del ETA (puntos 29 a 32 de 10.2), y con las decisiones del 2026-10-08 (meses restantes de una deuda con tasa y plan de notificaciones: puntos 33 a 37 de 10.2).
 
 ## Tabla de contenidos
 
@@ -8,7 +8,7 @@ Especificación de referencia del diseño objetivo del MVP. Escrita el 2026-10-0
 - [Estado de implementación](#estado-de-implementación)
   - [Pendientes para la próxima sesión](#pendientes-para-la-próxima-sesión)
     - [Hueco conocido de la guarda de propiedad: un `update` que reasigne `userId`](#hueco-conocido-de-la-guarda-de-propiedad-un-update-que-reasigne-userid)
-    - [Decisión abierta: meses restantes de una deuda con tasa](#decisión-abierta-meses-restantes-de-una-deuda-con-tasa)
+    - [Decisión 33: meses restantes de una deuda con tasa](#decisión-33-meses-restantes-de-una-deuda-con-tasa)
 - [0. Problemas del repo que condicionan el diseño](#0-problemas-del-repo-que-condicionan-el-diseño)
 - [1. Resumen ejecutivo](#1-resumen-ejecutivo)
 - [2. Modelo de datos objetivo](#2-modelo-de-datos-objetivo)
@@ -98,8 +98,7 @@ Ninguno bloquea F4. Esta subsección es el único lugar donde se listan; el rest
   - `MoneyInput`: ignorar el dígito que desborda en vez de vaciar el campo y tratar el separador "." como no-op lógico (probar en dispositivo; ver [5](#5-sistema-de-tema)).
   - Mostrar `GoalView.eta` según su `kind` ([3.7](#37-definiciones-del-eta-de-una-meta)).
   - Usar `accountArchived` en `refundPreview`.
-  - Distinguir los dos significados de `DebtView.monthsRemaining = null` (falta la cuota, o la cuota no cubre el interés / la proyección supera 600 meses). La plantilla del diseño (`Design/Dashboard.dc.html` ~L996-998) solo tiene un texto para `null` («Agrega la cuota para ver la proyección.»), falso para una deuda con cuota que no avanza. Detalle en [Decisión abierta: meses restantes de una deuda con tasa](#decisión-abierta-meses-restantes-de-una-deuda-con-tasa).
-- **DECISIÓN ABIERTA (pendiente del usuario):** meses restantes de una deuda con tasa (`remainingMonths`). Explicación, ejemplos y alternativas: [Decisión abierta: meses restantes de una deuda con tasa](#decisión-abierta-meses-restantes-de-una-deuda-con-tasa).
+  - Distinguir los dos significados de `DebtView.monthsRemaining = null` (falta la cuota, o la cuota no cubre el interés / la proyección supera 600 meses). La plantilla del diseño (`Design/Dashboard.dc.html` ~L996-998) solo tiene un texto para `null` («Agrega la cuota para ver la proyección.»), falso para una deuda con cuota que no avanza. Detalle en [Decisión 33: meses restantes de una deuda con tasa](#decisión-33-meses-restantes-de-una-deuda-con-tasa).
 
 **GUARDA Y PRUEBAS**
 
@@ -134,8 +133,8 @@ Resto de pendientes de guarda y pruebas:
 - Sustituir `parseDiagnostics` (API interna de TypeScript) cuando haya una alternativa pública.
 - Comentarios `SUPUESTO` restantes (actualizado 2026-10-07, tras las decisiones del usuario; VERIFICADO EN CÓDIGO):
   - `src/domain/rules/statement.ts`: **sin SUPUESTOS**.
-  - `src/domain/rules/notificationPlan.ts`: conserva **4 SUPUESTOS diferidos a F4** (lista en [7](#7-notificaciones-y-recurrentes)); se confirman al arrancar F4.
-  - `src/domain/rules/amortization.ts`: conserva **1 abierto** (`remainingMonths`, comentario en L124): [Decisión abierta: meses restantes de una deuda con tasa](#decisión-abierta-meses-restantes-de-una-deuda-con-tasa).
+  - `src/domain/rules/notificationPlan.ts`: el comentario aún lista **4 SUPUESTOS**, pero el usuario los confirmó el 2026-10-08 (decisiones 34 a 37 de 10.2; ver [7](#7-notificaciones-y-recurrentes)); el comentario se actualizará en F4.
+  - `src/domain/rules/amortization.ts`: **ya no conserva ninguno** (decisión 33, 2026-10-08): [Decisión 33: meses restantes de una deuda con tasa](#decisión-33-meses-restantes-de-una-deuda-con-tasa).
 - Alinear con las decisiones del 2026-10-07 el título de test de `test/unit/rules/goalEta.test.ts` (L135: «exactamente 1200 meses (100 anios) SE INCLUYE: SUPUESTO, el tope es monthsLeft > 1200»), que aún dice «SUPUESTO» sobre el tope de 1200 meses (ahora decisión del usuario, punto 32 de 10.2). Detectado de paso: `test/unit/rules/recurrence.test.ts` L158 («EMPATES: gana la fecha posterior (SUPUESTO)») sigue diciendo SUPUESTO sobre el empate quincenal, que es decisión CONFIRMADA (punto 21).
 - Corregir el comentario de `test/unit/rules/amortization.test.ts` L150, que dice «cuota 20.001» mientras el test usa cuota 20.000 (con saldo 1.000.000 y tasa 2%, el interés del primer mes es 20.000, así que da `NEVER` y no `CAPPED`; ambos devuelven `null`). El caso está dentro del test «con tasa usa projectPayoff» (L145).
 - Texto fijo heredado con erratas en `app/cashflow/index.tsx` L272 («Tu ingreso pasivo cubre el 100% de tus gastos. LosAssets que tengasgenerarán ingresos sin necesidad de trabajar.»). Es la pantalla antigua, que se retira en F6; no usa `describeCashflowIndex` y no contradice el «100%» literal. No requiere corrección.
@@ -145,11 +144,11 @@ Resto de pendientes de guarda y pruebas:
 - Contador de operaciones omitidas (`stats.skipped`) e instantes exactos de borde de mes en la prueba aleatoria; comparaciones parciales de `debts.list` y `recurring.list` en ella.
 - FK compuestas `(id, userId)` en una migración futura (decisión de producto, no abordada; ver [3.5](#35-propiedad-del-usuario-y-convención-de-repositorios)).
 
-#### Decisión abierta: meses restantes de una deuda con tasa
+#### Decisión 33: meses restantes de una deuda con tasa
 
-> **PENDIENTE DE DECISIÓN DEL USUARIO (registrada el 2026-10-07; NO es una decisión aprobada).** Afecta a cuántos meses dice la app que faltan para terminar de pagar una deuda. Origen: el comentario `SUPUESTO` de `src/domain/rules/amortization.ts` L124 («la regla max(...) del diseño se aplica también sobre la proyección con tasa»). Lo que sigue en esta subsección sobre el código está VERIFICADO EN CÓDIGO (2026-10-07); las cifras de los ejemplos las ejecutó el orquestador con las funciones reales y **no se re-ejecutaron al escribir este documento** (salvo las del diseño literal, comprobables a mano).
+> **DECISIÓN CONFIRMADA POR EL USUARIO (2026-10-08): opción 3** (punto 33 de 10.2). Con tasa conocida (tasa > 0), `remainingMonths` devuelve solo la simulación `projectPayoff` (`null` si `NEVER` o `CAPPED`), sin `max` contra `totalCount − paidCount`; sin tasa o con tasa 0 se mantiene `ceil(saldo / cuota)` y el `max` con el plan si `totalCount > 0`. Verificado con ejecución el 2026-10-08 (vitest 34 archivos / 774 tests en verde, 6 mutaciones muertas, revisión aprobada). El resto de esta subsección se conserva como historial de la decisión: afecta a cuántos meses dice la app que faltan para terminar de pagar una deuda; el origen fue el comentario `SUPUESTO` de `src/domain/rules/amortization.ts` (ya retirado: el archivo no conserva SUPUESTOS). Lo descrito sobre el código en esta subsección se verificó el 2026-10-07 (estado previo a la decisión); las cifras de la tabla las ejecutó el orquestador con las funciones reales y no se re-ejecutaron al escribir este documento (salvo las del diseño literal, comprobables a mano).
 
-**Qué hace hoy el código.** `remainingMonths` (`src/domain/rules/amortization.ts`, L119-140; la llama `DebtService` para `DebtView.monthsRemaining`) recibe un objeto con `saldo`, `cuota`, `tasa` (mensual, decimal), `totalCount` (pagos pactados, si se conocen) y `paidCount` (pagos hechos). Calcula, en este orden:
+**Qué hacía el código antes de la decisión** (historial; el comportamiento vigente es el de la decisión 33 y los pasos 3 y 4 de abajo ya no se aplican así con tasa > 0). `remainingMonths` (`src/domain/rules/amortization.ts`, L119-140; la llama `DebtService` para `DebtView.monthsRemaining`) recibe un objeto con `saldo`, `cuota`, `tasa` (mensual, decimal), `totalCount` (pagos pactados, si se conocen) y `paidCount` (pagos hechos). Calcula, en este orden:
 
 1. Sin cuota (o cuota ≤ 0): no hay respuesta (`null`).
 2. Saldo ≤ 0: 0 meses.
@@ -162,7 +161,7 @@ Resto de pendientes de guarda y pruebas:
 
 **Ejemplos** (pesos COP; la función es agnóstica de la unidad):
 
-| Caso | Datos | Código actual | Diseño literal | Solo simulación |
+| Caso | Datos | Código (antes de la decisión) | Diseño literal | Solo simulación (= decisión 33 con tasa) |
 |---|---|---|---|---|
 | Préstamo bien configurado | saldo 1.934.953, cuota 100.000, tasa 1,8 %, plan 36, pagados 12 | 24 | 24 | 24 |
 | Tarjeta sin plan | saldo 3.000.000, cuota 90.000, tasa 2,3 % | 64 | 34 | 64 (sin plan, coincide con el actual) |
@@ -176,17 +175,24 @@ Las columnas «Solo simulación» de las filas sin plan se deducen de la regla (
 
 **Alternativas.**
 
-1. **Mantener lo actual** (con tasa: la simulación y, además, el plan como piso). Riesgo: mostrar un plazo **mayor** que el real, en dos situaciones: abonos extra con el plan sin actualizar (el plan sigue diciendo 24 aunque la simulación ya da 11) y saldos pequeños (4 frente a 1). Es el menor de los riesgos, porque un plazo mayor al real es el error menos dañino para el usuario.
-2. **Volver a la fórmula literal del diseño** (ignora el interés). Muestra un plazo **menor** que el real: 30 meses menos en la tarjeta de 90.000 (34 frente a 64), 72 menos en la de 75.000 (40 frente a 112) y 63 meses en una deuda que en realidad nunca se paga. Es el error más dañino para el usuario.
-3. **Con tasa conocida, usar solo la simulación, y el `max` con el plan solo cuando no hay tasa.** Corrige los abonos extra y los saldos pequeños, pero puede mostrar un plazo menor que el del plan contractual si el préstamo tiene seguros o cargos que el modelo no incluye.
+1. **(Descartada.) Mantener lo actual** (con tasa: la simulación y, además, el plan como piso). Riesgo: mostrar un plazo **mayor** que el real, en dos situaciones: abonos extra con el plan sin actualizar (el plan sigue diciendo 24 aunque la simulación ya da 11) y saldos pequeños (4 frente a 1). Es el menor de los riesgos, porque un plazo mayor al real es el error menos dañino para el usuario.
+2. **(Descartada.) Volver a la fórmula literal del diseño** (ignora el interés). Muestra un plazo **menor** que el real: 30 meses menos en la tarjeta de 90.000 (34 frente a 64), 72 menos en la de 75.000 (40 frente a 112) y 63 meses en una deuda que en realidad nunca se paga. Es el error más dañino para el usuario.
+3. **(ELEGIDA, 2026-10-08)** **Con tasa conocida, usar solo la simulación, y el `max` con el plan solo cuando no hay tasa.** Corrige los abonos extra y los saldos pequeños, pero puede mostrar un plazo menor que el del plan contractual si el préstamo tiene seguros o cargos que el modelo no incluye.
 
-**Recomendación del orquestador (a decidir por el usuario):** mantener la alternativa 1 para el MVP y anotar el caso del abono extra como mejora futura.
+**Decisión del usuario (2026-10-08): alternativa 3.** Se descartan la 1 y la 2 (la recomendación previa del orquestador era la 1). Verificado con ejecución el 2026-10-08: vitest 34 archivos / 774 tests en verde, 6 mutaciones muertas y revisión aprobada. Motivo del usuario: en 7 de 9 escenarios probados las alternativas 1 y 3 daban lo mismo; donde cambiaba (abono extra sin actualizar el plan, saldo pequeño) el `max` ocultaba progreso real; y el riesgo de seguros o cargos no modelados no aplica porque la deuda no los modela.
 
-**Rarezas encontradas, a registrar como pendientes** (no son decisiones):
+**Ejemplos nuevos con la decisión aplicada** (los dos casos que cambian; cifras informadas por el usuario/orquestador):
+
+| Caso | Datos | Antes | Ahora |
+|---|---|---|---|
+| Abono extra con el plan sin actualizar | saldo 934.953, cuota 100.000, tasa 1,8 %, plan 36, pagados 12 | 24 | 11 |
+| Saldo pequeño | saldo 30.000, cuota 100.000, tasa 2 %, plan 6, pagados 2 | 4 | 1 |
+
+**Rarezas encontradas, aún pendientes** (no son decisiones):
 
 - **(a) `null` con dos significados (contrato de F5).** `remainingMonths` devuelve `null` tanto si falta la cuota como si la cuota no cubre el interés (o la simulación pasa de 600 meses). La plantilla del diseño (`Design/Dashboard.dc.html` ~L996-998) solo conoce un texto para `null`, «Agrega la cuota para ver la proyección.», que es falso para una deuda con cuota que no avanza. **F5 debe distinguir los dos casos** (puede deducirlos de `installmentMinor` y del saldo; el servicio hoy no los distingue).
 - **(b) Rareza de redondeo en deudas con «no sé la tasa».** Tras pagar 3 cuotas exactas (saldo 932.544, cuota 180.000, tasa estimada 8,14 %), el código da 8 meses y el plan dice 7: un mes espurio por un residuo. No se pudo determinar si ocurre con saldos reales en unidades menores. (`projectPayoff` ya trata un residuo menor a media unidad como liquidado, L76-79.)
-- **(c) Comentario de prueba incorrecto.** Ver el pendiente de `test/unit/rules/amortization.test.ts` L150 más arriba.
+- **(c) Comentario de prueba incorrecto.** Ver el pendiente de `test/unit/rules/amortization.test.ts` L150 más arriba (el «20.001» se corrige en otro ciclo; sigue pendiente).
 - **(d) `totalCount` con tasa conocida.** El diseño guarda `totalCount` 0 cuando la tasa es conocida (`Dashboard.dc.html` L1414) y el repo guarda `null` (sección 2.1, tabla `debts`). El efecto es equivalente: `remainingMonths` trata ambos como «sin plan».
 
 **VERIFICACIÓN EN DISPOSITIVO / DEVELOPMENT BUILD** (nada de esto se ha podido comprobar)
@@ -206,7 +212,7 @@ Las columnas «Solo simulación» de las filas sin plan se deducen de la regla (
 3. El hook `pipeline-advance.sh` solo leía `last_assistant_message`; el usuario ya lo corrigió para leer el transcript del subagente.
 4. El estado del pipeline (`.claude/pipeline-state.json`) lo edita solo el usuario.
 
-Los supuestos 1 a 20 están aprobados (sección 10.2) y R1 y R2 están resueltos (sección 10.1). Las decisiones posteriores (2026-10-04 a 2026-10-07) están en las secciones 10.2 (21 a 32) y 11. La decisión sobre los meses restantes de una deuda con tasa sigue **abierta** (ver su subsección más arriba).
+Los supuestos 1 a 20 están aprobados (sección 10.2) y R1 y R2 están resueltos (sección 10.1). Las decisiones posteriores (2026-10-04 a 2026-10-08) están en las secciones 10.2 (21 a 37) y 11. La decisión sobre los meses restantes de una deuda con tasa quedó **cerrada** el 2026-10-08 (decisión 33; ver su subsección más arriba).
 
 ---
 
@@ -572,7 +578,7 @@ El dominio se construye con `createDomain(db, { userId?, now? })` (`src/domain/c
   - Una deuda ya archivada se rechaza con `DebtArchivedError`.
 - Consultas: `list()` (deudas no archivadas con `balanceMinor`, `paidCount`, `nextDueDate`, `recurringId` y `monthsRemaining`), `get(id)` y `payments(debtId)` (del más reciente al más antiguo); con un id ajeno devuelven `undefined` / `[]` (ver 3.5).
 - Funciones puras: `estimateMonthlyRate` usa **bisección con cota superior que se va duplicando**, igual que el diseño (líneas 1213-1224). Devuelve null si `cuota × meses ≤ saldo`. Se retira Newton (problema 6). `projectPayoff` se conserva; `calculateAvailableCredit`, `calculateMinPayment` y `calculateBillingInfo` se retiran.
-- La proyección usa `projectPayoff(saldo, cuota, tasa)` cuando hay tasa y `ceil(saldo/cuota)` cuando no (D16). El prototipo ignora el interés. `DebtService` calcula `monthsRemaining` con `remainingMonths` (`src/domain/rules/amortization.ts`), que además aplica `max(totalCount − paidCount, base)` si la deuda tiene plazo; **esa combinación con la proyección con tasa es una decisión abierta**: ver [Decisión abierta: meses restantes de una deuda con tasa](#decisión-abierta-meses-restantes-de-una-deuda-con-tasa). Contrato para F5: `monthsRemaining = null` significa dos cosas distintas (falta la cuota o la cuota no cubre el interés / supera 600 meses), y la pantalla debe distinguirlas.
+- La proyección usa `projectPayoff(saldo, cuota, tasa)` cuando hay tasa y `ceil(saldo/cuota)` cuando no (D16). El prototipo ignora el interés. `DebtService` calcula `monthsRemaining` con `remainingMonths` (`src/domain/rules/amortization.ts`), que, **con tasa conocida (tasa > 0), devuelve solo la simulación `projectPayoff`** (`null` si `NEVER`/`CAPPED`), sin `max` contra el plan; sin tasa o con tasa 0 usa `ceil(saldo/cuota)` y aplica `max(totalCount − paidCount, base)` si `totalCount > 0` (decisión 33, 2026-10-08): ver [Decisión 33: meses restantes de una deuda con tasa](#decisión-33-meses-restantes-de-una-deuda-con-tasa). Contrato para F5: `monthsRemaining = null` significa dos cosas distintas (falta la cuota o la cuota no cubre el interés / supera 600 meses), y la pantalla debe distinguirlas.
 - **Riesgo de modelo:** un pago reduce el saldo por su monto completo y no se modela interés devengado, igual que el diseño (línea 1451). Las diferencias con el extracto del banco se corrigen con un ajuste.
 
 **GoalService**
@@ -860,11 +866,11 @@ La paleta del Design System reemplaza la actual.
   - `rec:{id}:{occ}:snooze` si hay `snoozedUntil` en el futuro.
   - `weekly-summary`: disparador semanal, domingo a las 19:00 con texto genérico, porque el contenido se calcularía al programar y quedaría desactualizado (D15). **Título: «Tu resumen semanal está listo»** (decisión del usuario, 2026-10-07; punto 31 de 10.2; VERIFICADO EN CÓDIGO: `notificationPlan.ts`).
   - Ingresos: se incluyen con el texto "¿Ya recibiste X?" (D15).
-  - **SUPUESTOS diferidos a F4** (siguen como SUPUESTO en la cabecera de `notificationPlan.ts`, bajo «SUPUESTOS (pendientes de confirmar al arrancar F4)»; confirmar al arrancar F4):
-    1. Los avisos de ingresos solo tienen `due` y snooze; no hay `pre`.
-    2. El interruptor de avisos de pago apaga también los avisos de ingresos recurrentes.
+  - **Decisiones confirmadas por el usuario el 2026-10-08** (puntos 34 a 37 de 10.2; antes eran 4 SUPUESTOS diferidos a F4). El comentario `SUPUESTO` sigue figurando en la cabecera de `notificationPlan.ts`, bajo «SUPUESTOS (pendientes de confirmar al arrancar F4)», y se actualizará en F4:
+    1. Los avisos de ingresos recurrentes solo avisan el día del vencimiento (`due`, más snooze); no hay `pre`.
+    2. Un solo interruptor en Ajustes apaga juntos los avisos de pago y de ingreso; su etiqueta pasa de «Recordatorio de pagos» a «Recordatorios de pagos y cobros».
     3. Un snooze diario no se duplica con el `pre` ni con el `due` del mismo día.
-    4. Con tope de notificaciones, el resumen semanal se reserva primero y el resto se prioriza por cercanía.
+    4. Con tope de notificaciones, el resumen semanal se reserva primero y el resto se prioriza por cercanía de fecha.
 - **Adaptador** (`platform/notifications.ts`): `reconcile()` compara lo programado (`getAllScheduledNotificationsAsync`) con lo deseado, cancela lo que sobra y programa lo que falta. Es idempotente. Se llama al iniciar, al volver a primer plano (AppState), después de cualquier comando que afecte recurrentes o deudas y al cambiar ajustes. Reemplaza `rescheduleAll`, que hoy cancela todo cada vez.
 - **Límite de iOS:** unas 64 notificaciones locales pendientes (límite de la plataforma). VERIFICADO (2026-10-03). El plan prioriza las más cercanas.
 - **Respuesta:** `addNotificationResponseReceivedListener` + `getLastNotificationResponseAsync` para el arranque en frío. "Ya pagué" o tocar la notificación abre `/recurring/[id]/confirm?occurrence=…`, o `/debts/[debtId]/pay?type=INSTALLMENT&occurrence=…` si es una cuota de deuda. No se confirma en segundo plano porque hace falta elegir cuenta (la hoja siempre pide cuenta; D8). "Todavía no" llama a `RecurringService.snooze` y luego a `reconcile`.
@@ -1025,7 +1031,15 @@ Fecha de aprobación de los puntos 1 a 20: **2026-10-03**. Quedan todos aprobado
 31. **Título del resumen semanal (2026-10-07).** «Tu resumen semanal está listo» (`notificationPlan.ts`; el código ya lo usaba).
 32. **Tope del ETA: 1200 meses se incluye (2026-10-07).** El tope es `monthsLeft > 1200`: exactamente 1200 meses da `BY_PACE` y 1201 da `UNKNOWN` (3.7). Antes era SUPUESTO.
 
-**Pendiente de decisión del usuario (no es una decisión aprobada):** cómo se calculan los meses restantes de una deuda con tasa conocida o estimada. Ver [Decisión abierta: meses restantes de una deuda con tasa](#decisión-abierta-meses-restantes-de-una-deuda-con-tasa). Tampoco están decididos los 4 SUPUESTOS del plan de notificaciones diferidos a F4 (7).
+**Decisiones del 2026-10-08:**
+
+33. **Meses restantes de una deuda con tasa (2026-10-08; opción 3; CONFIRMADA por el usuario).** Con tasa conocida (tasa > 0), `remainingMonths` (`src/domain/rules/amortization.ts`) devuelve solo la simulación `projectPayoff` (`null` si `NEVER` o `CAPPED`), sin `max` contra `totalCount − paidCount`. Sin tasa o con tasa 0 se mantiene `ceil(saldo / cuota)` y el `max` con el plan si `totalCount > 0`. Motivo del usuario: en 7 de 9 escenarios probados las opciones 1 y 3 daban lo mismo; donde cambiaba (abono extra sin actualizar el plan, saldo pequeño) el `max` ocultaba progreso real; y el riesgo de seguros o cargos no modelados no aplica porque la deuda no los modela. Detalle, ejemplos y alternativas: [Decisión 33: meses restantes de una deuda con tasa](#decisión-33-meses-restantes-de-una-deuda-con-tasa).
+34. **Ingresos recurrentes: solo aviso el día del vencimiento (2026-10-08; CONFIRMADA por el usuario).** Un ingreso recurrente avisa únicamente en `due` (más el snooze); no hay aviso previo (`pre`). Antes era el SUPUESTO 1 de 7.
+35. **Un solo interruptor para avisos de pago y de ingreso (2026-10-08; CONFIRMADA por el usuario).** El interruptor de Ajustes apaga juntos los avisos de pagos y los de ingresos recurrentes; su etiqueta pasa de «Recordatorio de pagos» a «Recordatorios de pagos y cobros». Antes era el SUPUESTO 2 de 7.
+36. **El snooze diario no duplica `pre` ni `due` (2026-10-08; CONFIRMADA por el usuario).** Un snooze diario no genera una notificación adicional el mismo día que ya tiene el `pre` o el `due`. Antes era el SUPUESTO 3 de 7.
+37. **Tope de notificaciones (2026-10-08; CONFIRMADA por el usuario).** Con el tope alcanzado, el resumen semanal se reserva primero y el resto se prioriza por cercanía de fecha. Antes era el SUPUESTO 4 de 7.
+
+Nota sobre las decisiones 34 a 37: el comentario `SUPUESTO` sigue figurando en la cabecera de `src/domain/rules/notificationPlan.ts` y se actualizará en F4 (junto con la etiqueta del interruptor en Ajustes). No queda ninguna decisión abierta de esta lista.
 
 ### 10.3 Verificaciones de Expo
 
@@ -1140,4 +1154,4 @@ Sin CHECK en el esquema: `goals.targetDate` (la validación está en el servicio
   - `src/domain/rules/goalEta.ts` (cabecera) decía "Precedencia (SUPUESTO de la pasada F2b-bis, a validar)"; ahora cita la decisión del usuario (punto 25 y 3.7). Corregido en `0b34f13`. El tratamiento de exactamente 1200 meses (se incluye) pasó el 2026-10-07 de SUPUESTO a decisión del usuario (punto 32 de 10.2); el comentario de `MAX_PACE_MONTHS` en `goalEta.ts` ya lo cita así.
   - Las cabeceras de `categoryRepository`, `settingsRepository` y `reportRepository` (contradicción sobre mutadores en la primera; cabecera ausente o sin la convención de propiedad en las otras) y los límites documentados en `test/helpers/repositoryAst.ts` se corrigieron en `119a972`.
   - Decisiones del usuario del 2026-10-07 reflejadas en los comentarios del código (VERIFICADO EN CÓDIGO 2026-10-07 en el árbol de trabajo; los commits de esos archivos se hacen aparte y no se citan aquí): `statement.ts` (NO_EXPENSES cuenta como libertad financiera; textos del Índice con el «100%» literal) queda **sin SUPUESTOS**; `notificationPlan.ts` cita la decisión del título del resumen semanal y conserva 4 SUPUESTOS diferidos a F4 (ver [7](#7-notificaciones-y-recurrentes)); `goalEta.ts` cita el tope de 1200 meses incluido.
-  - Quedan menores sin resolver (líneas "Mutador(es)" casi duplicadas, el `SUPUESTO` abierto de `amortization.ts` y los títulos de test con `SUPUESTO` ya decididos): ver [Pendientes para la próxima sesión](#pendientes-para-la-próxima-sesión) y [Decisión abierta: meses restantes de una deuda con tasa](#decisión-abierta-meses-restantes-de-una-deuda-con-tasa).
+  - Quedan menores sin resolver (líneas "Mutador(es)" casi duplicadas, y los títulos de test con `SUPUESTO` ya decididos; el `SUPUESTO` de `amortization.ts` quedó resuelto por la decisión 33, ver [Decisión 33: meses restantes de una deuda con tasa](#decisión-33-meses-restantes-de-una-deuda-con-tasa)): ver [Pendientes para la próxima sesión](#pendientes-para-la-próxima-sesión).

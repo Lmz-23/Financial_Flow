@@ -119,22 +119,21 @@ export interface RemainingMonthsInput {
 /**
  * Meses restantes para la proyección de una deuda. null si no hay cuota o si
  * con la tasa dada nunca se liquida / supera el tope.
- * - Con tasa > 0 usa projectPayoff; sin tasa, ceil(saldo / cuota).
- * - Si hay totalCount, aplica max(totalCount - paidCount, base) como el diseño.
- * SUPUESTO: la regla max(...) del diseño se aplica también sobre la proyección con tasa.
+ * - Con tasa > 0 devuelve solo la simulación con interés (projectPayoff), sin
+ *   contrastarla con el plan pactado: el saldo real manda sobre el plazo.
+ *   Decisión confirmada del usuario.
+ * - Sin tasa (o tasa 0): ceil(saldo / cuota) y, si hay totalCount,
+ *   max(totalCount - paidCount, base) como el diseño.
  */
 export function remainingMonths(input: RemainingMonthsInput): number | null {
   const { saldo, cuota, tasa, totalCount, paidCount } = input;
   if (cuota === null || !(cuota > 0)) return null;
   if (saldo <= 0) return 0;
 
-  let base: number;
   if (tasa !== null && tasa > 0) {
     const projection = projectPayoff(saldo, cuota, tasa);
-    if (projection.status !== 'PAYABLE') return null;
-    base = projection.months;
-  } else {
-    base = Math.ceil(saldo / cuota);
+    return projection.status === 'PAYABLE' ? projection.months : null;
   }
+  const base = Math.ceil(saldo / cuota);
   return totalCount !== null && totalCount > 0 ? Math.max(totalCount - paidCount, base) : base;
 }

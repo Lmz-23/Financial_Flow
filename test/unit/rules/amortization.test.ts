@@ -153,6 +153,27 @@ describe('meses restantes sin tasa y regla del diseño', () => {
     ).toBeNull();
   });
 
+  it('con tasa conocida devuelve solo la simulacion con interes, sin max contra el plan', () => {
+    // Saldo menor al de un plan bien configurado: antes 24 (plan 36 - 12 pagados), ahora la simulacion.
+    expect(
+      remainingMonths({ saldo: 934_953, cuota: 100_000, tasa: 0.018, totalCount: 36, paidCount: 12 }),
+    ).toBe(11);
+    // Antes 4 (6 - 2), ahora 1.
+    expect(
+      remainingMonths({ saldo: 30_000, cuota: 100_000, tasa: 0.02, totalCount: 6, paidCount: 2 }),
+    ).toBe(1);
+    // Prestamo bien configurado: simulacion coincide con el plan restante.
+    expect(
+      remainingMonths({ saldo: 1_934_953, cuota: 100_000, tasa: 0.018, totalCount: 36, paidCount: 12 }),
+    ).toBe(24);
+  });
+
+  it('con tasa 0 se comporta como sin tasa (conserva el max con el plan)', () => {
+    expect(
+      remainingMonths({ saldo: 500, cuota: 100, tasa: 0, totalCount: 10, paidCount: 2 }),
+    ).toBe(8);
+  });
+
   it('saldo liquidado: 0', () => {
     expect(
       remainingMonths({ saldo: 0, cuota: 100, tasa: 0.02, totalCount: 10, paidCount: 3 }),
