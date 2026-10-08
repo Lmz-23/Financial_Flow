@@ -1,25 +1,33 @@
-import { useEffect, useState } from 'react';
-import { Slot, useRouter, usePathname } from 'expo-router';
+import { useEffect, useState, type ReactNode } from 'react';
+import { Stack } from 'expo-router';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
-import { initializeDatabase } from '../src/database/initialize';
-import { useUserStore } from '../src/store/useUserStore';
-import { colors, ThemeProvider } from '../src/theme';
+import { View, ActivityIndicator } from 'react-native';
+import { initializeApp, subscribeToForeground } from '../src/app-services';
+import { useSettingsStore, useThemePreference } from '../src/store/useSettingsStore';
+import { ThemeProvider, useTheme } from '../src/theme';
 import { fontAssets } from '../src/theme/fontAssets';
 
 // Retiene la pantalla de inicio hasta que las fuentes IBM Plex estén cargadas.
 SplashScreen.preventAutoHideAsync();
 
-function Initializer({ children }: { children: React.ReactNode }) {
+/** ThemeProvider alimentado por la preferencia guardada en los ajustes (cache de SQLite). */
+function SettingsThemeProvider({ children }: { children: ReactNode }) {
+  const preference = useThemePreference();
+  return <ThemeProvider preference={preference}>{children}</ThemeProvider>;
+}
+
+/** Migraciones, semilla y carga de ajustes. No renderiza rutas hasta que todo está listo. */
+function Initializer({ children }: { children: ReactNode }) {
+  const { colors } = useTheme();
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
     async function init() {
       try {
-        await initializeDatabase();
+        await initializeApp();
         setIsReady(true);
       } catch (err) {
         console.error('Failed to initialize database:', err);
@@ -29,18 +37,13 @@ function Initializer({ children }: { children: React.ReactNode }) {
     init();
   }, []);
 
-  if (error) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color={colors.accentRed} />
-      </View>
-    );
-  }
+  // Al volver a primer plano se invalida todo (mes en curso, "Hoy", estado de próximos pagos).
+  useEffect(() => (isReady ? subscribeToForeground() : undefined), [isReady]);
 
-  if (!isReady) {
+  if (error || !isReady) {
     return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color={colors.accentBlue} />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.surfacePage }}>
+        <ActivityIndicator size="large" color={error ? colors.signalDebt : colors.brandPrimary} />
       </View>
     );
   }
@@ -48,38 +51,22 @@ function Initializer({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+/**
+ * Stack raíz sin tabs. `Stack.Protected` deja `(app)` accesible solo con el onboarding completo y
+ * `onboarding` solo mientras falta (si el guard cambia, el router redirige solo).
+ */
 function RootNavigator() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const onboardingCompleted = useUserStore((s) => s.settings.onboardingCompleted);
-  const [redirected, setRedirected] = useState(false);
-
-  useEffect(() => {
-    // Only redirect once on mount
-    if (redirected) return;
-
-    // Don't redirect if already on onboarding or auth routes
-    if (
-      pathname.startsWith('/onboarding') ||
-      pathname.startsWith('/(auth)') ||
-      pathname.startsWith('/accounts') ||
-      pathname.startsWith('/add-account')
-    ) {
-      return;
-    }
-
-    // Redirect based on onboarding status
-    if (!onboardingCompleted) {
-      router.replace('/onboarding');
-    } else {
-      // When onboarding is complete, go to tabs
-      router.replace('/');
-    }
-
-    setRedirected(true);
-  }, [onboardingCompleted, pathname, redirected]);
-
-  return <Slot />;
+  const onboardingDone = useSettingsStore((s) => s.settings?.onboardingDone ?? false);
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Protected guard={onboardingDone}>
+        <Stack.Screen name="(app)" />
+      </Stack.Protected>
+      <Stack.Protected guard={!onboardingDone}>
+        <Stack.Screen name="onboarding" />
+      </Stack.Protected>
+    </Stack>
+  );
 }
 
 export default function RootLayout() {
@@ -96,21 +83,12 @@ export default function RootLayout() {
   if (!fontsSettled) return null;
 
   return (
-    <ThemeProvider>
+    <SettingsThemeProvider>
       <SafeAreaProvider>
         <Initializer>
           <RootNavigator />
         </Initializer>
       </SafeAreaProvider>
-    </ThemeProvider>
+    </SettingsThemeProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.bg,
-  },
-});
