@@ -246,4 +246,47 @@ describe('respuestas', () => {
     expect(h.onNavigate).toHaveBeenCalledTimes(1);
     expect(h.onNavigate).toHaveBeenCalledWith('/debts/d1/pay?type=INSTALLMENT&occurrence=2026-10-20');
   });
+
+  describe('manejadores que fallan', () => {
+    let warn: ReturnType<typeof vi.spyOn>;
+    beforeEach(() => {
+      warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    });
+
+    it('listener: captura el error de onSnooze y lo registra', async () => {
+      const h = { onNavigate: vi.fn(), onSnooze: vi.fn(async () => { throw new Error('boom'); }) };
+      subscribeToNotificationResponses(h);
+      state.listener!(response(ACTION_SNOOZE, { ffTarget: confirm }, 'f1'));
+      await vi.waitFor(() => expect(warn).toHaveBeenCalled());
+      expect(h.onSnooze).toHaveBeenCalledTimes(1);
+    });
+
+    it('listener: captura el error síncrono de onNavigate', async () => {
+      const h = { onNavigate: vi.fn(() => { throw new Error('boom'); }), onSnooze: vi.fn() };
+      subscribeToNotificationResponses(h);
+      state.listener!(response(ACTION_PAID, { ffTarget: confirm }, 'f2'));
+      await vi.waitFor(() => expect(warn).toHaveBeenCalled());
+    });
+
+    it('arranque en frío: si el manejador lanza, igualmente limpia la respuesta', async () => {
+      state.lastResponse = response(ACTION_SNOOZE, { ffTarget: confirm }, 'f3');
+      const h = { onNavigate: vi.fn(), onSnooze: vi.fn(async () => { throw new Error('boom'); }) };
+      subscribeToNotificationResponses(h);
+      await vi.waitFor(() => expect(Notifications.clearLastNotificationResponseAsync).toHaveBeenCalled());
+      expect(warn).toHaveBeenCalled();
+    });
+
+    it('permite reintentar la misma notificación tras un fallo, y deduplica tras el éxito', async () => {
+      const onSnooze = vi.fn().mockRejectedValueOnce(new Error('boom')).mockResolvedValue(undefined);
+      const h = { onNavigate: vi.fn(), onSnooze };
+      subscribeToNotificationResponses(h);
+      state.listener!(response(ACTION_SNOOZE, { ffTarget: confirm }, 'f4'));
+      await vi.waitFor(() => expect(warn).toHaveBeenCalled());
+      state.listener!(response(ACTION_SNOOZE, { ffTarget: confirm }, 'f4'));
+      await vi.waitFor(() => expect(onSnooze).toHaveBeenCalledTimes(2));
+      state.listener!(response(ACTION_SNOOZE, { ffTarget: confirm }, 'f4'));
+      await Promise.resolve();
+      expect(onSnooze).toHaveBeenCalledTimes(2);
+    });
+  });
 });

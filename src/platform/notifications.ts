@@ -244,9 +244,16 @@ async function handle(response: Notifications.NotificationResponse, h: ResponseH
   if (key === lastHandledKey) return;
   lastHandledKey = key;
 
-  const action = interpretResponse(response);
-  if (action.kind === 'OPEN') h.onNavigate(hrefOf(action.target));
-  else if (action.kind === 'SNOOZE') await h.onSnooze(action.recurringId);
+  try {
+    const action = interpretResponse(response);
+    if (action.kind === 'OPEN') h.onNavigate(hrefOf(action.target));
+    else if (action.kind === 'SNOOZE') await h.onSnooze(action.recurringId);
+  } catch (error) {
+    // Se libera la clave para permitir reintentar con la misma notificación.
+    if (lastHandledKey === key) lastHandledKey = null;
+    // Sin datos financieros: solo el tipo de error.
+    console.warn('No se pudo procesar la respuesta de una notificación', error instanceof Error ? error.name : typeof error);
+  }
 }
 
 /**
@@ -257,11 +264,16 @@ export function subscribeToNotificationResponses(h: ResponseHandlers): () => voi
   const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
     void handle(response, h);
   });
-  void Notifications.getLastNotificationResponseAsync().then(async (response) => {
-    if (!response) return;
-    await handle(response, h);
-    await Notifications.clearLastNotificationResponseAsync();
-  });
+  void (async () => {
+    try {
+      const response = await Notifications.getLastNotificationResponseAsync();
+      if (!response) return;
+      await handle(response, h); // no lanza: captura y registra sus errores
+      await Notifications.clearLastNotificationResponseAsync(); // también si el manejador falló
+    } catch (error) {
+      console.warn('No se pudo leer la última respuesta de notificación', error instanceof Error ? error.name : typeof error);
+    }
+  })();
   return () => subscription.remove();
 }
 
