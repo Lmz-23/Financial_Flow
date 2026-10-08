@@ -7,6 +7,7 @@ Especificación de referencia del diseño objetivo del MVP. Escrita el 2026-10-0
 - [Convenciones del documento](#convenciones-del-documento)
 - [Estado de implementación](#estado-de-implementación)
   - [Pendientes para la próxima sesión](#pendientes-para-la-próxima-sesión)
+    - [Hueco conocido de la guarda de propiedad: un `update` que reasigne `userId`](#hueco-conocido-de-la-guarda-de-propiedad-un-update-que-reasigne-userid)
 - [0. Problemas del repo que condicionan el diseño](#0-problemas-del-repo-que-condicionan-el-diseño)
 - [1. Resumen ejecutivo](#1-resumen-ejecutivo)
 - [2. Modelo de datos objetivo](#2-modelo-de-datos-objetivo)
@@ -99,7 +100,31 @@ Ninguno bloquea F4. Esta subsección es el único lugar donde se listan; el rest
 
 **GUARDA Y PRUEBAS**
 
-- Inspeccionar `.set({...})` en el analizador de `test/helpers/repositoryAst.ts` y añadir un test de estado final ("tras `rename` como A, la cuenta sigue siendo de A"): hoy un `update` que reasigne `userId` a otro usuario existente no lo detecta ningún mecanismo.
+#### Hueco conocido de la guarda de propiedad: un `update` que reasigne `userId`
+
+> **HUECO CONOCIDO, NO CORREGIDO (decisión del usuario, 2026-10-07).** Ningún mecanismo del repositorio detecta hoy un `update` que cambie el `userId` de una fila hacia **otro usuario existente** (por ejemplo, un `rename` que añada `.set({ userId: <otro> })`).
+>
+> **Por qué no se detecta** (VERIFICADO EN CÓDIGO 2026-10-07 para 1 y 2; 3 es el resultado de la verificación):
+>
+> 1. El analizador AST (`test/helpers/repositoryAst.ts`) no inspecciona la cláusula `.set({...})` de los `update` (límite declarado en su cabecera y en [3.5](#35-propiedad-del-usuario-y-convención-de-repositorios)).
+> 2. Los tests de comportamiento de repositorio (`test/integration/repositories/ownership.test.ts`) comprueban el valor devuelto y que un usuario ajeno no afecta nada, pero no vuelven a comprobar que la fila sigue siendo del mismo propietario tras la operación.
+> 3. Los tests de dominio y la prueba aleatoria solo lo detectan por un artefacto: en el mundo de test el usuario destino no existe como fila de `users` y salta `FOREIGN KEY constraint failed`; con un usuario destino existente no habría fallo. La verificación lo demostró con la mutación llamada **i1s** (2026-10-07: `account.rename` con `.set({ userId: 'otro-usuario' })`).
+>
+> **Estado actual.** No existe hoy ninguna función de repositorio ni de servicio con esa forma (la guarda no encontró incumplimientos y el analizador valida los 10 repositorios). Es un hueco de **detección preventiva**, no un fallo vivo.
+>
+> **Cómo cerrarlo (propuesta, no implementada):**
+>
+> - (a) Que el analizador inspeccione `.set({...})` y rechace cualquier propiedad `userId` (o una clave calculada o un spread que pueda introducirla) en los `update`. Ojo: varios `update` reales pasan un objeto ya construido (`.set(set)` en `goalRepository`, `debtRepository`, `recurringRepository` y `settingsRepository`) y `settingsRepository` usa una clave calculada legítima (`[WIDGET_COLUMN[widget]]`), así que la regla deberá tratarlos de forma explícita.
+> - (b) Un test de estado final en `test/integration/repositories/ownership.test.ts`: "tras `rename` (y los demás mutadores) como A, la fila sigue siendo de A", con un usuario B existente.
+> - (c) Incluir la mutación i1s como caso del test unitario del analizador.
+>
+> **Cuándo cerrarlo.** Antes de añadir cualquier `update` nuevo en un repositorio y, en cualquier caso, antes de abrir autenticación o multiusuario real. Coste estimado: pequeño (una pasada de `backend-coder` con revisión y verificación).
+>
+> **Relacionado:** límites de la guarda en [3.5](#35-propiedad-del-usuario-y-convención-de-repositorios); las FK sin `userId` (también en 3.5) son un hueco hermano, porque la BD tampoco impide por sí misma mezclar propietarios.
+
+Resto de pendientes de guarda y pruebas:
+
+- Inspeccionar `.set({...})` y añadir el test de estado final: ver la nota anterior.
 - Test de `getViewById` con varias cuentas que aserte `accountName` (los JOIN no se verifican).
 - Alinear R5 y R6 con sus falsos positivos documentados: `userId` dentro de `values` fuera de `insert`, y un array de condiciones que recibe el filtro solo por `.push`.
 - Un segundo `.where` fuera de la cadena y las asignaciones posteriores al `export const` solo los cubre el comportamiento.
@@ -561,7 +586,7 @@ Los tests de atomicidad (`test/integration/domain/atomicity.test.ts`) instalan t
 - **Límites de la guarda** (lo que NO verifica):
   - No verifica la **semántica** del filtro: `or(eq(t.userId, userId), sql\`1=1\`)` pasa porque basta un disyunto; no comprueba que la tabla de la columna sea la consultada ni el operador fuera de `eq`.
   - El `sql` solo exige que existan un `${userId}` y una columna de propietario, sin relacionarlos entre sí; y cualquier `<x>.userId` cuenta como columna de propietario.
-  - La cláusula `.set({...})` de los `update` no se inspecciona: un `update` que cambiara `userId` no se vería.
+  - La cláusula `.set({...})` de los `update` no se inspecciona: un `update` que cambiara `userId` no se vería. **Hueco conocido, anotado y no corregido por decisión del usuario:** ver [Hueco conocido de la guarda de propiedad](#hueco-conocido-de-la-guarda-de-propiedad-un-update-que-reasigne-userid) en los pendientes.
   - Las consultas dentro de helpers de módulo no se analizan (solo que sus `return` filtren y sus usos de `userId`).
   - Los JOIN no se verifican: solo el `where` de la consulta.
   - `eq`, `and`, `or` y `sql` se reconocen por NOMBRE, no por su origen en `drizzle-orm`.
