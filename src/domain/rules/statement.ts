@@ -81,8 +81,8 @@ export function formatCashflowIndex(index: CashflowIndex): string {
 }
 
 /**
- * Libertad financiera: índice >= 100%. SUPUESTO: NO_EXPENSES (ingreso pasivo
- * sin gastos) también cuenta, porque el pasivo cubre el 100% de un gasto de 0.
+ * Libertad financiera: índice >= 100%. Decisión del usuario (2026-10-07): NO_EXPENSES
+ * (ingreso pasivo sin gastos) también cuenta, porque el pasivo cubre el 100% de un gasto de 0.
  */
 export function isFinancialFreedom(index: CashflowIndex): boolean {
   return index.kind === 'NO_EXPENSES' || (index.kind === 'RATIO' && index.ratio >= 1);
@@ -90,19 +90,20 @@ export function isFinancialFreedom(index: CashflowIndex): boolean {
 
 /**
  * Mensaje bajo el Índice (textos del diseño, Dashboard.dc.html ~1373).
- * SUPUESTO: los textos de libertad financiera y de "sin gastos" son propios
- * (el diseño solo trae el texto previo al 100%).
+ * Los textos de libertad financiera y de "sin gastos" son decisión del usuario
+ * (2026-10-07); el texto previo al 100% viene del diseño. El texto de libertad
+ * financiera lleva "100%" LITERAL (no el porcentaje real), tal como lo confirmó.
  */
 export function describeCashflowIndex(index: CashflowIndex): string {
   if (index.kind === 'NO_EXPENSES') {
-    return 'Tu ingreso pasivo del mes no tiene gastos que cubrir: eso es libertad financiera en el método Cashflow.';
+    return 'No tienes gastos registrados este mes, así que tu ingreso pasivo ya los cubre por completo.';
   }
   if (index.kind === 'NONE' || cashflowPercent(index) === 0) {
     return 'Aún no tienes ingreso pasivo registrado. En cuanto marques uno, este número empieza a moverse.';
   }
   const pct = cashflowPercent(index);
   return isFinancialFreedom(index)
-    ? `Tu ingreso pasivo cubre el ${pct}% de tus gastos del mes: eso es libertad financiera en el método Cashflow.`
+    ? 'Tu ingreso pasivo cubre el 100% de tus gastos — esto es libertad financiera en el método Cashflow.'
     : `Tu ingreso pasivo cubre el ${pct}% de tus gastos del mes. Cuando llegue a 100%, eso es libertad financiera en el método Cashflow.`;
 }
 
