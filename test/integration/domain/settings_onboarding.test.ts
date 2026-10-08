@@ -141,6 +141,48 @@ describe('Onboarding atomico (escenario 10, j)', () => {
     expectIntegrity(d);
   });
 
+  it('A9: con los tres widgets omitidos (null) los flags quedan en NULL, no en 0', () => {
+    const env = setup();
+    const { d } = env;
+    const bare: OnboardingDraft = { accounts: [], recurring: [], widgets: { cashflow: null, debts: null, goals: null } };
+    d.onboarding.complete(bare);
+    expect(d.settings.get()).toMatchObject({ widgetCashflow: null, widgetDebts: null, widgetGoals: null });
+    expect(d.settings.get().onboardingCompletedAt).not.toBeNull();
+  });
+
+  it('A9: widgets ausentes equivalen a omitidos (NULL)', () => {
+    const env = setup();
+    env.d.onboarding.complete({ accounts: [], recurring: [], widgets: {} });
+    expect(env.d.settings.get()).toMatchObject({ widgetCashflow: null, widgetDebts: null, widgetGoals: null });
+  });
+
+  it('A9: con uno activado deja 1 y los otros NULL', () => {
+    const env = setup();
+    env.d.onboarding.complete({ accounts: [], recurring: [], widgets: { cashflow: null, debts: true, goals: null } });
+    expect(env.d.settings.get()).toMatchObject({ widgetCashflow: null, widgetDebts: 1, widgetGoals: null });
+  });
+
+  it('A9: tras el onboarding con flags NULL, la primera deuda/meta/ingreso pasivo los activa', () => {
+    const env = setup();
+    const { d } = env;
+    const acc = mkAccount(d, 'E', 100_000);
+    d.onboarding.complete({ accounts: [], recurring: [], widgets: { cashflow: null, debts: null, goals: null } });
+    d.debts.create({ name: 'D', balanceMinor: 10, rate: { known: 0 } });
+    d.goals.create({ name: 'G', targetMinor: 10 });
+    d.transactions.create({ type: 'INCOME', accountId: acc, amountMinor: 10, isPassive: true });
+    expect(d.settings.get()).toMatchObject({ widgetCashflow: 1, widgetDebts: 1, widgetGoals: 1 });
+  });
+
+  it('A9: un ingreso pasivo recurrente del paso 2 activa por nudge un widget omitido (NULL), pero no pisa un 0 explicito', () => {
+    const passive = { type: 'INCOME' as const, name: 'Arriendo', amountMinor: 700_000, isPassive: true, frequency: 'MONTHLY' as const };
+    const a = setup();
+    a.d.onboarding.complete({ accounts: [], recurring: [passive], widgets: { cashflow: null, debts: null, goals: null } });
+    expect(a.d.settings.get()).toMatchObject({ widgetCashflow: 1, widgetDebts: null, widgetGoals: null });
+    const b = setup();
+    b.d.onboarding.complete({ accounts: [], recurring: [passive], widgets: { cashflow: false, debts: null, goals: null } });
+    expect(b.d.settings.get()).toMatchObject({ widgetCashflow: 0, widgetDebts: null, widgetGoals: null });
+  });
+
   it('no se puede completar dos veces (no duplica nada)', () => {
     const env = setup();
     env.d.onboarding.complete(draft());
