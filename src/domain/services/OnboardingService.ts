@@ -9,8 +9,14 @@ export interface OnboardingDraft {
   accounts: CreateAccountInput[];
   /** Paso 2: ingresos y gastos recurrentes (sin fecha salvo que el usuario la indique; D7). */
   recurring: CreateRecurringInput[];
-  /** Paso 3: eleccion explicita de widgets (1 activo / 0 apagado). */
-  widgets: Record<WidgetKey, boolean>;
+  /**
+   * Paso 3: eleccion de widgets, tres estados por clave (A9):
+   * `true` -> 1 (activado); `null` o ausente -> el flag NO se escribe y queda NULL (omitido: los nudges
+   * de primera deuda/meta/ingreso pasivo aun pueden auto-activarlo); `false` -> 0 (apagado explicito,
+   * nunca se reactiva solo). La UI del onboarding envia `true` o `null`; `false` se conserva por
+   * compatibilidad con la semantica de ajustes (`SettingsService.setWidget`).
+   */
+  widgets: Partial<Record<WidgetKey, boolean | null>>;
 }
 
 export interface OnboardingResult {
@@ -29,10 +35,12 @@ export function createOnboardingService(ctx: DomainContext) {
 
         const accountIds = draft.accounts.map((a) => createAccountIn(tx, ctx, a));
         const recurringIds = draft.recurring.map((r) => createStandardRecurringIn(tx, ctx, fx, r));
-        // Eleccion explicita: se aplica DESPUES de los recurrentes para que un ingreso pasivo
-        // (autoActivate) no pise un 0 elegido por el usuario.
+        // Eleccion explicita (true/false): se aplica DESPUES de los recurrentes para que un ingreso pasivo
+        // (autoActivate) no pise un 0 elegido. null/ausente: no se toca el flag (queda NULL).
         for (const widget of ['cashflow', 'debts', 'goals'] as const) {
-          settingsRepository.setWidget(tx, ctx.userId, widget, draft.widgets[widget], ctx.now());
+          const choice = draft.widgets[widget];
+          if (choice === null || choice === undefined) continue;
+          settingsRepository.setWidget(tx, ctx.userId, widget, choice, ctx.now());
         }
         settingsRepository.markOnboardingCompleted(tx, ctx.userId, ctx.now());
         fx.refresh('accounts', 'settings');
