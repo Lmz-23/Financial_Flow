@@ -147,7 +147,7 @@ describe('meses restantes sin tasa y regla del diseño', () => {
     expect(
       remainingMonths({ saldo: 1_200_000, cuota: 180_000, tasa: r, totalCount: 10, paidCount: 0 }),
     ).toBe(10);
-    // Sin plazo conocido (tasa conocida): 1.000.000 al 2% con cuota 20.001 no es viable en 600 meses
+    // Sin plazo conocido (tasa conocida): 1.000.000 al 2% con cuota 20.000 (= interes del primer mes, NEVER) no es viable en 600 meses
     expect(
       remainingMonths({ saldo: 1_000_000, cuota: 20_000, tasa: 0.02, totalCount: null, paidCount: 0 }),
     ).toBeNull();
