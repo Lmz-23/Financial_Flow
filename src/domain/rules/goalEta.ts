@@ -76,7 +76,7 @@ export type GoalEta =
     }
   | { kind: 'UNKNOWN' };
 
-/** Tope del ETA por ritmo: 100 anios. SUPUESTO: exactamente 1200 meses SE INCLUYE (el tope es > 1200). */
+/** Tope del ETA por ritmo: 100 anios. Decision del usuario (2026-10-07): exactamente 1200 meses SE INCLUYE (el tope es > 1200). */
 export const MAX_PACE_MONTHS = 1200;
 
 /** `date` + k meses de calendario; el dia se ajusta al ultimo del mes destino si hace falta. */

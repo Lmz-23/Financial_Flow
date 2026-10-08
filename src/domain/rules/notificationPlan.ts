@@ -12,12 +12,13 @@
 //   rec:{id}:{occ}:snooze:{fecha}   recordatorio diario tras "Todavía no"
 //   weekly-summary                  domingo 19:00
 //
-// SUPUESTOS:
+// SUPUESTOS (pendientes de confirmar al arrancar F4):
 // - Los avisos de ingresos solo tienen `due` ("¿Ya recibiste X?") y snooze; no hay `pre`.
 // - El toggle de avisos de pago apaga también los avisos de ingresos recurrentes.
 // - Un snooze diario no se duplica con el `pre` ni con el `due` del mismo día.
-// - El texto del resumen semanal es propio del plan (el diseño no lo trae).
 // - Con tope, el resumen semanal se reserva primero y el resto se prioriza por cercanía.
+//
+// DECISIÓN DEL USUARIO (2026-10-07): el título del resumen semanal es «Tu resumen semanal está listo».
 // =============================================================================
 
 import {

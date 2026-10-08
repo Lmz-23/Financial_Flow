@@ -75,6 +75,28 @@ describe('Índice de Flujo de Caja', () => {
     expect(isFinancialFreedom(idx)).toBe(true);
   });
 
+  it('NO_EXPENSES: texto exacto confirmado por el usuario (2026-10-07)', () => {
+    expect(describeCashflowIndex({ kind: 'NO_EXPENSES' })).toBe(
+      'No tienes gastos registrados este mes, así que tu ingreso pasivo ya los cubre por completo.',
+    );
+  });
+
+  it('libertad financiera (>= 100%): texto exacto confirmado, con "100%" literal', () => {
+    const texto = 'Tu ingreso pasivo cubre el 100% de tus gastos — esto es libertad financiera en el método Cashflow.';
+    expect(describeCashflowIndex(computeCashflowIndex(200, 200))).toBe(texto);
+    // Con 150% el texto confirmado sigue diciendo "100%" (literal, no el porcentaje real).
+    expect(describeCashflowIndex(computeCashflowIndex(450, 300))).toBe(texto);
+  });
+
+  it('antes del 100% (99%): texto del diseño con el porcentaje real y "Cuando llegue a 100%"', () => {
+    expect(describeCashflowIndex(computeCashflowIndex(99, 100))).toBe(
+      'Tu ingreso pasivo cubre el 99% de tus gastos del mes. Cuando llegue a 100%, eso es libertad financiera en el método Cashflow.',
+    );
+    expect(describeCashflowIndex(computeCashflowIndex(996, 1000))).toBe(
+      'Tu ingreso pasivo cubre el 100% de tus gastos del mes. Cuando llegue a 100%, eso es libertad financiera en el método Cashflow.',
+    );
+  });
+
   it('gastoTotal 0 sin ingreso pasivo: sin dato', () => {
     const idx = computeCashflowIndex(0, 0);
     expect(idx).toEqual({ kind: 'NONE' });
