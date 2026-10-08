@@ -1,6 +1,6 @@
 # Arquitectura técnica: Financial Flow MVP
 
-Especificación de referencia del diseño objetivo del MVP. Escrita el 2026-10-03; última actualización: 2026-10-07 (HEAD `0b34f13`, rama `develop`; el commit de este documento no puede citarse a sí mismo), con las decisiones del usuario y lo implementado entre F0 y F3 y la fase F2b (incluidas sus pasadas bis y ter, el endurecimiento de la propiedad del usuario y su guarda estructural por AST, ya commiteada). Sincronizado además con las decisiones del usuario del 2026-10-07 sobre el Índice de Flujo de Caja, el título del resumen semanal y el tope del ETA (puntos 29 a 32 de 10.2), y con las decisiones del 2026-10-08 (meses restantes de una deuda con tasa y plan de notificaciones: puntos 33 a 37 de 10.2).
+Especificación de referencia del diseño objetivo del MVP. Escrita el 2026-10-03; última actualización: 2026-10-08 (HEAD `051bdba`, rama `develop`; el commit de este documento no puede citarse a sí mismo; F4 y F5a están en el árbol de trabajo, sin commit), con las decisiones del usuario y lo implementado entre F0 y F3 y la fase F2b (incluidas sus pasadas bis y ter, el endurecimiento de la propiedad del usuario y su guarda estructural por AST, ya commiteada). Sincronizado además con las decisiones del usuario del 2026-10-07 sobre el Índice de Flujo de Caja, el título del resumen semanal y el tope del ETA (puntos 29 a 32 de 10.2), y con las decisiones del 2026-10-08 (meses restantes de una deuda con tasa y plan de notificaciones: puntos 33 a 37 de 10.2) y con las decisiones del usuario del 2026-10-08 posteriores a F4 y F5a (puntos 38 a 41 de 10.2).
 
 ## Tabla de contenidos
 
@@ -59,7 +59,7 @@ Especificación de referencia del diseño objetivo del MVP. Escrita el 2026-10-0
 
 Este documento describe el **diseño objetivo**. Las desviaciones aprobadas durante la implementación se anotan en la sección final [Desviaciones aprobadas](#12-desviaciones-aprobadas).
 
-Estado a fecha 2026-10-07 (HEAD `0b34f13`):
+Estado a fecha 2026-10-08 (HEAD `051bdba`; F4 y F5a sin commit):
 
 | Fase | Contenido | Estado | Commits |
 |---|---|---|---|
@@ -68,14 +68,16 @@ Estado a fecha 2026-10-07 (HEAD `0b34f13`):
 | F2a | Reglas puras | Completada, revisada, verificada y commiteada | `a6cc855` |
 | F2b | Dominio: repositorios, servicios y `createDomain`, con las pasadas bis y ter y el refuerzo de la propiedad del usuario | Completada, revisada, verificada y commiteada (incluida la guarda estructural por AST y la corrección de comentarios obsoletos) | `e86bd95` (repositorios); `fd60fcd` (servicios y pruebas); `560bb12` (F2b-bis: ocurrencias validadas contra la serie, cuentas archivadas protegidas, ETA de metas); `8b0609f` (F2b-ter: desarchivar cuentas, tope del ETA, validación de fechas); `9e5ae32` (propiedad del usuario en servicios y repositorios); `58b0502` (prueba aleatoria con modelo de referencia independiente); `119a972` (guarda estructural de propiedad por AST); `0b34f13` (corrección de comentarios obsoletos del empate quincenal y del ETA) |
 | F3 | Tema: tokens, `ThemeProvider`, fuentes, primitivas `ds/` | Completada, revisada, verificada y commiteada | `6303bb5` |
-| F4 | Plataforma (notificaciones) | Pendiente | |
-| F5a | Navegación y Dashboard | Pendiente | |
-| F5b | Funcionalidades (por carpetas) | Pendiente | |
-| F6 | Limpieza | Pendiente | |
+| F4 | Plataforma (notificaciones): `src/platform/notifications.ts` y `test/unit/platform/notifications.test.ts` | Implementada, revisada (aprobada con observaciones) y verificada; sin commit. Pendiente de dispositivo y de conectar al arranque (ver más abajo) | (hash pendiente: sin commit) |
+| F5a | Navegación y Dashboard: `src/app-services/`, stores, hooks, `src/lib/`, `src/navigation/routes.ts`, `src/components/dashboard/`, `app/(app)/`, `app/_layout.tsx` con `Stack.Protected`; borrado de `app/(tabs)/` | Implementada, revisada (aprobada con observaciones) y verificada; sin commit | (hash pendiente: sin commit) |
+| F5b | Funcionalidades (por carpetas) | Pendiente (fuera de este ciclo) | |
+| F6 | Limpieza | Pendiente (fuera de este ciclo) | |
+
+**Verificación de F4 y F5a (2026-10-08, informes del ciclo):** vitest 41 archivos / 821 tests en verde; `tsc` pasó de 276 a 208 errores, ninguno en archivos nuevos; lint pasó de 273 a 219 problemas, ninguno nuevo; el bundle de Metro falla solo por rutas viejas (primer fallo: `app/debt/add-card.tsx`). Limitaciones: la verificación no incluyó dispositivo (ver pendientes de dispositivo de F4 y de F5a) y las rutas viejas siguen rompiendo el bundle hasta F5b/F6.
 
 Otros commits relacionados: `450af15` (documento de arquitectura inicial), `8357447` (ajuste de dominio: el quincenal ajusta la primera fecha y `formatCOP` sin espacio) y `4e50130` (ajuste de UI: primitivas `ds` en unidades menores). Las actualizaciones posteriores de este documento se commitean aparte y no se citan aquí. El commit `e7fd4a5` es el snapshot previo al rediseño y el tag `pre-mvp` apunta a él (el tag existe en `.git/refs/tags/pre-mvp`; que apunte exactamente a `e7fd4a5` lo declara el usuario y no se ha comprobado leyendo el objeto).
 
-**Estado del árbol (importante).** Los hooks y pantallas antiguos (`src/hooks/*`, `app/**`, `src/components/**` previos al rediseño) siguen importando módulos ya retirados (bolsillos, presupuesto, `cashflow` antiguo, repositorios de tarjetas y préstamos). Hasta F5/F6 el bundle de Metro no resuelve esos imports y hay errores preexistentes de `tsc` y de lint (`import/no-unresolved`): 276 `error TS` en la base actual (según el último informe; NO VERIFICADO en esta lectura). El dominio, la capa de datos, el tema y las primitivas `ds/` sí están verificados de forma aislada con vitest.
+**Estado del árbol (importante).** Tras F5a, los hooks de dominio (`useAccounts`, `useDebts`, `useTransactions`) están reescritos y `app/(tabs)/` se borró, pero las pantallas y componentes antiguos restantes (`app/**` fuera de `app/(app)/`, `src/components/**` previos al rediseño) siguen importando módulos ya retirados (bolsillos, presupuesto, `cashflow` antiguo, repositorios de tarjetas y préstamos). Hasta F5b/F6 el bundle de Metro no resuelve esas rutas (primer fallo: `app/debt/add-card.tsx`) y hay errores preexistentes de `tsc` y de lint: según el informe de verificación de F4 y F5a, 208 errores de `tsc` (antes 276) y 219 problemas de lint (antes 273), ninguno en archivos nuevos (NO VERIFICADO en esta lectura). El dominio, la capa de datos, el tema, las primitivas `ds/`, el adaptador de notificaciones y la capa `app-services/` están verificados con vitest (41 archivos / 821 tests).
 
 La guarda estructural de repositorios por AST (`test/helpers/repositoryAst.ts`, `test/unit/repositoryOwnership.test.ts`) está commiteada (`119a972`) y verificada; sus límites están en [3.5](#35-propiedad-del-usuario-y-convención-de-repositorios). La corrección de los comentarios obsoletos del código está hecha (ver [12.2](#122-desviaciones-y-ampliaciones-posteriores)).
 
@@ -83,22 +85,32 @@ La guarda estructural de repositorios por AST (`test/helpers/repositoryAst.ts`, 
 
 ### Pendientes para la próxima sesión
 
-Ninguno bloquea F4. Esta subsección es el único lugar donde se listan; el resto del documento los enlaza.
+Esta subsección es el único lugar donde se listan; el resto del documento los enlaza. F4 y F5a están implementadas, revisadas y verificadas (sin commit); lo que sigue es lo pendiente tras ese ciclo.
 
 **PRODUCTO (por fases)**
 
-- **F4 (plataforma):** adaptador de notificaciones con `reconcile`, `planNotifications`, permisos, canal de Android y respuestas "Ya pagué" / "Todavía no" (diseño en [7](#7-notificaciones-y-recurrentes)). El plugin `expo-notifications` ya está en `app.json`. `src/platform/` no existe aún.
-- **F5a:** navegación con Stack sin tabs y `Stack.Protected`, Dashboard, hooks, stores y la capa de aplicación `src/app-services/`, que ejecuta los `effects` tras el COMMIT y **aún no existe** (VERIFICADO EN CÓDIGO 2026-10-07; ver [6](#6-mapa-de-pantallas-y-navegación) y [9](#9-plan-por-fases)).
-- **F5b:** pantallas por carpetas: cuentas, transacciones, deudas, metas, recurrentes, onboarding de 4 pasos y ajustes.
+- **F4-integración (pendiente):** `registerNotificationReconciler` en `src/app-services/notificationsPort.ts` (marcado `F4-INTEGRATION`) queda **sin conectar a propósito**. Falta registrarlo en el arranque con un cierre que arme el `ReconcileInput` y conectar `subscribeToNotificationResponses` con `onSnooze` = `commands.recurring.snooze`.
+- **F4-fix:** en `src/platform/notifications.ts` (~L245-264), `void handle(...)` deja rechazos sin capturar; `clearLastNotificationResponseAsync` no se llama si el manejador falla; y `lastHandledKey` se fija antes de ejecutar, lo que impide reintentar. Añadir además un test de manejador que lance.
+- **F4, pendiente de dispositivo:** entrega y botones de la notificación; canal de Android; arranque en frío; que WEEKLY con `weekday` 1 sea domingo; que `content.data` vuelva intacto; el límite de ~64 de iOS; y la decisión de que ambas acciones usen `opensAppToForeground: true` (si «Todavía no» no abriera la app con la app cerrada, el aplazamiento se perdería). La fuente de la API fueron los tipos instalados de expo-notifications 56.0.18 (no hubo acceso a los docs web).
+- **F5a-fix:** `refreshSettings()` en `src/app-services/index.ts` (~L17-18) puede lanzar tras el COMMIT y romper el comando: proteger la invalidación con try/catch y warn. Además, corregir constantes mágicas y tamaños de fuente fuera de tokens en `DebtsWidget.tsx`, `index.tsx` y `UpcomingPaymentsWidget.tsx`.
+- **F5a, retirar en F6:** re-export TEMPORAL de `useCategories` / `useCategoriesByType` en `src/hooks/index.ts`. `AccountWithBalance` ya no se exporta de `hooks/useAccounts`; lo importa `forms/AccountPicker` (heredado): migrar en F5b/F6.
+- **F5a, menores a decidir al conectar F4:** cualquier cambio de `settings` dispara reconcile (incluido tema y widgets). Algunos widgets del Dashboard usan `Pressable`/`View` de react-native directamente (desviación del criterio literal «solo primitivas ds», sin colores fijos).
+- **F5a, pendiente de dispositivo:** `Stack.Protected` y su redirect al completar el onboarding; modo oscuro; rutas de destino (inexistentes hasta F5b); y que no haya bucle de renders ni doble consulta en StrictMode en `useDomainQuery`.
+- **F5a, textos inferidos que el usuario podría querer cambiar:** fechas «Hoy/Ayer/día de semana/15 oct», «Vencido», «Sin definir», y el texto fijo «Te avisamos 2 días antes…» del diseño, que contradice la decisión 34 para ingresos recurrentes (decidir).
+- **F5b:** pantallas por carpetas: cuentas, transacciones, deudas, metas, recurrentes, onboarding de 4 pasos y ajustes. **Prioridad alta: el onboarding** (decisión 41 de 10.2): sin él, con BD limpia, la app arranca en una ruta inexistente `onboarding`.
+  - **F5b-i:** pantalla de error con reintento si `initializeApp` falla (`app/_layout.tsx` ~L38-44), resuelta **junto con** un error boundary para consultas que lancen en render (`useDomainQuery`): una sola solución, no dos parches.
+  - **F5b-ii:** si se detecta un problema de longitud o espacio con el texto de la decisión 38, se consulta al usuario antes de cambiarlo.
+  - **F5b-iv:** edición de un próximo pago en la pantalla de recurrentes (decisión 39). Etiqueta del interruptor «Recordatorios de pagos y cobros» (decisión 35): **no existe en código**, es de F5b (Ajustes).
+- **Backend-coder (ítem aparte, decisión 40):** `RecurringService.upcoming()` debe exponer la fecha de la ocurrencia confirmada para poder llamar a `unconfirm` al desmarcar un pago (D14).
 - **F6 (limpieza):** retirar el shim de `colors`, las primitivas antiguas de `src/components/ui/`, `src/domain/utils/` con su `formatCOP` homónima (ver [5](#5-sistema-de-tema)), hooks y pantallas antiguos, el alias de `expo-sqlite` y `test/mocks/expo-sqlite.ts` en `vitest.config.ts` (siguen presentes), y endurecer a `error` las reglas de ESLint de fronteras y de `colors` (hoy `warn`).
-- **Contratos que F5 debe implementar** (detalle en [3.4](#34-contratos-de-operaciones) y [6](#6-mapa-de-pantallas-y-navegación)):
+- **Contratos de F5 que NO aplican al Dashboard y siguen para F5b** (`GoalView.eta` por `kind`, `monthsRemaining = null`, Desarchivar, `refundPreview` / `RefundAccountRequiredError`, `normalizeAnchor`, `MoneyInput`); la lista siguiente es la de F5b. **Contratos que F5 debe implementar** (detalle en [3.4](#34-contratos-de-operaciones) y [6](#6-mapa-de-pantallas-y-navegación)):
   - "Desarchivar" al atrapar `AccountArchivedError`.
   - Elegir cuenta activa de destino al eliminar una meta con aportes de cuentas archivadas (`RefundAccountRequiredError`).
   - `normalizeAnchor` en vivo en "Agregar recurrente".
   - `MoneyInput`: ignorar el dígito que desborda en vez de vaciar el campo y tratar el separador "." como no-op lógico (probar en dispositivo; ver [5](#5-sistema-de-tema)).
   - Mostrar `GoalView.eta` según su `kind` ([3.7](#37-definiciones-del-eta-de-una-meta)).
   - Usar `accountArchived` en `refundPreview`.
-  - Distinguir los dos significados de `DebtView.monthsRemaining = null` (falta la cuota, o la cuota no cubre el interés / la proyección supera 600 meses). La plantilla del diseño (`Design/Dashboard.dc.html` ~L996-998) solo tiene un texto para `null` («Agrega la cuota para ver la proyección.»), falso para una deuda con cuota que no avanza. Detalle en [Decisión 33: meses restantes de una deuda con tasa](#decisión-33-meses-restantes-de-una-deuda-con-tasa).
+  - Distinguir los dos significados de `DebtView.monthsRemaining = null` (falta la cuota, o la cuota no cubre el interés / la proyección supera 600 meses). La plantilla del diseño (`Design/Dashboard.dc.html` ~L996-998) solo tiene un texto para `null` («Agrega la cuota para ver la proyección.»), falso para una deuda con cuota que no avanza. El texto para la cuota que no cubre el interés **está definido** (decisión 38 de 10.2): «Tu cuota actual no alcanza a cubrir el interés mensual — la deuda no va a bajar con este pago.». Detalle en [Decisión 33: meses restantes de una deuda con tasa](#decisión-33-meses-restantes-de-una-deuda-con-tasa).
 
 **GUARDA Y PRUEBAS**
 
@@ -133,10 +145,9 @@ Resto de pendientes de guarda y pruebas:
 - Sustituir `parseDiagnostics` (API interna de TypeScript) cuando haya una alternativa pública.
 - Comentarios `SUPUESTO` restantes (actualizado 2026-10-07, tras las decisiones del usuario; VERIFICADO EN CÓDIGO):
   - `src/domain/rules/statement.ts`: **sin SUPUESTOS**.
-  - `src/domain/rules/notificationPlan.ts`: el comentario aún lista **4 SUPUESTOS**, pero el usuario los confirmó el 2026-10-08 (decisiones 34 a 37 de 10.2; ver [7](#7-notificaciones-y-recurrentes)); el comentario se actualizará en F4.
+  - `src/domain/rules/notificationPlan.ts`: **sin SUPUESTOS**; su cabecera ya cita las decisiones 34 a 37 y la 31 (VERIFICADO EN CÓDIGO 2026-10-08; ver [7](#7-notificaciones-y-recurrentes)).
   - `src/domain/rules/amortization.ts`: **ya no conserva ninguno** (decisión 33, 2026-10-08): [Decisión 33: meses restantes de una deuda con tasa](#decisión-33-meses-restantes-de-una-deuda-con-tasa).
-- Alinear con las decisiones del 2026-10-07 el título de test de `test/unit/rules/goalEta.test.ts` (L135: «exactamente 1200 meses (100 anios) SE INCLUYE: SUPUESTO, el tope es monthsLeft > 1200»), que aún dice «SUPUESTO» sobre el tope de 1200 meses (ahora decisión del usuario, punto 32 de 10.2). Detectado de paso: `test/unit/rules/recurrence.test.ts` L158 («EMPATES: gana la fecha posterior (SUPUESTO)») sigue diciendo SUPUESTO sobre el empate quincenal, que es decisión CONFIRMADA (punto 21).
-- Corregir el comentario de `test/unit/rules/amortization.test.ts` L150, que dice «cuota 20.001» mientras el test usa cuota 20.000 (con saldo 1.000.000 y tasa 2%, el interés del primer mes es 20.000, así que da `NEVER` y no `CAPPED`; ambos devuelven `null`). El caso está dentro del test «con tasa usa projectPayoff» (L145).
+- RESUELTO (commit `051bdba`; VERIFICADO EN CÓDIGO 2026-10-08: ya no hay «SUPUESTO» en `test/unit/rules/` ni «20.001» en `amortization.test.ts`): los títulos de test con «SUPUESTO» ya decididos (`goalEta.test.ts`, tope de 1200 meses; `recurrence.test.ts`, empate quincenal) y el comentario de cuota de `amortization.test.ts`.
 - Texto fijo heredado con erratas en `app/cashflow/index.tsx` L272 («Tu ingreso pasivo cubre el 100% de tus gastos. LosAssets que tengasgenerarán ingresos sin necesidad de trabajar.»). Es la pantalla antigua, que se retira en F6; no usa `describeCashflowIndex` y no contradice el «100%» literal. No requiere corrección.
 - Nota sobre el «100%» literal: con índices superiores a 100% el mensaje de libertad financiera subestima el valor real (con 150% dice «cubre el 100%»). Consecuencia asumida por el usuario (punto 30 de 10.2); si más adelante se quiere mostrar el porcentaje real, es un cambio de copy del usuario, no un error.
 - Líneas "Mutador(es)" casi duplicadas en las cabeceras de `adjustmentRepository`, `goalContributionRepository` y `transactionRepository`.
@@ -192,7 +203,7 @@ Las columnas «Solo simulación» de las filas sin plan se deducen de la regla (
 
 - **(a) `null` con dos significados (contrato de F5).** `remainingMonths` devuelve `null` tanto si falta la cuota como si la cuota no cubre el interés (o la simulación pasa de 600 meses). La plantilla del diseño (`Design/Dashboard.dc.html` ~L996-998) solo conoce un texto para `null`, «Agrega la cuota para ver la proyección.», que es falso para una deuda con cuota que no avanza. **F5 debe distinguir los dos casos** (puede deducirlos de `installmentMinor` y del saldo; el servicio hoy no los distingue).
 - **(b) Rareza de redondeo en deudas con «no sé la tasa».** Tras pagar 3 cuotas exactas (saldo 932.544, cuota 180.000, tasa estimada 8,14 %), el código da 8 meses y el plan dice 7: un mes espurio por un residuo. No se pudo determinar si ocurre con saldos reales en unidades menores. (`projectPayoff` ya trata un residuo menor a media unidad como liquidado, L76-79.)
-- **(c) Comentario de prueba incorrecto.** Ver el pendiente de `test/unit/rules/amortization.test.ts` L150 más arriba (el «20.001» se corrige en otro ciclo; sigue pendiente).
+- **(c) Comentario de prueba incorrecto.** Resuelto en `051bdba` (el comentario de cuota de `test/unit/rules/amortization.test.ts`).
 - **(d) `totalCount` con tasa conocida.** El diseño guarda `totalCount` 0 cuando la tasa es conocida (`Dashboard.dc.html` L1414) y el repo guarda `null` (sección 2.1, tabla `debts`). El efecto es equivalente: `remainingMonths` trata ambos como «sin plan».
 
 **VERIFICACIÓN EN DISPOSITIVO / DEVELOPMENT BUILD** (nada de esto se ha podido comprobar)
@@ -200,8 +211,8 @@ Las columnas «Solo simulación» de las filas sin plan se deducen de la regla (
 - `UPDATE/DELETE ... RETURNING` sobre expo-sqlite (SQLite 3.50.3; plan B con `run()` y `changes`).
 - `migrate()` y `PRAGMA foreign_keys` sobre expo-sqlite real.
 - Fuentes IBM Plex en iOS.
-- Notificaciones, categorías con acciones y `getLastNotificationResponseAsync` en arranque en frío.
-- `Stack.Protected` y `formSheet`.
+- Notificaciones, categorías con acciones y `getLastNotificationResponseAsync` en arranque en frío (detalle de lo pendiente de F4 en [Pendientes](#pendientes-para-la-próxima-sesión)).
+- `Stack.Protected` (y su redirect al completar el onboarding) y `formSheet`.
 - Modo oscuro en caliente.
 - Alineación de versiones de Expo: 14 paquetes desalineados y `@react-native-async-storage/async-storage` en `^3.1.1` frente a la `2.2.0` que espera el SDK (según el informe de verificación; no se ha vuelto a ejecutar `expo install --check`).
 
@@ -212,7 +223,7 @@ Las columnas «Solo simulación» de las filas sin plan se deducen de la regla (
 3. El hook `pipeline-advance.sh` solo leía `last_assistant_message`; el usuario ya lo corrigió para leer el transcript del subagente.
 4. El estado del pipeline (`.claude/pipeline-state.json`) lo edita solo el usuario.
 
-Los supuestos 1 a 20 están aprobados (sección 10.2) y R1 y R2 están resueltos (sección 10.1). Las decisiones posteriores (2026-10-04 a 2026-10-08) están en las secciones 10.2 (21 a 37) y 11. La decisión sobre los meses restantes de una deuda con tasa quedó **cerrada** el 2026-10-08 (decisión 33; ver su subsección más arriba).
+Los supuestos 1 a 20 están aprobados (sección 10.2) y R1 y R2 están resueltos (sección 10.1). Las decisiones posteriores (2026-10-04 a 2026-10-08) están en las secciones 10.2 (21 a 41) y 11. La decisión sobre los meses restantes de una deuda con tasa quedó **cerrada** el 2026-10-08 (decisión 33; ver su subsección más arriba).
 
 ---
 
@@ -745,14 +756,20 @@ src/
     entities/            ← vacío (solo `.gitkeep`)                                                   [existe, vacío]
     utils/               ← currency.ts y date.ts ANTIGUOS (formateadores viejos); se retiran en F6.
                            OJO: currency.ts exporta OTRA `formatCOP` (homonimia, ver 5)             [existen]
-  platform/              ← notifications.ts (adaptador expo-notifications), fonts                   [NO existe aún: F4]
-  app-services/          ← comandos: llaman al dominio y después ejecutan efectos                   [NO existe aún: F5]
-  store/                 ← useSettingsStore (caché de users), useInvalidation, useOnboardingDraft, useUIStore
-                           (hoy solo hay los stores antiguos: useUserStore, useUIStore,
-                           useNotificationStore)                                                    [pendiente: F5a]
-  hooks/                 ← un hook por dominio (useAccounts, useMonthStatement, useDebts, useGoals,
-                           useUpcoming, useTransactions); se suscriben a claves de invalidación
-                           (hoy son los hooks antiguos con imports rotos)                           [pendiente: F5]
+  platform/              ← notifications.ts (adaptador expo-notifications); fonts (las fuentes se cargan
+                           en app/_layout.tsx, no hay archivo de fuentes en platform/)               [existe: notifications.ts (F4)]
+  app-services/          ← comandos: llaman al dominio y después ejecutan efectos (commands, effects,
+                           domain, startup, notificationsPort, index)                               [existe (F5a)]
+  store/                 ← useSettingsStore (caché de users), useInvalidation; useOnboardingDraft
+                           (no existe aún); conviven los stores antiguos useUserStore, useUIStore y
+                           useNotificationStore                                                     [parcial: F5a]
+  hooks/                 ← un hook por dominio: useDomainQuery (base), useAccounts, useMonthStatement,
+                           useDebts, useGoals, useUpcoming, useTransactions; se suscriben a claves
+                           de invalidación. Re-export temporal de useCategories/useCategoriesByType
+                           en index.ts (se retira en F6)                                            [existen (F5a)]
+  lib/                   ← dateLabels.ts, dashboardFormat.ts                                        [existen (F5a)]
+  navigation/            ← routes.ts                                                                [existe (F5a)]
+  components/dashboard/  ← widgets del Dashboard                                                    [existen (F5a)]
   theme/                 ← tokens.ts (copia local de design-tokens.json), ThemeProvider.tsx,
                            theme.ts, fontFamilies.ts, fontAssets.ts, navigationTheme.ts, index.ts;
                            shim temporal: colors.ts, spacing.ts, typography.ts, shadows.ts          [existen]
@@ -760,8 +777,9 @@ src/
                            InviteCard, Input, MoneyInput, Pill, SegmentedControl, ProgressBar,
                            Sheet, ListRow, AccountPicker (+ constants, tone, utils, useFocusRing)   [existen]
   components/ui/         ← primitivas ANTIGUAS (Button, Input, ProgressBar, Card, Modal, …); se retiran en F6
-app/                     ← solo pantallas: usan hooks y comandos (hoy, pantallas antiguas; `app/_layout.tsx`
-                           ya monta el ThemeProvider y carga las fuentes con useFonts)
+app/                     ← solo pantallas: usan hooks y comandos (`app/(app)/` con `_layout` e `index` (Dashboard) desde F5a;
+                           el resto sigue siendo pantallas antiguas; `app/_layout.tsx` monta el
+                           ThemeProvider, carga las fuentes con useFonts y usa `Stack.Protected`)
 ```
 
 Las primitivas nuevas viven en `ui/ds/` mientras `ui/` conserve las antiguas; cuando las pantallas se rehagan (F6) se borran las antiguas y `ds/` sube un nivel.
@@ -866,12 +884,13 @@ La paleta del Design System reemplaza la actual.
   - `rec:{id}:{occ}:snooze` si hay `snoozedUntil` en el futuro.
   - `weekly-summary`: disparador semanal, domingo a las 19:00 con texto genérico, porque el contenido se calcularía al programar y quedaría desactualizado (D15). **Título: «Tu resumen semanal está listo»** (decisión del usuario, 2026-10-07; punto 31 de 10.2; VERIFICADO EN CÓDIGO: `notificationPlan.ts`).
   - Ingresos: se incluyen con el texto "¿Ya recibiste X?" (D15).
-  - **Decisiones confirmadas por el usuario el 2026-10-08** (puntos 34 a 37 de 10.2; antes eran 4 SUPUESTOS diferidos a F4). El comentario `SUPUESTO` sigue figurando en la cabecera de `notificationPlan.ts`, bajo «SUPUESTOS (pendientes de confirmar al arrancar F4)», y se actualizará en F4:
+  - **Decisiones confirmadas por el usuario el 2026-10-08** (puntos 34 a 37 de 10.2; antes eran 4 SUPUESTOS diferidos a F4). La cabecera de `notificationPlan.ts` ya las cita (junto con la decisión 31):
     1. Los avisos de ingresos recurrentes solo avisan el día del vencimiento (`due`, más snooze); no hay `pre`.
-    2. Un solo interruptor en Ajustes apaga juntos los avisos de pago y de ingreso; su etiqueta pasa de «Recordatorio de pagos» a «Recordatorios de pagos y cobros».
+    2. Un solo interruptor en Ajustes apaga juntos los avisos de pago y de ingreso; su etiqueta pasa de «Recordatorio de pagos» a «Recordatorios de pagos y cobros» (la etiqueta **no existe en código**: es de F5b, Ajustes).
     3. Un snooze diario no se duplica con el `pre` ni con el `due` del mismo día.
     4. Con tope de notificaciones, el resumen semanal se reserva primero y el resto se prioriza por cercanía de fecha.
-- **Adaptador** (`platform/notifications.ts`): `reconcile()` compara lo programado (`getAllScheduledNotificationsAsync`) con lo deseado, cancela lo que sobra y programa lo que falta. Es idempotente. Se llama al iniciar, al volver a primer plano (AppState), después de cualquier comando que afecte recurrentes o deudas y al cambiar ajustes. Reemplaza `rescheduleAll`, que hoy cancela todo cada vez.
+- **Adaptador implementado en F4** (`src/platform/notifications.ts`, probado en `test/unit/platform/notifications.test.ts`, 17 tests; sin commit). Expone `setupNotifications`, `ensureNotificationPermission`, `reconcile` y `subscribeToNotificationResponses` (con arranque en frío). `reconcile` es idempotente por una huella (`ffSignature`) y solo toca los ids `rec:*` y `weekly-summary`. El adaptador no está conectado al arranque de la app (ver F4-integración en [Pendientes](#pendientes-para-la-próxima-sesión)); lo pendiente de dispositivo está en esa misma subsección. La fuente de la API fueron los tipos instalados de expo-notifications 56.0.18. Descripción del diseño:
+- **Adaptador** (`platform/notifications.ts`): `reconcile()` compara lo programado (`getAllScheduledNotificationsAsync`) con lo deseado, cancela lo que sobra y programa lo que falta. Es idempotente. Se llama al iniciar, al volver a primer plano (AppState), después de cualquier comando que afecte recurrentes o deudas y al cambiar ajustes. Reemplaza `rescheduleAll`, que cancelaba todo cada vez. Las llamadas descritas son el diseño; su conexión al arranque está pendiente (F4-integración).
 - **Límite de iOS:** unas 64 notificaciones locales pendientes (límite de la plataforma). VERIFICADO (2026-10-03). El plan prioriza las más cercanas.
 - **Respuesta:** `addNotificationResponseReceivedListener` + `getLastNotificationResponseAsync` para el arranque en frío. "Ya pagué" o tocar la notificación abre `/recurring/[id]/confirm?occurrence=…`, o `/debts/[debtId]/pay?type=INSTALLMENT&occurrence=…` si es una cuota de deuda. No se confirma en segundo plano porque hace falta elegir cuenta (la hoja siempre pide cuenta; D8). "Todavía no" llama a `RecurringService.snooze` y luego a `reconcile`.
   - VERIFICADO (2026-10-03): existen los triggers DATE y WEEKLY, `setNotificationCategoryAsync`, `getLastNotificationResponseAsync` y el plugin `expo-notifications`.
@@ -966,7 +985,8 @@ La paleta del Design System reemplaza la actual.
 El estado actual de cada fase está en [Estado de implementación](#estado-de-implementación).
 
 **Notas de alcance respecto de la tabla (estado real a 2026-10-07):**
-- F2b entregó repositorios, servicios, `createDomain` e `IntegrityService` con sus tests, pero **no** `src/app-services/**` (comandos que ejecutan los efectos tras el COMMIT): ese directorio no existe y pasa a F4/F5a. Los servicios devuelven `effects`, que esa capa debe ejecutar.
+- F2b entregó repositorios, servicios, `createDomain` e `IntegrityService` con sus tests, pero **no** `src/app-services/**` (comandos que ejecutan los efectos tras el COMMIT); esa capa se creó en F5a (sin commit). Los servicios devuelven `effects`, que esa capa ejecuta.
+- F4 y F5a se implementaron en el ciclo del 2026-10-08 (ver [Estado de implementación](#estado-de-implementación)); F5a también tocó `app/_layout.tsx`, dueño original F3.
 - Los servicios y repositorios viejos que dependían de tablas retiradas ya no existen en `src/`, pero los hooks y pantallas antiguos todavía los importan hasta F5/F6 (ver el estado del árbol en [Estado de implementación](#estado-de-implementación)).
 - F3 dejó el shim de `colors` y la regla de ESLint en `warn`; ambos se retiran en F6.
 
@@ -1039,7 +1059,16 @@ Fecha de aprobación de los puntos 1 a 20: **2026-10-03**. Quedan todos aprobado
 36. **El snooze diario no duplica `pre` ni `due` (2026-10-08; CONFIRMADA por el usuario).** Un snooze diario no genera una notificación adicional el mismo día que ya tiene el `pre` o el `due`. Antes era el SUPUESTO 3 de 7.
 37. **Tope de notificaciones (2026-10-08; CONFIRMADA por el usuario).** Con el tope alcanzado, el resumen semanal se reserva primero y el resto se prioriza por cercanía de fecha. Antes era el SUPUESTO 4 de 7.
 
-Nota sobre las decisiones 34 a 37: el comentario `SUPUESTO` sigue figurando en la cabecera de `src/domain/rules/notificationPlan.ts` y se actualizará en F4 (junto con la etiqueta del interruptor en Ajustes). No queda ninguna decisión abierta de esta lista.
+Nota sobre las decisiones 34 a 37: la cabecera de `src/domain/rules/notificationPlan.ts` ya las cita (junto con la 31). La etiqueta del interruptor en Ajustes (decisión 35) **no existe en código**: es de F5b.
+
+**Decisiones del usuario tras F4 y F5a (2026-10-08, CONFIRMADAS por el usuario):**
+
+38. **Texto para `monthsRemaining = null` con cuota definida (2026-10-08; CONFIRMADA por el usuario).** Cuando la cuota no cubre el interés mensual: «Tu cuota actual no alcanza a cubrir el interés mensual — la deuda no va a bajar con este pago.». Si F5b-ii detecta un problema de longitud o espacio, se consulta al usuario antes de cambiarlo. Cierra el pendiente que decía que faltaba definir este texto.
+39. **Edición de un próximo pago (2026-10-08; CONFIRMADA por el usuario).** Va en la pantalla de recurrentes (F5b-iv), no en el Dashboard; el widget del Dashboard solo tiene acciones rápidas.
+40. **Desmarcar un pago, D14 (2026-10-08; CONFIRMADA por el usuario).** `RecurringService.upcoming()` debe exponer la fecha de la ocurrencia confirmada para poder llamar a `unconfirm`. Es un ítem aparte para `backend-coder`.
+41. **Onboarding en F5b con prioridad alta (2026-10-08; CONFIRMADA por el usuario).** Sin él, con BD limpia, la app arranca en una ruta inexistente `onboarding`.
+
+Con estas decisiones no queda ninguna decisión abierta en esta lista; los textos inferidos por F5a que el usuario podría querer cambiar figuran en [Pendientes](#pendientes-para-la-próxima-sesión).
 
 ### 10.3 Verificaciones de Expo
 
@@ -1148,10 +1177,10 @@ Sin CHECK en el esquema: `goals.targetDate` (la validación está en el servicio
 - **Moneda:** `formatCOP` en `src/domain/money.ts` (unidades menores) en lugar de `src/domain/utils/currency.ts`, que queda como código viejo hasta F6 y exporta otra `formatCOP(amount: number)` en pesos (homonimia, ver 5): el código nuevo importa siempre de `src/domain/money`.
 - **Contratos ampliados respecto de 3.4 (original):** `GoalService.remove(id, { refundAccountId? })`, `refundPreview`, `AccountService.unarchive`, `GoalView.eta`, `targetDate` en metas, `RecurringService.pendingOccurrences()`, `DebtService.registerPayment` con `occurrenceDate`/`description`, y el conjunto de errores tipados de 3.6.
 - **`fast-check` no se añadió:** la prueba aleatoria se hizo con un modelo de referencia propio (sección 8).
-- **`src/app-services/**` no se creó en F2b** (pasa a F4/F5a).
+- **`src/app-services/**` no se creó en F2b**; se creó en F5a (sin commit).
 - **Comentarios obsoletos del código: corregidos.** Se detectaron al actualizar este documento y ya están resueltos:
   - `src/domain/rules/recurrence.ts` (`nearestBiweeklyDate`) decía "EMPATES (SUPUESTO, pendiente de validar por el usuario)"; ahora dice "decisión CONFIRMADA por el usuario" (empate a la fecha posterior; decisión 21). Corregido en `0b34f13`.
   - `src/domain/rules/goalEta.ts` (cabecera) decía "Precedencia (SUPUESTO de la pasada F2b-bis, a validar)"; ahora cita la decisión del usuario (punto 25 y 3.7). Corregido en `0b34f13`. El tratamiento de exactamente 1200 meses (se incluye) pasó el 2026-10-07 de SUPUESTO a decisión del usuario (punto 32 de 10.2); el comentario de `MAX_PACE_MONTHS` en `goalEta.ts` ya lo cita así.
   - Las cabeceras de `categoryRepository`, `settingsRepository` y `reportRepository` (contradicción sobre mutadores en la primera; cabecera ausente o sin la convención de propiedad en las otras) y los límites documentados en `test/helpers/repositoryAst.ts` se corrigieron en `119a972`.
-  - Decisiones del usuario del 2026-10-07 reflejadas en los comentarios del código (VERIFICADO EN CÓDIGO 2026-10-07 en el árbol de trabajo; los commits de esos archivos se hacen aparte y no se citan aquí): `statement.ts` (NO_EXPENSES cuenta como libertad financiera; textos del Índice con el «100%» literal) queda **sin SUPUESTOS**; `notificationPlan.ts` cita la decisión del título del resumen semanal y conserva 4 SUPUESTOS diferidos a F4 (ver [7](#7-notificaciones-y-recurrentes)); `goalEta.ts` cita el tope de 1200 meses incluido.
-  - Quedan menores sin resolver (líneas "Mutador(es)" casi duplicadas, y los títulos de test con `SUPUESTO` ya decididos; el `SUPUESTO` de `amortization.ts` quedó resuelto por la decisión 33, ver [Decisión 33: meses restantes de una deuda con tasa](#decisión-33-meses-restantes-de-una-deuda-con-tasa)): ver [Pendientes para la próxima sesión](#pendientes-para-la-próxima-sesión).
+  - Decisiones del usuario del 2026-10-07 reflejadas en los comentarios del código (VERIFICADO EN CÓDIGO 2026-10-07 en el árbol de trabajo; los commits de esos archivos se hacen aparte y no se citan aquí): `statement.ts` (NO_EXPENSES cuenta como libertad financiera; textos del Índice con el «100%» literal) queda **sin SUPUESTOS**; `notificationPlan.ts` citaba la decisión del título del resumen semanal y conservaba entonces 4 SUPUESTOS diferidos a F4, que el 2026-10-08 pasaron a decisiones 34 a 37 y su cabecera ya las cita (ver [7](#7-notificaciones-y-recurrentes)); `goalEta.ts` cita el tope de 1200 meses incluido.
+  - Quedan menores sin resolver (líneas "Mutador(es)" casi duplicadas; los títulos de test con `SUPUESTO` ya se quitaron en `051bdba` y el `SUPUESTO` de `amortization.ts` quedó resuelto por la decisión 33, ver [Decisión 33: meses restantes de una deuda con tasa](#decisión-33-meses-restantes-de-una-deuda-con-tasa)): ver [Pendientes para la próxima sesión](#pendientes-para-la-próxima-sesión).
