@@ -16,6 +16,9 @@ export const SEGMENTED_RADIUS = 10;
 /** Alto mínimo de un área táctil (guía de accesibilidad de plataforma). */
 export const MIN_TOUCH = 44;
 
+/** Diámetro del botón flotante "Agregar transacción" (Dashboard). */
+export const FAB_SIZE = 56;
+
 /** Fondo del velo detrás de una hoja (ConfirmacionPago.dc.html:35). */
 export const SCRIM_COLOR = 'rgba(14,33,28,0.5)';
 

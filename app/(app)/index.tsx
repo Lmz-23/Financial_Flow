@@ -12,6 +12,7 @@ import { MonthFlowWidget } from '../../src/components/dashboard/MonthFlowWidget'
 import { RecentTransactionsWidget } from '../../src/components/dashboard/RecentTransactionsWidget';
 import { UpcomingPaymentsWidget } from '../../src/components/dashboard/UpcomingPaymentsWidget';
 import { SCREEN_MARGIN } from '../../src/components/ui/ds';
+import { FAB_SIZE } from '../../src/components/ui/ds/constants';
 import {
   useAccounts,
   useDebts,
@@ -40,11 +41,11 @@ export default function DashboardScreen() {
       <DashboardHeader />
       <ScrollView
         contentContainerStyle={{
-          gap: space[5] - 4,
+          gap: space[5],
           paddingTop: space[4],
           paddingHorizontal: SCREEN_MARGIN,
-          // Deja libre el boton flotante (56 px + margenes) al final del scroll.
-          paddingBottom: 110 + insets.bottom,
+          // Deja libre el boton flotante al final del scroll: FAB_SIZE + su margen inferior (space[5]) + holgura (space[6]).
+          paddingBottom: FAB_SIZE + space[5] + space[6] + insets.bottom,
         }}
       >
         <AccountsSummaryWidget summary={accounts} />
