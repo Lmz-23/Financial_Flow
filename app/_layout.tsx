@@ -1,9 +1,11 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Stack } from 'expo-router';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { View, ActivityIndicator } from 'react-native';
+import { ErrorScreen } from '../src/components/feedback/ErrorScreen';
+import { nextFailureCount, safeErrorLogArgs } from '../src/lib/errorScreen';
 import { initializeApp, subscribeToForeground } from '../src/app-services';
 import { useSettingsStore, useThemePreference } from '../src/store/useSettingsStore';
 import { ThemeProvider, useTheme } from '../src/theme';
@@ -21,29 +23,42 @@ function SettingsThemeProvider({ children }: { children: ReactNode }) {
 /** Migraciones, semilla y carga de ajustes. No renderiza rutas hasta que todo está listo. */
 function Initializer({ children }: { children: ReactNode }) {
   const { colors } = useTheme();
-  const [isReady, setIsReady] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
+  const [status, setStatus] = useState<'loading' | 'error' | 'ready'>('loading');
+  const [failureCount, setFailureCount] = useState(0);
+
+  // Nunca registra el error completo (puede traer SQL).
+  const start = useCallback(async (isRetry: boolean): Promise<void> => {
+    try {
+      await initializeApp();
+      setFailureCount(0);
+      setStatus('ready');
+    } catch (err) {
+      console.error(...safeErrorLogArgs('Falló el arranque de la app.', err));
+      setFailureCount((n) => nextFailureCount(n, isRetry));
+      setStatus('error');
+    }
+  }, []);
 
   useEffect(() => {
     async function init() {
-      try {
-        await initializeApp();
-        setIsReady(true);
-      } catch (err) {
-        console.error('Failed to initialize database:', err);
-        setError(err instanceof Error ? err : new Error('Unknown error'));
-      }
+      await start(false);
     }
     init();
-  }, []);
+  }, [start]);
+
+  const retry = useCallback(async () => {
+    setStatus('loading');
+    await start(true);
+  }, [start]);
 
   // Al volver a primer plano se invalida todo (mes en curso, "Hoy", estado de próximos pagos).
-  useEffect(() => (isReady ? subscribeToForeground() : undefined), [isReady]);
+  useEffect(() => (status === 'ready' ? subscribeToForeground() : undefined), [status]);
 
-  if (error || !isReady) {
+  if (status === 'error') return <ErrorScreen onRetry={retry} failureCount={failureCount} />;
+  if (status === 'loading') {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.surfacePage }}>
-        <ActivityIndicator size="large" color={error ? colors.signalDebt : colors.brandPrimary} />
+        <ActivityIndicator size="large" color={colors.brandPrimary} />
       </View>
     );
   }

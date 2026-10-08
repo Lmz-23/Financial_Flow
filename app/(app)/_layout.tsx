@@ -1,6 +1,10 @@
 import { Stack } from 'expo-router';
 
+import { RouteErrorBoundary } from '../../src/components/feedback/RouteErrorBoundary';
 import { useTheme } from '../../src/theme';
+
+/** Excepciones de render en la zona (app): pantalla de error compartida con reintento. */
+export { RouteErrorBoundary as ErrorBoundary };
 
 /**
  * Stack de la app autenticada (sin tabs: el Dashboard es el centro). Las pantallas de F5b se
