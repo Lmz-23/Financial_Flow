@@ -12,13 +12,13 @@
 //   rec:{id}:{occ}:snooze:{fecha}   recordatorio diario tras "Todavía no"
 //   weekly-summary                  domingo 19:00
 //
-// SUPUESTOS (pendientes de confirmar al arrancar F4):
-// - Los avisos de ingresos solo tienen `due` ("¿Ya recibiste X?") y snooze; no hay `pre`.
-// - El toggle de avisos de pago apaga también los avisos de ingresos recurrentes.
-// - Un snooze diario no se duplica con el `pre` ni con el `due` del mismo día.
-// - Con tope, el resumen semanal se reserva primero y el resto se prioriza por cercanía.
+// DECISIONES DEL USUARIO (2026-10-08; docs/ARCHITECTURE.md §10.2, puntos 34 a 37):
+// - 34) Los avisos de ingresos solo tienen `due` ("¿Ya recibiste X?") y snooze; no hay `pre`.
+// - 35) Un solo interruptor (`notifyPaymentReminders`) apaga los avisos de pagos y de ingresos recurrentes.
+// - 36) Un snooze diario no se duplica con el `pre` ni con el `due` del mismo día.
+// - 37) Con tope, el resumen semanal se reserva primero y el resto se prioriza por cercanía de fecha.
 //
-// DECISIÓN DEL USUARIO (2026-10-07): el título del resumen semanal es «Tu resumen semanal está listo».
+// DECISIÓN DEL USUARIO (2026-10-07; punto 31): el título del resumen semanal es «Tu resumen semanal está listo».
 // =============================================================================
 
 import {
