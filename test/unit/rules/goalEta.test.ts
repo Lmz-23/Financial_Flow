@@ -132,7 +132,7 @@ describe('goalEta: tope de 100 anios del ETA por ritmo (F2b-ter)', () => {
   const pace = (missing: number, contribution = 3000) =>
     goalEta({ contributions: [c(ms(2026, 10, 1), contribution)], savedMinor: 0, targetMinor: missing, targetDate: null, now: NOW });
 
-  it('exactamente 1200 meses (100 anios) SE INCLUYE: SUPUESTO, el tope es monthsLeft > 1200', () => {
+  it('exactamente 1200 meses (100 anios) SE INCLUYE: decision confirmada, el tope es monthsLeft > 1200', () => {
     expect(pace(1_200_000)).toEqual({ kind: 'BY_PACE', date: '2126-10-05', monthsLeft: 1200, monthlyAverageMinor: 1000 });
   });
 

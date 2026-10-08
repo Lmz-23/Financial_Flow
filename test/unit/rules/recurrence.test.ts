@@ -155,7 +155,7 @@ describe('nearestBiweeklyDate', () => {
       expect(nearestBiweeklyDate(d)).toBe(d);
     }
   });
-  it('EMPATES: gana la fecha posterior (SUPUESTO)', () => {
+  it('EMPATES: gana la fecha posterior (decision confirmada)', () => {
     // mes de 31 días: día 23 -> 15 (8) vs 31 (8) -> 31
     expect(nearestBiweeklyDate('2025-01-23')).toBe('2025-01-31');
     expect(nearestBiweeklyDate('2025-03-23')).toBe('2025-03-31');
