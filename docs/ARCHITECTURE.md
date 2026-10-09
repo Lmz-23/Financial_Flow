@@ -73,11 +73,13 @@ Estado a fecha 2026-10-08 (HEAD `3642b5f` más el commit pendiente de F5a-fix):
 | F5b | Funcionalidades (por carpetas) | Pendiente (fuera de este ciclo) | |
 | F6 | Limpieza | Pendiente (fuera de este ciclo) | |
 
-**Verificación de F4, F5a, F4-fix y F5a-fix (2026-10-08, informes del ciclo):** vitest 42 archivos / 837 tests en verde; `tsc` en 208 errores (la base heredada era 276 antes de F5a), ninguno en archivos nuevos; lint en 219 problemas (36 errores, 183 avisos; antes de F5a eran 273), ninguno nuevo. El ciclo de F4-fix y F5a-fix se verificó con vitest, `tsc` y lint contra esa base; **no se verificó render real ni dispositivo**. El bundle de Metro falla solo por rutas viejas (primer fallo: `app/debt/add-card.tsx`). Limitaciones: la verificación no incluyó dispositivo (ver pendientes de dispositivo de F4 y de F5a) y las rutas viejas siguen rompiendo el bundle hasta F5b/F6.
+**Verificación de F4, F5a, F4-fix y F5a-fix (2026-10-08, informes del ciclo):** vitest 42 archivos / 837 tests en verde; `tsc` en 208 errores (la base heredada era 276 antes de F5a), ninguno en archivos nuevos; lint en 219 problemas (36 errores, 183 avisos; antes de F5a eran 273), ninguno nuevo. El ciclo de F4-fix y F5a-fix se verificó con vitest, `tsc` y lint contra esa base; **no se verificó render real ni dispositivo**. En ese momento el bundle de Metro fallaba solo por rutas viejas (primer fallo: `app/debt/add-card.tsx`); ya no es así (ver «Estado del árbol»). Limitación: la verificación no incluyó dispositivo (ver pendientes de dispositivo de F4 y de F5a).
 
 Otros commits relacionados: `450af15` (documento de arquitectura inicial), `8357447` (ajuste de dominio: el quincenal ajusta la primera fecha y `formatCOP` sin espacio) y `4e50130` (ajuste de UI: primitivas `ds` en unidades menores). Las actualizaciones posteriores de este documento se commitean aparte y no se citan aquí. El commit `e7fd4a5` es el snapshot previo al rediseño y el tag `pre-mvp` apunta a él (el tag existe en `.git/refs/tags/pre-mvp`; que apunte exactamente a `e7fd4a5` lo declara el usuario y no se ha comprobado leyendo el objeto).
 
-**Estado del árbol (importante).** Tras F5a, los hooks de dominio (`useAccounts`, `useDebts`, `useTransactions`) están reescritos y `app/(tabs)/` se borró, pero las pantallas y componentes antiguos restantes (`app/**` fuera de `app/(app)/`, `src/components/**` previos al rediseño) siguen importando módulos ya retirados (bolsillos, presupuesto, `cashflow` antiguo, repositorios de tarjetas y préstamos). Hasta F5b/F6 el bundle de Metro no resuelve esas rutas (primer fallo: `app/debt/add-card.tsx`) y hay errores preexistentes de `tsc` y de lint: según el informe de verificación del ciclo, 208 errores de `tsc` (base heredada 276 antes de F5a) y 219 problemas de lint (36 errores, 183 avisos; antes 273), ninguno en archivos nuevos (NO VERIFICADO en esta lectura). El dominio, la capa de datos, el tema, las primitivas `ds/`, el adaptador de notificaciones y la capa `app-services/` están verificados con vitest (42 archivos / 837 tests).
+**Estado del árbol (importante).** Tras F5a, los hooks de dominio (`useAccounts`, `useDebts`, `useTransactions`) están reescritos y `app/(tabs)/` se borró, pero las pantallas y componentes antiguos restantes (`app/**` fuera de `app/(app)/`, `src/components/**` previos al rediseño) siguen importando módulos ya retirados (bolsillos, presupuesto, `cashflow` antiguo, repositorios de tarjetas y préstamos). Esas rutas rotas provocaban que el bundle de Metro no resolviera (primer fallo: `app/debt/add-card.tsx`).
+
+**Estado actual (verificado):** las 12 rutas antiguas rotas se aparcaron en `_parked/` (raíz del repo, excluida de tsconfig y eslint; commit «chore(app): aparcar 12 rutas rotas en _parked/ para que el bundle compile»), de modo que `expo export --platform android` compila. Los archivos aparcados se retiran, o se rehacen en su paso de F5b, y `_parked/` se elimina en F6. Cifras vigentes: `tsc` 90 errores, eslint 126 problemas, vitest 853/853 (43 archivos). Las cifras de `tsc` (208) y lint (219) del informe de F4/F5a-fix citadas arriba son las de ese ciclo y quedan superadas por estas. El dominio, la capa de datos, el tema, las primitivas `ds/`, el adaptador de notificaciones y la capa `app-services/` están verificados con vitest.
 
 La guarda estructural de repositorios por AST (`test/helpers/repositoryAst.ts`, `test/unit/repositoryOwnership.test.ts`) está commiteada (`119a972`) y verificada; sus límites están en [3.5](#35-propiedad-del-usuario-y-convención-de-repositorios). La corrección de los comentarios obsoletos del código está hecha (ver [12.2](#122-desviaciones-y-ampliaciones-posteriores)).
 
@@ -104,11 +106,12 @@ Esta subsección es el único lugar donde se listan; el resto del documento los 
 - **F5a, menores a decidir al conectar F4:** cualquier cambio de `settings` dispara reconcile (incluido tema y widgets). Algunos widgets del Dashboard usan `Pressable`/`View` de react-native directamente (desviación del criterio literal «solo primitivas ds», sin colores fijos).
 - **F5a, pendiente de dispositivo:** `Stack.Protected` y su redirect al completar el onboarding; modo oscuro; rutas de destino (inexistentes hasta F5b); y que no haya bucle de renders ni doble consulta en StrictMode en `useDomainQuery`.
 - **F5a, textos inferidos que el usuario podría querer cambiar:** fechas «Hoy/Ayer/día de semana/15 oct», «Vencido», «Sin definir».
-- **F5b:** pantallas por carpetas: cuentas, transacciones, deudas, metas, recurrentes, onboarding de 4 pasos y ajustes. Se parte en 4 ciclos, cada uno con su Review y su Verification:
+- **F5b:** pantallas por carpetas: cuentas, transacciones, deudas, metas, recurrentes, onboarding de 4 pasos y ajustes. Se parte en 5 ciclos, cada uno con su Review y su Verification (el quinto, F5b-5, es el detalle de Cashflow, por decisión del usuario del 2026-10-08):
   - **F5b-1 (onboarding; prioridad alta, decisión 41 de 10.2):** sin él, con BD limpia, la app arranca en una ruta inexistente `onboarding`. Incluye la pantalla de error con reintento si `initializeApp` falla (`app/_layout.tsx` ~L38-44), resuelta **junto con** un error boundary para consultas que lancen en render (`useDomainQuery`): una sola solución, no dos parches.
   - **F5b-2:** cuentas y movimientos.
   - **F5b-3:** deudas, metas y recurrentes. Incluye el texto confirmado para `monthsRemaining = null` (decisión 38; si se detecta un problema de longitud o espacio, se consulta al usuario antes de cambiarlo) y la edición de un próximo pago en la pantalla de recurrentes (decisión 39).
   - **F5b-4:** Ajustes, con la etiqueta del interruptor «Recordatorios de pagos y cobros» (decisión 35), que **no existe en código**.
+  - **F5b-5 (detalle de Cashflow; decisión del usuario, 2026-10-08):** ciclo propio, al final de F5b (después de F5b-1 a F5b-4), con su Review y su Verification. Rehace `app/(app)/cashflow.tsx` (origen: `cashflow/index.tsx`, hoy aparcado en `_parked/`), apoyada en `ReportService`, que reemplaza a `CashflowService`.
   - **Premisa a revisar en F5b-3 (edición/confirmación de recurrentes):** el usuario decidió que a los ingresos no se les ofrece «marcar» (decisión 45), pero la decisión 34 solo trata de avisos y la ruta `/recurring/[id]/confirm` podría aplicar a ingresos. Si se puede confirmar un ingreso como recibido, hay que revisar la frase de cierre «También puedes marcarlo tú mismo cuando quieras.».
 - **Backend-coder (ítem aparte, decisión 40):** `RecurringService.upcoming()` debe exponer la fecha de la ocurrencia confirmada para poder llamar a `unconfirm` al desmarcar un pago (D14).
 - **F6 (limpieza):** retirar el shim de `colors`, las primitivas antiguas de `src/components/ui/`, `src/domain/utils/` con su `formatCOP` homónima (ver [5](#5-sistema-de-tema)), hooks y pantallas antiguos, el alias de `expo-sqlite` y `test/mocks/expo-sqlite.ts` en `vitest.config.ts` (siguen presentes), y endurecer a `error` las reglas de ESLint de fronteras y de `colors` (hoy `warn`).
@@ -157,7 +160,7 @@ Resto de pendientes de guarda y pruebas:
   - `src/domain/rules/notificationPlan.ts`: **sin SUPUESTOS**; su cabecera ya cita las decisiones 34 a 37 y la 31 (VERIFICADO EN CÓDIGO 2026-10-08; ver [7](#7-notificaciones-y-recurrentes)).
   - `src/domain/rules/amortization.ts`: **ya no conserva ninguno** (decisión 33, 2026-10-08): [Decisión 33: meses restantes de una deuda con tasa](#decisión-33-meses-restantes-de-una-deuda-con-tasa).
 - RESUELTO (commit `051bdba`; VERIFICADO EN CÓDIGO 2026-10-08: ya no hay «SUPUESTO» en `test/unit/rules/` ni «20.001» en `amortization.test.ts`): los títulos de test con «SUPUESTO» ya decididos (`goalEta.test.ts`, tope de 1200 meses; `recurrence.test.ts`, empate quincenal) y el comentario de cuota de `amortization.test.ts`.
-- Texto fijo heredado con erratas en `app/cashflow/index.tsx` L272 («Tu ingreso pasivo cubre el 100% de tus gastos. LosAssets que tengasgenerarán ingresos sin necesidad de trabajar.»). Es la pantalla antigua, que se retira en F6; no usa `describeCashflowIndex` y no contradice el «100%» literal. No requiere corrección.
+- Texto fijo heredado con erratas en `app/cashflow/index.tsx` L272 («Tu ingreso pasivo cubre el 100% de tus gastos. LosAssets que tengasgenerarán ingresos sin necesidad de trabajar.»). Es la pantalla antigua, hoy aparcada en `_parked/` (se rehace en F5b-5 como `app/(app)/cashflow.tsx`; `_parked/` se elimina en F6), de modo que el texto defectuoso no sobrevive a la rehecha; no usa `describeCashflowIndex` y no contradice el «100%» literal. No requiere corrección.
 - Nota sobre el «100%» literal: con índices superiores a 100% el mensaje de libertad financiera subestima el valor real (con 150% dice «cubre el 100%»). Consecuencia asumida por el usuario (punto 30 de 10.2); si más adelante se quiere mostrar el porcentaje real, es un cambio de copy del usuario, no un error.
 - Líneas "Mutador(es)" casi duplicadas en las cabeceras de `adjustmentRepository`, `goalContributionRepository` y `transactionRepository`.
 - `goalEta.ts:8` mide 125 caracteres.
@@ -232,7 +235,7 @@ Las columnas «Solo simulación» de las filas sin plan se deducen de la regla (
 3. El hook `pipeline-advance.sh` solo leía `last_assistant_message`; el usuario ya lo corrigió para leer el transcript del subagente.
 4. El estado del pipeline (`.claude/pipeline-state.json`) lo edita solo el usuario.
 
-Los supuestos 1 a 20 están aprobados (sección 10.2) y R1 y R2 están resueltos (sección 10.1). Las decisiones posteriores (2026-10-04 a 2026-10-08) están en las secciones 10.2 (21 a 45) y 11. La decisión sobre los meses restantes de una deuda con tasa quedó **cerrada** el 2026-10-08 (decisión 33; ver su subsección más arriba).
+Los supuestos 1 a 20 están aprobados (sección 10.2) y R1 y R2 están resueltos (sección 10.1). Las decisiones posteriores (2026-10-04 a 2026-10-08) están en las secciones 10.2 (21 a 49) y 11. La decisión sobre los meses restantes de una deuda con tasa quedó **cerrada** el 2026-10-08 (decisión 33; ver su subsección más arriba).
 
 ---
 
@@ -263,7 +266,7 @@ Comprobados leyendo el código del estado previo al rediseño (commit `e7fd4a5`,
     - "Agregar deuda" no pide fecha de pago (`dueLabel: 'Sin definir'`, Dashboard.dc.html:1410). Se resuelve con un campo de fecha opcional (D7).
     - La hoja "Ya pagué" no tiene selector de cuenta. Se resuelve: siempre pide cuenta y preselecciona la predeterminada del recurrente (D8).
     - La pantalla "Agregar recurrente" no pide la cuenta predeterminada (`defaultAccountId`). Se resuelve: debe pedir ese campo (D8).
-    - El paso 2 del onboarding no pide fecha. Se resuelve con un campo de fecha opcional (D7).
+    - El paso 2 del onboarding no pide fecha. D7 lo resolvía con un campo de fecha opcional; en F5b-1 se decidió **no** añadirlo (A12, decisión 46): la fecha se completa en Recurrentes (F5b-3).
     - DESIGN_SPEC dice que cerrar una meta genera una Transaction; la decisión del usuario sobre el cierre de metas lo anula (sección 11).
 
 ---
@@ -647,9 +650,9 @@ El dominio se construye con `createDomain(db, { userId?, now? })` (`src/domain/c
 - `autoActivate(tx, w)` = `UPDATE … SET w=1 WHERE w IS NULL`. Los widgets se activan solo con la primera entidad, siguiendo el spec y no el prototipo, que activa siempre (`debtActive: true`) (D10).
 
 **OnboardingService**
-- `complete(draft)`: una sola transacción con las cuentas (con OPENING), los recurrentes de ingreso y gasto del paso 2 (`nextDueDate` NULL, salvo que el usuario indique la fecha opcional; D7), los flags del paso 3 (1 o 0 según la elección) y `onboardingCompletedAt`.
-- El borrador vive en un store zustand no persistido. Volver atrás no duplica nada. Si la app se cierra a mitad, se pierde el borrador (son 4 pasos cortos; SUPUESTO aceptable).
-- Los recurrentes del onboarding sin fecha quedan "sin fecha" y Próximos pagos invita a completarla. Hasta entonces no hay notificaciones (D7).
+- `complete(draft)`: una sola transacción con las cuentas (con OPENING), los recurrentes de ingreso y gasto del paso 2 (`nextDueDate` NULL; en F5b-1 el paso 2 no pide fecha, decisión 46 / A12, aunque el servicio acepta una), los flags del paso 3 (1 para el widget activado; NULL, sin escribir, para el no activado, decisión 46 / A9; verificado en `OnboardingService.ts`) y `onboardingCompletedAt`.
+- El borrador vive en un store zustand no persistido. Volver atrás no duplica nada. Si la app se cierra a mitad, se pierde el borrador (son 4 pasos cortos; aceptado por el usuario el 2026-10-08, A6, decisión 46).
+- Los recurrentes del onboarding quedan "sin fecha" y Próximos pagos invita a completarla (la fecha se completa en Recurrentes, F5b-3). Hasta entonces no hay notificaciones (D7).
 
 **Atomicidad:** la frontera de la transacción es siempre el método del servicio. Los repositorios exponen consultas síncronas (`.get()`, `.all()`, `.run()`) que reciben el `tx` como parámetro. No hay `await` dentro de una transacción. better-sqlite3 lanza error si el callback devuelve una promesa, así que los tests detectan un uso asíncrono por error.
 
@@ -873,7 +876,7 @@ La paleta del Design System reemplaza la actual.
 | 14 | Agregar recurrente | `app/(app)/recurring/new.tsx` | — | Crear. **Debe pedir la cuenta predeterminada (`defaultAccountId`)**, campo que no estaba en el diseño original (D8). Si el recurrente es quincenal (días 15 y último día del mes), debe llamar a `normalizeAnchor(fecha, frecuencia)` **en vivo** y mostrar el ajuste de la primera fecha a la más cercana válida (en empate, la posterior) mientras el usuario elige, nunca en silencio tras guardar (3.4; ambigüedad resuelta por el usuario) |
 | 15 | Ajustes | `app/(app)/settings.tsx` | `(tabs)/settings.tsx`, `settings/*` | Rehacer en una sola pantalla |
 | + | Hoja de confirmación de pago ("Ya pagué") | `app/(app)/recurring/[id]/confirm.tsx` (param: occurrence) | — | Crear. Con **selector de cuenta**, que el diseño no muestra: siempre pide cuenta y preselecciona la predeterminada del recurrente (D8) |
-| + | Onboarding: Cuentas, Flujo, Invitación, Todo listo | `app/onboarding/{accounts,flow,widgets,done}.tsx` | `(auth)/onboarding/*` | Rehacer; se pasa de `(auth)` a `onboarding`. El paso 2 admite fecha opcional (D7) |
+| + | Onboarding: Cuentas, Flujo, Invitación, Todo listo | `app/onboarding/{accounts,flow,widgets,done}.tsx` | `(auth)/onboarding/*` | Rehacer; se pasa de `(auth)` a `onboarding`. Pasos y rutas: `accounts`, `flow`, `widgets`, `done` bajo `app/onboarding/`. Paso 2 (Flujo): el mockup y F5b-1 permiten solo UN ingreso y UN gasto recurrentes, ambos opcionales, con nombre, monto aproximado y frecuencia Semanal/Quincenal/Mensual (A11); sin fecha ni pasivo en F5b-1 (A12). El paso 2 **no** admite fecha opcional en F5b-1 (A12, decisión 46): la fecha se completa en Recurrentes (F5b-3) |
 
 **Se retiran:** `(tabs)/*`, `(modals)/category-detail` (las categorías se crean en línea), `settings/{categories,distribution,appearance,notifications,index}`, `pockets/*`, `debt/card/[id]`, `debt/loan/[id]` y los `_layout` correspondientes.
 
@@ -986,7 +989,7 @@ La paleta del Design System reemplaza la actual.
 | F3 Tema | frontend-coder | tokens, ThemeProvider, fuentes, primitivas, shim de `colors`, regla ESLint; dueño de `app/_layout.tsx` (proveedores, splash, init) | F0 (en paralelo con F1 y F2) | `src/theme/**`, `src/components/ui/**`, `app/_layout.tsx`, `eslint.config.js` (solo la regla) |
 | F4 Plataforma | mobile-coder | Adaptador de notificaciones (reconcile, categorías, listener de respuesta, permisos, canal Android) | F2a (plan), F2b (upcoming, snooze) | `src/platform/**` |
 | F5a Navegación y Dashboard | frontend-coder | Borrar `(tabs)`, crear `(app)/_layout` y onboarding con guard, Dashboard, stores y hooks base | F2b, F3 | `app/(app)/_layout.tsx`, `app/(app)/index.tsx`, `app/onboarding/**`, `src/store/**`, `src/hooks/index.ts` |
-| F5b Funcionalidades (en paralelo, por carpetas) | frontend-coder / mobile-coder | (i) cuentas y transacciones; (ii) deudas; (iii) metas; (iv) recurrentes, hoja de confirmación y ajustes (con F4); (v) cashflow | F5a | Cada subequipo es dueño de su carpeta `app/(app)/<x>/**` y de su `src/hooks/use<X>.ts` |
+| F5b Funcionalidades (en paralelo, por carpetas) | frontend-coder / mobile-coder | (i) cuentas y transacciones; (ii) deudas; (iii) metas; (iv) recurrentes, hoja de confirmación y ajustes (con F4); (v) cashflow (ciclo propio F5b-5, al final de F5b, después de F5b-1 a F5b-4) | F5a | Cada subequipo es dueño de su carpeta `app/(app)/<x>/**` y de su `src/hooks/use<X>.ts` |
 | F6 Limpieza | backend-coder + frontend-coder | Borrar shim, pantallas, hooks y tests viejos; ESLint en error | F5b | Lo retirado |
 
 **Paralelización segura:** F1 ∥ F2a ∥ F3; F4 ∥ F5a; los cinco subequipos de F5b entre sí. **Archivos compartidos con un solo dueño:** `src/hooks/index.ts` (F5a; los subequipos importan directamente su hook en vez de editar el barrel), `app/_layout.tsx` (F3), `app.json`, `package.json` y la config (F0; quien necesite una dependencia la pide a devops).
@@ -1017,7 +1020,7 @@ El estado actual de cada fase está en [Estado de implementación](#estado-de-im
 - **R10.** `UPDATE/DELETE ... RETURNING` en expo-sqlite (la propiedad del usuario en los repositorios depende de ello; 3.5). Requiere SQLite ≥ 3.35 (el paquete trae 3.50.3 según el informe). NO probado en dispositivo. Plan B: `run()` y `changes`.
 - **R11.** Las FK de la BD no incluyen `userId`: un `INSERT` con `userId` de B y un `accountId` de A lo acepta la BD. Se mitiga con la validación de todos los ids embebidos en los servicios y con la guarda estructural (3.5). Opción futura no abordada: FK compuestas `(id, userId)` con migración.
 - **R12.** Las guardas estructurales verifican forma, no semántica: la guarda de repositorios (AST) comprueba que el `where` referencia `userId`, no que el filtro sea correcto (límites completos en 3.5, incluida su dependencia de `parseDiagnostics`, API interna de TypeScript); lo cubren los tests de comportamiento y la prueba aleatoria (por muestreo).
-- **R13.** Estado del árbol: hooks y pantallas antiguos importan módulos retirados; el bundle no resuelve hasta F5/F6 y hay errores `tsc` y lint preexistentes.
+- **R13.** Estado del árbol: hooks y componentes antiguos siguen importando módulos retirados y hay errores `tsc` y lint preexistentes (tsc 90 errores, eslint 126 problemas). Las 12 rutas antiguas rotas se aparcaron en `_parked/`, por lo que el bundle compila (`expo export --platform android`); ver [Estado de implementación](#estado-de-implementación).
 - **R14.** Versiones de Expo desalineadas (14 paquetes) y `async-storage` 3.1.1 frente a la 2.2.0 esperada por el SDK: pendiente de alinear antes de probar en dispositivo (según el informe de verificación; no se volvió a ejecutar la comprobación).
 
 ### 10.2 Decisiones aprobadas
@@ -1030,7 +1033,7 @@ Fecha de aprobación de los puntos 1 a 20: **2026-10-03**. Quedan todos aprobado
 4. Eliminar una meta activa devuelve cada aporte a su cuenta; las metas gastadas no se pueden eliminar. (Ampliado por el punto 23: los aportes de cuentas archivadas se redirigen a una cuenta activa elegida por el usuario.)
 5. Política de "recuérdamelo luego": un aviso diario a `reminderHour`, hasta 7 días después del vencimiento.
 6. "Quincenal" (BIWEEKLY) = los días 15 y último día del mes. No es cada 14 días. (Completado por el punto 21: qué pasa con la primera fecha.)
-7. "Agregar deuda" y el paso 2 del onboarding necesitan un campo de fecha (opcional); sin fecha no hay recordatorios.
+7. "Agregar deuda" y el paso 2 del onboarding necesitan un campo de fecha (opcional); sin fecha no hay recordatorios. Precisión (2026-10-08, decisión 46 / A12): en F5b-1 el paso 2 no incluye el campo; la fecha se completa en Recurrentes (F5b-3).
 8. La hoja "Ya pagué" incluye un selector de cuenta, preseleccionando la cuenta predeterminada del recurrente. La pantalla "Agregar recurrente" debe pedir esa cuenta predeterminada (`defaultAccountId`).
 9. Sin transferencias entre cuentas ni edición de transacciones en el MVP.
 10. Los widgets se activan solo con la primera entidad (estado NULL), no con cada alta como en el prototipo.
@@ -1083,6 +1086,37 @@ Nota sobre las decisiones 34 a 37: la cabecera de `src/domain/rules/notification
 43. **Separaciones del Dashboard (2026-10-08; CONFIRMADA por el usuario).** El gap de las filas de próximos pagos es `space[3]` (12) y el gap entre widgets es `space[5]` (24). `InactiveWidgets` también pasa a `space[3]`.
 44. **Holgura del FAB derivada de tokens (2026-10-08; CONFIRMADA por el usuario).** `FAB_SIZE` (56, en `src/components/ui/ds/constants.ts`) + `space[5]` + `space[6]` + `insets.bottom` = 112 px, 2 px más que el 110 original. El usuario lo aceptó: prefiere derivar de tokens a preservar un número arbitrario.
 45. **Texto de aviso de próximos pagos por tipo (2026-10-08; CONFIRMADA por el usuario).** Lo genera `upcomingNoticeText` en `src/lib/upcomingNotice.ts`. Pagos: «Te avisamos 2 días antes y el día del vencimiento.». Ingresos: «Te avisamos el día en que esperamos el ingreso.». Lista mixta: ambos textos, pagos primero. La frase «También puedes marcarlo tú mismo cuando quieras.» solo se añade si hay al menos un pago; con solo ingresos no aparece; con la lista vacía no hay párrafo. Alinea el texto con la decisión 34.
+
+**Decisiones de F5b-1 (onboarding, pantalla de error y error boundary; informe del analyst A1-A18, tabla del Orquestador y aprobación del usuario del 2026-10-08, CONFIRMADAS por el usuario):**
+
+46. **Tabla A1-A18 de F5b-1 (2026-10-08; APROBADA por el usuario, con una excepción: A9).** El usuario aprobó la tabla propuesta tal cual, salvo A9. Cada fila, como se aprobó:
+
+    | # | Tema | Decisión aprobada |
+    |---|---|---|
+    | A8 | ¿Cuándo se llama a `complete`? | Al pulsar «Ir a mi panel» (paso 4). El botón queda en `loading` y «Volver» deshabilitado mientras se guarda. (Razón: el guard desmonta el onboarding en cuanto `complete` hace COMMIT; llamarlo en el paso 3 haría invisible «Todo listo».) |
+    | A9 | «Prefiero explorarlo yo mismo» / widgets sin activar en el paso 3 | **Excepción a la propuesta.** Los widgets sin activar quedan en **NULL** (no 0). Es una regla de producto: un 0 explícito bloquearía la auto-activación futura por nudges (primera deuda, primera meta, ingreso pasivo; I6 y D10) y contradiría el copy «lo encuentras después». Ya implementado en el commit de dominio «A9» (`32b77c4`): `OnboardingService.complete` escribe 1 para el widget activado y no escribe el flag si es `null` o está ausente. No existía una decisión previa sobre A9 en este documento, por lo que se integra aquí y no tiene número propio. |
+    | A3 | Paso 1 | «Efectivo» es una cuenta real del borrador con saldo editable (vacío = 0). Se exige al menos una cuenta. |
+    | A4 | Chips de tipo | Abren el formulario con nombre y tipo prellenados. Correspondencia con `CASH`, `SAVINGS`, `CHECKING` y `DIGITAL_WALLET` confirmada. |
+    | A5 | Saldo inicial | Sin negativos, porque `MoneyInput` no escribe signo. Vacío = 0. |
+    | A6 | Cerrar la app a mitad | Aceptado: se pierde el borrador y se reinicia desde el paso 1. |
+    | A7 | Reglas del borrador | Recortar espacios y bloquear nombres de cuenta duplicados sin distinguir mayúsculas. Sin límite de cuentas. El borrador se vacía tras un `complete` exitoso. |
+    | A10 | Errores de `complete` | `VALIDATION`: mensaje junto al campo. `ONBOARDING_ALREADY_COMPLETED`: se trata como éxito y se recargan los ajustes. Desconocido: mensaje genérico con reintentar, conservando el borrador. |
+    | A11 | Paso 2 | Opcional y con un ingreso y un gasto como en el mockup. Si hay nombre sin monto, se bloquea con un mensaje. |
+    | A12 | Fecha y pasivo en el paso 2 | No en F5b-1: no hay diseño. La fecha se completa en Recurrentes (F5b-3). |
+    | A1/A2 | Rutas y heredados | Los nombres de la sección 6 (`accounts`, `flow`, `widgets`, `done` bajo `app/onboarding/`). Se borra `app/(auth)/` en F5b-1 para evitar el choque de rutas. `useUserStore` queda para F6 si algo lo importa. |
+    | A15 | Alcance del boundary | `(app)` y también el onboarding, es decir, todo salvo el layout raíz. |
+    | A16 | Qué hace «Reintentar» | En arranque, vuelve a ejecutar `initializeApp`. En el boundary, `invalidateAll` y vuelve a renderizar. Los dos con protección contra doble toque. |
+    | A18 | Accesibilidad | Roles y estados de los controles, objetivos táctiles de 44 px y progreso «paso X de 4» anunciado a lectores de pantalla. Escalado de fuente del sistema sin recortes. Se verifica en dispositivo. |
+
+    A13 y A14 (copy y tratamiento de errores de la pantalla de error) quedan cubiertas por el copy aprobado en las decisiones 47 y 48. **A17** (validar el redbox de desarrollo frente a la pantalla de error) se verifica en dispositivo; sigue pendiente de dispositivo.
+47. **Copy de la pantalla de error, única para arranque y boundary (2026-10-08; CONFIRMADA por el usuario).** Título: «Algo salió mal». Texto: «No pudimos cargar la aplicación. Inténtalo de nuevo.». Botón: «Reintentar». Tras 3 fallos seguidos (el fallo inicial cuenta como el 1.º) se añade: «Si el problema continúa, cierra la app y vuelve a abrirla.». Nunca muestra el mensaje técnico ni datos financieros.
+48. **Copy de errores del onboarding (2026-10-08; CONFIRMADA por el usuario).** Validación: «Revisa los datos marcados e inténtalo de nuevo.». Genérico: «No pudimos guardar tu información. Inténtalo de nuevo.». Textos de validación en cliente (APROBADOS por el usuario, literales):
+    - Nombre de cuenta vacío (junto al campo, formulario de cuenta del paso 1): «Escribe un nombre para la cuenta.»
+    - Nombre de cuenta duplicado, sin distinguir mayúsculas (junto al campo del nombre): «Ya tienes una cuenta con ese nombre.»
+    - Ninguna cuenta (bajo la lista de cuentas al pulsar «Continuar» sin ninguna): «Agrega al menos una cuenta para continuar.»
+    - Paso 2, nombre sin monto (junto al campo del monto, en la fila del ingreso o del gasto): «Escribe un monto mayor que cero.»
+    - Paso 2, monto con nombre vacío: «Escribe un nombre para continuar.»
+49. **Frase del paso 4 «Todo listo» (2026-10-08; CONFIRMADA por el usuario).** El usuario la reescribió: «Puedes activar Deudas, Metas o el Índice de Flujo cuando los necesites — nunca pierdes lo que ya armaste aquí.». Sustituye a la del mockup («Actívate cuando quieras más — nunca pierdes lo que ya armaste.»), ambigua sobre qué se activa.
 
 Con estas decisiones no queda ninguna decisión abierta en esta lista; los textos inferidos por F5a que el usuario podría querer cambiar figuran en [Pendientes](#pendientes-para-la-próxima-sesión).
 
