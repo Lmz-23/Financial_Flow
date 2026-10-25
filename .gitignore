@@ -45,4 +45,13 @@ example
 # AIEOS / herramientas locales
 .opencode/
 .claude/pipeline-state.json
-.claude/agent-memory/
+
+# Contexto y configuración de IA (Claude, OpenCode, etc.): solo local, no se publica.
+.claude/
+CLAUDE.md
+AGENTS.md
+GEMINI.md
+.opencode/
+opencode.json
+opencode.jsonc
+docs/ESTADO.md
