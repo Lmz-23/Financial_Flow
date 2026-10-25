@@ -31,6 +31,11 @@ export const routes = {
   debtNew: () => href('/debts/new'),
   goals: () => href('/goals'),
   goalNew: () => href('/goals/new'),
+  /** Pasos del onboarding (F5b-1; decisión 46, A1). */
+  onboardingAccounts: () => href('/onboarding/accounts'),
+  onboardingFlow: () => href('/onboarding/flow'),
+  onboardingWidgets: () => href('/onboarding/widgets'),
+  onboardingDone: () => href('/onboarding/done'),
 } as const;
 
 /** Destino al tocar el circulo de un proximo pago pendiente: una cuota de deuda va al flujo de pago de deuda (I4). */
