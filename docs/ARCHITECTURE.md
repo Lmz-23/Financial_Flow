@@ -83,7 +83,7 @@ Otros commits relacionados: `450af15` (documento de arquitectura inicial), `8357
 
 La guarda estructural de repositorios por AST (`test/helpers/repositoryAst.ts`, `test/unit/repositoryOwnership.test.ts`) está commiteada (`119a972`) y verificada; sus límites están en [3.5](#35-propiedad-del-usuario-y-convención-de-repositorios). La corrección de los comentarios obsoletos del código está hecha (ver [12.2](#122-desviaciones-y-ampliaciones-posteriores)).
 
-`.claude/agent-memory/` pasa a estar versionada. Contiene la memoria de proyecto de los agentes (una carpeta por agente); la del orquestador incluye el estado de traspaso entre sesiones.
+`.claude/agent-memory/` estuvo versionada del 2026-10-07 al 2026-10-25. Al retirar AIEOS se borró y quedó en `.gitignore`; el estado de traspaso entre sesiones vive ahora en `docs/ESTADO.md`.
 
 ### Pendientes para la próxima sesión
 

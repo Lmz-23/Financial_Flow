@@ -45,3 +45,4 @@ example
 # AIEOS / herramientas locales
 .opencode/
 .claude/pipeline-state.json
+.claude/agent-memory/
