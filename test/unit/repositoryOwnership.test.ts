@@ -1,6 +1,6 @@
 // GUARDA ESTRUCTURAL (por AST) de la propiedad del usuario en repositorios y servicios.
 //
-// El analizador vive en test/helpers/repositoryAst.ts (lee ahi sus reglas R1-R6/S1-S2 y sus LIMITES). Aqui:
+// El analizador vive en test/helpers/repositoryAst.ts (lee ahi sus reglas R1-R7/S1-S2 y sus LIMITES). Aqui:
 //  1. se aplica sobre el codigo REAL: cada `src/database/repositories/*Repository.ts` descubierto en disco
 //     y cada `src/domain/services/*.ts` (un repositorio o servicio nuevo no se escapa por no estar en una lista);
 //  2. se prueba el PROPIO analizador con fuentes sinteticas (aceptadas y rechazadas) que incluyen los casos
@@ -12,9 +12,10 @@
 //    pertenezca a la tabla consultada, ni el operador logico (`or(eq(t.userId, userId), <otra cosa>)` pasa),
 //    ni las tablas unidas con JOIN, ni el resto del predicado;
 //  - `eq/and/or/sql` se reconocen por nombre, no por origen (drizzle-orm);
-//  - la clausula `.set({...})` de los `update` no se inspecciona (reasignar `userId` a otro usuario existente
-//    no lo ve ningun mecanismo: pendiente); el `sql` solo exige un `${userId}` y una columna de propietario,
-//    sin relacionarlos, y cualquier `<x>.userId` cuenta como columna (incluso `row.userId`);
+//  - la clausula `.set(...)` de los `update` SI se inspecciona (R7: sin `userId`, spread ni claves calculadas
+//    arbitrarias; caso i1s), pero solo en los repositorios: un UPDATE por SQL crudo fuera de ellos lo para la BD
+//    (trigger OWNER_IMMUTABLE de 0001_owner_triggers.sql); el `sql` solo exige un `${userId}` y una columna de
+//    propietario, sin relacionarlos, y cualquier `<x>.userId` cuenta como columna (incluso `row.userId`);
 //  - un segundo `.where` fuera de la cadena, las asignaciones posteriores al `export const` (monkeypatch,
 //    `Object.assign`, sobrescribir un metodo), las consultas dentro de helpers de modulo, los alias de `userId`
 //    y los servicios que creen filas con un metodo distinto de `insert` quedan fuera del analisis;
@@ -23,7 +24,7 @@
 //  - el analizador usa `parseDiagnostics`, API interna de TypeScript (comprobada con `~6.0.3`): puede romperse
 //    al actualizar `typescript`. Detalle de cada limite en la cabecera de test/helpers/repositoryAst.ts;
 //  - que `ctx.userId` sea el del contexto correcto (lo decide createDomain);
-//  - la integridad entre usuarios que la BD no impone (FK simples): ver ownership.test.ts de repositorios.
+//  - la integridad entre usuarios en la BD: la imponen los triggers (test/integration/schema/owner_triggers.test.ts).
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -435,6 +436,59 @@ const REJECT: [string, string, RegExp][] = [
   ],
 ];
 
+// ---- R7: la clausula `.set(...)` de los update no puede reasignar `userId`.
+const UPD = (setArg: string, pre = '') =>
+  `rename(db: DbOrTx, userId: string, id: string, name: string) {
+     ${pre}
+     return db.update(accounts).set(${setArg}).where(owned(userId, id)).returning({ id: accounts.id }).all().length;
+   }`;
+
+ACCEPT.push(
+  ['(R7) update con .set literal sin userId', UPD('{ name, updatedAt: new Date(0) }')],
+  [
+    '(R7) update con .set(set) construido con asignaciones x.campo = ... (patron de debt/goal/recurring)',
+    UPD('set', 'const set: Record<string, unknown> = { updatedAt: new Date(0) };\n     if (name !== undefined) set.name = name;'),
+  ],
+);
+
+REJECT.push(
+  ['(R7) .set literal con userId', UPD("{ name, userId: 'otro-usuario' }"), /reasigna `userId`/],
+  ['(R7) .set literal con la columna SQL user_id', UPD("{ name, user_id: 'otro-usuario' }"), /reasigna `userId`/],
+  ['(R7) .set literal con userId shorthand', UPD('{ userId }'), /reasigna `userId`/],
+  ['(R7) .set literal con spread', UPD('{ name, ...extra }', 'const extra = {};'), /spread/],
+  ['(R7) .set con clave calculada arbitraria', UPD("{ [col]: 'x' }", "const col = 'userId';"), /clave calculada/],
+  [
+    '(R7) .set(set) con set.userId = ...',
+    UPD('set', "const set: Record<string, unknown> = { name };\n     set.userId = 'otro-usuario';"),
+    /`set\.userId = \.\.\.` reasigna `userId`/,
+  ],
+  [
+    '(R7) .set(set) con set[k] = ...',
+    UPD('set', "const set: Record<string, unknown> = { name };\n     set['user' + 'Id'] = 'x';"),
+    /no verificable/,
+  ],
+  [
+    '(R7) .set(set) alterado con Object.assign',
+    UPD('set', "const set: Record<string, unknown> = { name };\n     Object.assign(set, { userId: 'x' });"),
+    /no verificable/,
+  ],
+  [
+    '(R7) .set(set) con spread en su literal',
+    UPD('set', 'const set: Record<string, unknown> = { ...name };'),
+    /spread/,
+  ],
+  ['(R7) .set(set) con let', UPD('set', 'let set: Record<string, unknown> = { name };'), /`const` con un literal/],
+  ['(R7) .set(<llamada>) no verificable', UPD('build(name)'), /no es verificable/],
+  [
+    '(R6/R7) insert con onConflictDoUpdate (UPDATE encubierto)',
+    `insert(db: DbOrTx, v: { userId: string }): string {
+       db.insert(accounts).values({ id: 'x', userId: v.userId }).onConflictDoUpdate({ target: accounts.id, set: { userId: v.userId } }).run();
+       return 'x';
+     }`,
+    /onConflictDoUpdate/,
+  ],
+);
+
 describe('guarda estructural (AST): el propio analizador sobre fuentes sinteticas', () => {
   it.each(ACCEPT)('ACEPTA: %s', (_name, members) => {
     expect(analyze(members)).toEqual([]);
@@ -453,6 +507,24 @@ describe('guarda estructural (AST): el propio analizador sobre fuentes sintetica
       `a(db: DbOrTx, userId: string, { userId }: { userId: string }) { return db.select().from(accounts).where(eq(accounts.userId, userId)).all(); }`,
     );
     expect(v.join('\n')).toMatch(/redeclara `userId`/);
+  });
+
+  it('(R7) clave calculada [MAPA[k]] con un const literal del archivo sin userId se acepta (patron de settings)', () => {
+    const head = `${HEAD}const COL = { a: 'widgetCashflow', b: 'widgetDebts' } as const;\n`;
+    expect(analyze(UPD("{ [COL[name as 'a']]: 1 }"), head)).toEqual([]);
+  });
+
+  it('(R7) clave calculada [MAPA[k]] se rechaza si el mapa contiene userId o se modifica', () => {
+    const withOwner = `${HEAD}const COL = { a: 'widgetCashflow', b: 'userId' } as const;\n`;
+    expect(analyze(UPD("{ [COL[name as 'a']]: 1 }"), withOwner).join('\n')).toMatch(/clave calculada/);
+    const mutated = `${HEAD}const COL: Record<string, string> = { a: 'widgetCashflow' };\nCOL['a'] = 'userId';\n`;
+    expect(analyze(UPD("{ [COL[name]]: 1 }"), mutated).join('\n')).toMatch(/clave calculada/);
+    const passed = `${HEAD}const COL = { a: 'widgetCashflow' };\nObject.freeze(COL);\n`;
+    expect(analyze(UPD("{ [COL[name as 'a']]: 1 }"), passed).join('\n')).toMatch(/clave calculada/);
+    const destructured = `${HEAD}const COL: Record<string, string> = { a: 'widgetCashflow' };\n[COL['a']] = ['userId'];\n`;
+    expect(analyze(UPD("{ [COL[name]]: 1 }"), destructured).join('\n')).toMatch(/clave calculada/);
+    const forOf = `${HEAD}const COL: Record<string, string> = { a: 'widgetCashflow' };\nfor (COL['a'] of ['userId']) {}\n`;
+    expect(analyze(UPD("{ [COL[name]]: 1 }"), forOf).join('\n')).toMatch(/clave calculada/);
   });
 
   it('exportaciones: funcion suelta, spread y miembro no funcion fallan', () => {
@@ -557,6 +629,10 @@ describe('guarda estructural (AST): mutaciones sobre el codigo REAL se rechazan'
     ['account.availableOf: userId solo en void', 'accountRepository.ts', 'availableOf(db: DbOrTx, userId: string, id: string): number {', 'availableOf(db: DbOrTx, userId: string, id: string): number {\n    void userId;'],
     ['settings.get sin filtro por usuario', 'settingsRepository.ts', 'where(eq(users.id, userId)).get();\n    return row ? mapRow(row) : undefined;', 'where(eq(users.id, DEFAULT)).get();\n    return row ? mapRow(row) : undefined;'],
     ['adjustment.targetWhere sin userId', 'adjustmentRepository.ts', 'return and(eq(balanceAdjustments.userId, userId), ofTarget);', 'return and(ofTarget);'],
+    // i1s (ARCHITECTURE.md, 2026-10-07): un update que reasigna userId a otro usuario. Antes no lo veia ningun mecanismo.
+    ["account.rename reasigna userId (i1s)", 'accountRepository.ts', '.set({ name, updatedAt: toDate(now) })', ".set({ name, userId: 'otro-usuario', updatedAt: toDate(now) })"],
+    ['goal.update con set.userId = (i1s, variante .set(set))', 'goalRepository.ts', 'if (v.name !== undefined) set.name = v.name;', "if (v.name !== undefined) set.name = v.name;\n    set.userId = 'otro-usuario';"],
+    ['recurring.update con spread en el set (i1s, variante spread)', 'recurringRepository.ts', 'const set: Partial<typeof recurringItems.$inferInsert> = { updatedAt: toDate(v.now) };', 'const set: Partial<typeof recurringItems.$inferInsert> = { ...v, updatedAt: toDate(v.now) };'],
   ];
   it.each(cases)('%s', (_n, file, from, to) => {
     fails(file, mutate(file, from, to));

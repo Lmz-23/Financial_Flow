@@ -84,6 +84,8 @@ export const accounts = sqliteTable(
   'accounts',
   {
     id: id(),
+    // PROPIETARIO (tambien por trigger, que drizzle no ve; 0001_owner_triggers.sql): `user_id` es inmutable
+    // (trg_accounts_user_id_immutable) y las filas que la referencian deben ser del mismo usuario.
     userId: text('user_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
     name: text('name').notNull(),
     type: text('type', { enum: ['CASH', 'SAVINGS', 'CHECKING', 'DIGITAL_WALLET'] }).notNull(),
@@ -109,6 +111,8 @@ export const categories = sqliteTable(
   'categories',
   {
     id: id(),
+    // PROPIETARIO (tambien por trigger, que drizzle no ve; 0001_owner_triggers.sql): `user_id` es inmutable
+    // (trg_categories_user_id_immutable). NULL = del sistema: los triggers la aceptan desde cualquier usuario.
     userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     type: text('type', { enum: ['INCOME', 'EXPENSE'] }).notNull(),
@@ -139,6 +143,8 @@ export const debts = sqliteTable(
   'debts',
   {
     id: id(),
+    // PROPIETARIO (tambien por trigger, que drizzle no ve; 0001_owner_triggers.sql): `user_id` es inmutable
+    // (trg_debts_user_id_immutable) y las filas que la referencian deben ser del mismo usuario.
     userId: text('user_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
     name: text('name').notNull(),
     /** NULL = cuota "sin definir". */
@@ -173,6 +179,8 @@ export const goals = sqliteTable(
   'goals',
   {
     id: id(),
+    // PROPIETARIO (tambien por trigger, que drizzle no ve; 0001_owner_triggers.sql): `user_id` es inmutable
+    // (trg_goals_user_id_immutable) y las filas que la referencian deben ser del mismo usuario.
     userId: text('user_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
     name: text('name').notNull(),
     targetMinor: integer('target_minor').notNull(),
@@ -214,6 +222,8 @@ export const recurringItems = sqliteTable(
   'recurring_items',
   {
     id: id(),
+    // PROPIETARIO (tambien por trigger, que drizzle no ve; 0001_owner_triggers.sql): `user_id` es inmutable
+    // (trg_recurring_items_user_id_immutable) y cada referencia debe ser del mismo usuario (trg_recurring_items_owner_ins/_upd).
     userId: text('user_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
     type: text('type', { enum: ['INCOME', 'EXPENSE'] }).notNull(),
     kind: text('kind', { enum: ['STANDARD', 'DEBT_INSTALLMENT'] }).notNull().default('STANDARD'),
@@ -274,6 +284,8 @@ export const transactions = sqliteTable(
   'transactions',
   {
     id: id(),
+    // PROPIETARIO (tambien por trigger, que drizzle no ve; 0001_owner_triggers.sql): `user_id` es inmutable
+    // (trg_transactions_user_id_immutable) y cada referencia debe ser del mismo usuario (trg_transactions_owner_ins/_upd).
     userId: text('user_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
     accountId: text('account_id').notNull().references(() => accounts.id, { onDelete: 'restrict' }),
     type: text('type', { enum: ['INCOME', 'EXPENSE'] }).notNull(),
@@ -339,6 +351,8 @@ export const goalContributions = sqliteTable(
   'goal_contributions',
   {
     id: id(),
+    // PROPIETARIO (tambien por trigger, que drizzle no ve; 0001_owner_triggers.sql): `user_id` es inmutable
+    // (trg_goal_contributions_user_id_immutable) y cada referencia debe ser del mismo usuario (trg_goal_contributions_owner_ins/_upd).
     userId: text('user_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
     goalId: text('goal_id').notNull().references(() => goals.id, { onDelete: 'restrict' }),
     accountId: text('account_id').notNull().references(() => accounts.id, { onDelete: 'restrict' }),
@@ -367,6 +381,8 @@ export const balanceAdjustments = sqliteTable(
   'balance_adjustments',
   {
     id: id(),
+    // PROPIETARIO (tambien por trigger, que drizzle no ve; 0001_owner_triggers.sql): `user_id` es inmutable
+    // (trg_balance_adjustments_user_id_immutable) y cada referencia debe ser del mismo usuario (trg_balance_adjustments_owner_ins/_upd).
     userId: text('user_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
     targetType: text('target_type', { enum: ['ACCOUNT', 'DEBT', 'GOAL'] }).notNull(),
     accountId: text('account_id').references(() => accounts.id, { onDelete: 'cascade' }),

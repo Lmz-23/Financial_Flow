@@ -7,8 +7,9 @@
 // Guarda: test/unit/repositoryOwnership.test.ts (analisis AST: firma `(db, userId, ...)` y un `.where(...)`
 // que referencia `userId` en CADA consulta; en `autoActivateWidget` el `sql` con `${users.id}` y `${userId}`)
 // y test/integration/repositories/ownership.test.ts (comportamiento con dos usuarios). LIMITES: la guarda
-// comprueba que el `where` REFERENCIA `userId`, no que la columna o el operador sean correctos, y no inspecciona
-// la clausula `.set({...})` de los `update`; eso lo cubren los tests de comportamiento y el fuzz (test/property).
+// comprueba que el `where` REFERENCIA `userId`, no que la columna o el operador sean correctos; eso lo cubren los
+// tests de comportamiento y el fuzz (test/property). La clausula `.set(...)` la inspecciona la regla R7 (sin
+// `userId`; la clave calculada `[WIDGET_COLUMN[widget]]` se admite porque el mapa es un `const` literal).
 import { eq, sql } from 'drizzle-orm';
 import { users, type User } from '../schema';
 import type { DbOrTx } from '../types';

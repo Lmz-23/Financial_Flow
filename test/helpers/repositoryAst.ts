@@ -53,6 +53,16 @@
 //      exigido seria `userId: userId`, pero R5 rechaza esa referencia (no es un argumento de `eq`, de un helper,
 //      de una delegacion ni un tramo de `sql`), asi que ninguna otra funcion puede insertar con `userId`
 //      (falso positivo conocido y deliberado: `db.insert(t).values({ id, userId })` fuera de `insert` falla).
+//  R7  `db.update(t)`: exactamente un `.set(arg)`, y el propietario de la fila no se toca (caso i1s):
+//        - `arg` literal: ninguna propiedad `userId`/`user_id` (tampoco shorthand), sin spread; una clave calculada
+//          solo si es `[MAPA[k]]` con `MAPA` un `const` literal del modulo cuyos valores son cadenas distintas de
+//          `userId`/`user_id` y que en el archivo solo se lee como `MAPA[...]` (patron `WIDGET_COLUMN` de settings);
+//        - `arg` identificador: un unico `const` de la funcion con un literal que cumple lo anterior, cuyos unicos
+//          usos son `x.campo = ...` (campo distinto de `userId`/`user_id`) y el propio `.set(x)`; `x[k] = ...`,
+//          `Object.assign(x, ...)`, pasarlo a otra funcion o `let` fallan (patron `.set(set)` de debt/goal/recurring);
+//        - cualquier otra expresion falla (no verificable).
+//      Defensa en profundidad: la BD rechaza ademas cualquier cambio de `user_id` (trigger OWNER_IMMUTABLE,
+//      src/database/migrations/0001_owner_triggers.sql).
 //
 // ---------------------------------------------------------------------------------------------
 // REGLAS PARA `src/domain/services/*.ts` (`analyzeServiceSource`)
@@ -77,8 +87,9 @@
 //    conservador. Las mutaciones de un array de condiciones distintas de `.push` hacen fallar (conservador).
 //  - Un array `const` de condiciones que recibe el filtro SOLO por `.push` (`const c = []; c.push(eq(..));
 //    and(...c)`) se rechaza: el literal debe contener ya algun elemento que filtre (conservador).
-//  - La clausula `.set({...})` de los `update` NO se inspecciona: un `update` que reasignara `userId` a otro
-//    usuario existente no lo veria ningun mecanismo (pendiente de cubrir).
+//  - R7 solo mira el `.set(...)` de las cadenas `db.update(...)` de los repositorios (y R6 rechaza
+//    `onConflictDoUpdate` en los insert). Un UPDATE o `INSERT OR REPLACE` por SQL crudo fuera de los repositorios
+//    no lo ve, pero lo rechazan los triggers OWNER_IMMUTABLE de la BD.
 //  - El `sql\`...\`` solo exige que existan un tramo `${userId}` y un tramo columna de propietario, sin
 //    relacionarlos entre si. Cualquier `<x>.userId` cuenta como columna de propietario (incluso `row.userId`
 //    de un parametro).
@@ -679,6 +690,7 @@ class RepositoryAnalyzer {
       this.checkInsertChain(fnName, calls, at, secondName);
       return;
     }
+    if (method === 'update') this.checkUpdateSet(fnName, fn, calls, at);
     const wheres = calls.filter((c) => c.name === 'where');
     if (wheres.length === 0) {
       this.add(fnName, `consulta \`${method}\` sin \`.where(...)\` (${at}): no filtra por usuario`);
@@ -704,6 +716,9 @@ class RepositoryAnalyzer {
     at: string,
     secondName: string | undefined,
   ): void {
+    if (calls.some((c) => c.name === 'onConflictDoUpdate')) {
+      this.add(fnName, `insert (${at}): \`onConflictDoUpdate\` no se admite (es un UPDATE encubierto cuyo \`set\` podria reasignar \`userId\`)`);
+    }
     const values = calls.filter((c) => c.name === 'values');
     if (values.length !== 1 || values[0].call.arguments.length !== 1) {
       this.add(fnName, `insert (${at}): se espera exactamente un \`.values(<literal de objeto>)\``);
@@ -731,6 +746,142 @@ class RepositoryAnalyzer {
       this.add(fnName, `insert (${at}): ${problem}; se exige una unica propiedad \`${expected}\``);
     }
   }
+
+  // ---- clausula .set(...) de los update (R7)
+  private checkUpdateSet(
+    fnName: string,
+    fn: FunctionNode,
+    calls: { name: string; call: ts.CallExpression }[],
+    at: string,
+  ): void {
+    const sets = calls.filter((c) => c.name === 'set');
+    if (sets.length !== 1 || sets[0].call.arguments.length !== 1) {
+      this.add(fnName, `update (${at}): se espera exactamente un \`.set(...)\` con un argumento`);
+      return;
+    }
+    const setCall = sets[0].call;
+    const arg = unwrap(setCall.arguments[0]);
+    let problem: string | null;
+    if (ts.isObjectLiteralExpression(arg)) problem = this.setLiteralProblem(arg);
+    else if (ts.isIdentifier(arg)) problem = this.setVariableProblem(arg.text, fn, setCall);
+    else {
+      problem =
+        '`.set(...)` debe recibir un literal de objeto o un `const` local construido con `x.campo = ...` ' +
+        '(otra expresion no es verificable)';
+    }
+    if (problem) this.add(fnName, `update (${at}): ${problem}`);
+  }
+
+  /** Literal del `.set`: sin `userId`, sin spread, y claves calculadas solo de la forma `[MAPA[k]]` (ver isSafeComputedKey). */
+  private setLiteralProblem(obj: ts.ObjectLiteralExpression): string | null {
+    for (const p of obj.properties) {
+      if (ts.isSpreadAssignment(p)) return 'el `.set` tiene un spread (`...x`) que podria reasignar `userId`';
+      if (p.name && ts.isComputedPropertyName(p.name)) {
+        if (!this.isSafeComputedKey(p.name.expression)) {
+          return (
+            'el `.set` tiene una clave calculada que podria ser `userId` (solo se admite `[MAPA[k]]` con `MAPA` un ' +
+            '`const` literal del archivo cuyos valores son cadenas distintas de `userId`)'
+          );
+        }
+        continue;
+      }
+      const n = memberName(p.name);
+      if (n === undefined) return 'el `.set` tiene una clave no estatica';
+      if (OWNER_KEYS.has(n)) return 'el `.set` reasigna `userId`: el propietario de una fila no se cambia en un update';
+    }
+    return null;
+  }
+
+  /**
+   * `[MAPA[k]]`: `MAPA` es un `const` de nivel de modulo con un literal de objeto (admite `as const`) cuyos valores
+   * son cadenas literales distintas de `userId`/`user_id`, y en todo el archivo solo se LEE como `MAPA[...]`
+   * (sin asignaciones, sin pasarlo a funciones: no se puede alterar).
+   */
+  private isSafeComputedKey(expr: ts.Expression): boolean {
+    const e = unwrap(expr);
+    if (!ts.isElementAccessExpression(e)) return false;
+    const target = unwrap(e.expression);
+    if (!ts.isIdentifier(target)) return false;
+    const name = target.text;
+    let decl: ts.VariableDeclaration | undefined;
+    for (const st of this.sf.statements) {
+      if (!ts.isVariableStatement(st) || (st.declarationList.flags & ts.NodeFlags.Const) === 0) continue;
+      for (const d of st.declarationList.declarations) {
+        if (ts.isIdentifier(d.name) && d.name.text === name) decl = d;
+      }
+    }
+    const init = decl?.initializer ? unwrap(decl.initializer) : undefined;
+    if (!init || !ts.isObjectLiteralExpression(init)) return false;
+    for (const p of init.properties) {
+      if (!ts.isPropertyAssignment(p) || memberName(p.name) === undefined) return false;
+      const v = unwrap(p.initializer);
+      if (!ts.isStringLiteral(v) || OWNER_KEYS.has(v.text)) return false;
+    }
+    // Lista blanca de lecturas: `MAPA[k]` solo como clave calculada (`{ [MAPA[k]]: ... }`) o como indice de otro
+    // acceso (`row[MAPA[k]]`). Cualquier otro uso (asignacion, destructuring, for-of, `delete`, `++`) falla.
+    let onlyReads = true;
+    visit(this.sf, (n) => {
+      if (!ts.isIdentifier(n) || n.text !== name || !isValueRef(n) || isDeclarationName(n)) return;
+      const p = n.parent;
+      const isRead =
+        ts.isElementAccessExpression(p) &&
+        p.expression === n &&
+        (ts.isComputedPropertyName(p.parent) ||
+          (ts.isElementAccessExpression(p.parent) && p.parent.argumentExpression === p));
+      if (!isRead) onlyReads = false;
+    });
+    return onlyReads;
+  }
+
+  /**
+   * `.set(x)`: `x` es un unico `const` de la funcion con un literal sin `userId` (setLiteralProblem) y sus unicos usos
+   * son `x.campo = ...` (con `campo` distinto de `userId`) y el propio `.set(x)`. Cualquier otro uso (`x[k] = ...`,
+   * `Object.assign(x, ...)`, pasarlo a otra funcion, reasignarlo) no es verificable y falla.
+   */
+  private setVariableProblem(name: string, fn: FunctionNode, setCall: ts.CallExpression): string | null {
+    const decls = this.declarationsOf(fn, name);
+    if (decls.length !== 1) return `\`.set(${name})\`: \`${name}\` debe declararse una sola vez en la funcion`;
+    const d = decls[0];
+    const init = d.initializer ? unwrap(d.initializer) : undefined;
+    if ((d.parent.flags & ts.NodeFlags.Const) === 0 || !init || !ts.isObjectLiteralExpression(init)) {
+      return `\`.set(${name})\`: \`${name}\` debe ser un \`const\` con un literal de objeto`;
+    }
+    const literal = this.setLiteralProblem(init);
+    if (literal) return `\`${name}\`: ${literal}`;
+    let problem: string | null = null;
+    visit(fn, (n) => {
+      if (problem || !ts.isIdentifier(n) || n.text !== name || !isValueRef(n) || isDeclarationName(n)) return;
+      if (setCall.arguments.some((a) => unwrap(a) === n)) return;
+      const p = n.parent;
+      if (ts.isPropertyAccessExpression(p) && p.expression === n && isAssignmentTarget(p)) {
+        if (OWNER_KEYS.has(p.name.text)) {
+          problem = `\`${name}.${p.name.text} = ...\` reasigna \`userId\`: el propietario de una fila no se cambia en un update`;
+        }
+        return;
+      }
+      problem =
+        `uso de \`${name}\` no verificable (linea ${line(this.sf, n)}): solo se admiten \`${name}.campo = ...\` ` +
+        `y \`.set(${name})\``;
+    });
+    return problem;
+  }
+}
+
+/** Claves de propietario que un `.set` no puede tocar (nombre TS de la columna y nombre SQL). */
+const OWNER_KEYS = new Set(['userId', 'user_id']);
+
+/** `n` es el lado izquierdo de una asignacion simple (`n = ...`). */
+function isAssignmentTarget(n: ts.Expression): boolean {
+  let cur: ts.Node = n;
+  while (cur.parent && ts.isParenthesizedExpression(cur.parent)) cur = cur.parent;
+  const p = cur.parent;
+  return (
+    !!p &&
+    ts.isBinaryExpression(p) &&
+    p.left === cur &&
+    p.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
+    p.operatorToken.kind <= ts.SyntaxKind.LastAssignment
+  );
 }
 
 /**

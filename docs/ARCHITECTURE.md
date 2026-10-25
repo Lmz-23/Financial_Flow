@@ -7,7 +7,7 @@ Especificación de referencia del diseño objetivo del MVP. Escrita el 2026-10-0
 - [Convenciones del documento](#convenciones-del-documento)
 - [Estado de implementación](#estado-de-implementación)
   - [Pendientes para la próxima sesión](#pendientes-para-la-próxima-sesión)
-    - [Hueco conocido de la guarda de propiedad: un `update` que reasigne `userId`](#hueco-conocido-de-la-guarda-de-propiedad-un-update-que-reasigne-userid)
+    - [Resuelto: un `update` que reasigne `userId` y las FK sin `userId`](#resuelto-un-update-que-reasigne-userid-y-las-fk-sin-userid)
     - [Decisión 33: meses restantes de una deuda con tasa](#decisión-33-meses-restantes-de-una-deuda-con-tasa)
 - [0. Problemas del repo que condicionan el diseño](#0-problemas-del-repo-que-condicionan-el-diseño)
 - [1. Resumen ejecutivo](#1-resumen-ejecutivo)
@@ -126,31 +126,18 @@ Esta subsección es el único lugar donde se listan; el resto del documento los 
 
 **GUARDA Y PRUEBAS**
 
-#### Hueco conocido de la guarda de propiedad: un `update` que reasigne `userId`
+#### Resuelto: un `update` que reasigne `userId` y las FK sin `userId`
 
-> **HUECO CONOCIDO, NO CORREGIDO (decisión del usuario, 2026-10-07).** Ningún mecanismo del repositorio detecta hoy un `update` que cambie el `userId` de una fila hacia **otro usuario existente** (por ejemplo, un `rename` que añada `.set({ userId: <otro> })`).
+> **RESUELTO (2026-10-18, rama `fix/propiedad-datos`).** Antes ningún mecanismo detectaba un `update` que cambiara el `userId` de una fila hacia otro usuario existente (mutación **i1s**), y la BD aceptaba una fila de B que referenciara una de A (FK de una sola columna). Ahora hay tres cerrojos:
 >
-> **Por qué no se detecta** (VERIFICADO EN CÓDIGO 2026-10-07 para 1 y 2; 3 es el resultado de la verificación):
+> 1. **Guarda AST, regla R7** (`test/helpers/repositoryAst.ts`): el `.set(...)` de cada `db.update(...)` no puede contener `userId`/`user_id` (literal, shorthand, spread, `set.userId = ...`, `set[k] = ...`, `Object.assign`). Trata de forma explícita los `.set(set)` de `debtRepository`, `goalRepository` y `recurringRepository` y la clave calculada `[WIDGET_COLUMN[widget]]` de `settingsRepository`. La mutación i1s y dos variantes (`.set(set)` y spread) están en `test/unit/repositoryOwnership.test.ts`.
+> 2. **Test de estado final** (`test/integration/repositories/ownership.test.ts`): tras el control positivo de cada mutador como A, ninguna fila de las 8 tablas con dueño cambió de `user_id` (con B existente).
+> 3. **Triggers en la BD** (`src/database/migrations/0001_owner_triggers.sql`, migración custom de drizzle-kit): `OWNER_IMMUTABLE` en las 8 tablas con dueño y `OWNER_MISMATCH` en las 12 referencias entre tablas con dueño. Detalle en [3.5](#35-propiedad-del-usuario-y-convención-de-repositorios).
 >
-> 1. El analizador AST (`test/helpers/repositoryAst.ts`) no inspecciona la cláusula `.set({...})` de los `update` (límite declarado en su cabecera y en [3.5](#35-propiedad-del-usuario-y-convención-de-repositorios)).
-> 2. Los tests de comportamiento de repositorio (`test/integration/repositories/ownership.test.ts`) comprueban el valor devuelto y que un usuario ajeno no afecta nada, pero no vuelven a comprobar que la fila sigue siendo del mismo propietario tras la operación.
-> 3. Los tests de dominio y la prueba aleatoria solo lo detectan por un artefacto: en el mundo de test el usuario destino no existe como fila de `users` y salta `FOREIGN KEY constraint failed`; con un usuario destino existente no habría fallo. La verificación lo demostró con la mutación llamada **i1s** (2026-10-07: `account.rename` con `.set({ userId: 'otro-usuario' })`).
->
-> **Estado actual.** No existe hoy ninguna función de repositorio ni de servicio con esa forma (la guarda no encontró incumplimientos y el analizador valida los 10 repositorios). Es un hueco de **detección preventiva**, no un fallo vivo.
->
-> **Cómo cerrarlo (propuesta, no implementada):**
->
-> - (a) Que el analizador inspeccione `.set({...})` y rechace cualquier propiedad `userId` (o una clave calculada o un spread que pueda introducirla) en los `update`. Ojo: varios `update` reales pasan un objeto ya construido (`.set(set)` en `goalRepository`, `debtRepository`, `recurringRepository` y `settingsRepository`) y `settingsRepository` usa una clave calculada legítima (`[WIDGET_COLUMN[widget]]`), así que la regla deberá tratarlos de forma explícita.
-> - (b) Un test de estado final en `test/integration/repositories/ownership.test.ts`: "tras `rename` (y los demás mutadores) como A, la fila sigue siendo de A", con un usuario B existente.
-> - (c) Incluir la mutación i1s como caso del test unitario del analizador.
->
-> **Cuándo cerrarlo.** Antes de añadir cualquier `update` nuevo en un repositorio y, en cualquier caso, antes de abrir autenticación o multiusuario real. Coste estimado: pequeño (una pasada de `backend-coder` con revisión y verificación).
->
-> **Relacionado:** límites de la guarda en [3.5](#35-propiedad-del-usuario-y-convención-de-repositorios); las FK sin `userId` (también en 3.5) son un hueco hermano, porque la BD tampoco impide por sí misma mezclar propietarios.
+> **Por qué triggers y no FK compuestas `(id, userId)` (decisión del usuario, 2026-10-18).** SQLite no permite añadir FK a una tabla existente: habría que reconstruir `recurring_items`, `transactions`, `goal_contributions` y `balance_adjustments`. El migrador de drizzle corre todo dentro de `BEGIN…COMMIT` (`drizzle-orm/sqlite-core/dialect.js`), donde `PRAGMA foreign_keys=OFF` no tiene efecto, así que el `DROP` de `recurring_items` dispararía el `ON DELETE SET NULL` y vaciaría `transactions.recurring_item_id` en silencio. Además, un `SET NULL` compuesto pondría también `user_id` a NULL (es NOT NULL), y las categorías del sistema (`user_id` NULL) no admiten FK compuesta. Los triggers son aditivos, no tocan filas existentes ni cambian ningún `ON DELETE`.
 
 Resto de pendientes de guarda y pruebas:
 
-- Inspeccionar `.set({...})` y añadir el test de estado final: ver la nota anterior.
 - Test de `getViewById` con varias cuentas que aserte `accountName` (los JOIN no se verifican).
 - Alinear R5 y R6 con sus falsos positivos documentados: `userId` dentro de `values` fuera de `insert`, y un array de condiciones que recibe el filtro solo por `.push`.
 - Un segundo `.where` fuera de la cadena y las asignaciones posteriores al `export const` solo los cubre el comportamiento.
@@ -165,7 +152,8 @@ Resto de pendientes de guarda y pruebas:
 - Líneas "Mutador(es)" casi duplicadas en las cabeceras de `adjustmentRepository`, `goalContributionRepository` y `transactionRepository`.
 - `goalEta.ts:8` mide 125 caracteres.
 - Contador de operaciones omitidas (`stats.skipped`) e instantes exactos de borde de mes en la prueba aleatoria; comparaciones parciales de `debts.list` y `recurring.list` en ella.
-- FK compuestas `(id, userId)` en una migración futura (decisión de producto, no abordada; ver [3.5](#35-propiedad-del-usuario-y-convención-de-repositorios)).
+
+La propiedad entre tablas (antes «FK compuestas `(id, userId)`») quedó resuelta el 2026-10-18 con triggers; ver [la nota de arriba](#resuelto-un-update-que-reasigne-userid-y-las-fk-sin-userid).
 
 #### Decisión 33: meses restantes de una deuda con tasa
 
@@ -298,7 +286,7 @@ Los saldos de cuenta, deuda y meta, `paidCount` y el Índice se calculan agregan
 
 ## 2. Modelo de datos objetivo
 
-Base de datos limpia: un único `0000` regenerado (`src/database/migrations/0000_harsh_excalibur.sql`). El archivo de BD cambia de nombre a `financial-flow-v1.db` (ver [4.4](#44-mecanismo-de-migraciones)).
+Base de datos limpia: `0000` regenerado (`src/database/migrations/0000_harsh_excalibur.sql`, esquema) + `0001_owner_triggers.sql` (triggers de propietario, migración custom; 3.5). El archivo de BD cambia de nombre a `financial-flow-v1.db` (ver [4.4](#44-mecanismo-de-migraciones)).
 
 **Convenciones del esquema real (`src/database/schema.ts`):**
 
@@ -308,7 +296,7 @@ Base de datos limpia: un único `0000` regenerado (`src/database/migrations/0000
 - Ids: TEXT PK generado en JS con `newId()`. Booleanos: INTEGER 0/1.
 - Cada columna enum de texto lleva además un CHECK `IN (...)`.
 - Todas las FK a `users` son `ON DELETE RESTRICT`, salvo `categories.userId` (`CASCADE`).
-- Las FK **no** incluyen `userId` (ver límite conocido en [3.5](#35-propiedad-del-usuario-y-convención-de-repositorios)).
+- Las FK **no** incluyen `userId`; la propiedad entre tablas la imponen triggers (ver la invariante en [3.5](#35-propiedad-del-usuario-y-convención-de-repositorios)).
 
 Los CHECK adicionales que F1 aplicó respecto del diseño original se detallan en [12](#12-desviaciones-aprobadas).
 
@@ -671,7 +659,17 @@ Los tests de atomicidad (`test/integration/domain/atomicity.test.ts`) instalan t
 - **Defensa en profundidad:** los servicios mantienen sus comprobaciones previas con `NotFoundError`; la comprobación del repositorio es un segundo cerrojo, no un sustituto.
 - **Comprobado por el analizador AST en los 10 repositorios** (los `*Repository.ts` en disco): `accountRepository`, `adjustmentRepository`, `categoryRepository`, `debtRepository`, `goalContributionRepository`, `goalRepository`, `recurringRepository`, `reportRepository`, `settingsRepository` y `transactionRepository`. De ellos, 8 tienen `insert` (todos salvo `reportRepository` y `settingsRepository`). En los servicios hay 18 llamadas `<x>.insert(...)`, en 5 de los 12 archivos de `src/domain/services/*.ts` (el analizador inspecciona los 12; `AccountService` 4, `DebtService` 5, `GoalService` 5, `RecurringService` 2 y `TransactionService` 2).
 
-**Límite conocido: las FK de la BD no incluyen `userId`.** Un `INSERT` con `userId` de B y `accountId` de A lo acepta la BD. Por eso los servicios validan **todos** los ids embebidos (cuenta, categoría, deuda, meta, recurrente) con el `userId` del contexto antes de insertar, y la guarda estructural exige `userId: ctx.userId` en cada `insert` de los servicios. Decisión futura posible, **no abordada**: FK compuestas `(id, userId)` con una migración que reconstruya las tablas.
+**Invariante de la BD: la propiedad la imponen triggers** (`src/database/migrations/0001_owner_triggers.sql`; drizzle no modela triggers, así que el esquema tipado no los ve y `schema.ts` lo señala en cada tabla con dueño). Las FK siguen siendo de una columna; encima:
+
+- **`trg_<tabla>_user_id_immutable`** en las 8 tablas con dueño (`accounts`, `categories`, `debts`, `goals`, `recurring_items`, `transactions`, `goal_contributions`, `balance_adjustments`): un `UPDATE` que cambie `user_id` aborta con `OWNER_IMMUTABLE: <tabla>.user_id`.
+- **`trg_<tabla>_owner_ins` / `_owner_upd`** en las 4 tablas hijas, para sus 12 referencias (`recurring_items`: `debt_id`, `category_id`, `default_account_id`; `transactions`: `account_id`, `category_id`, `debt_id`, `recurring_item_id`; `goal_contributions`: `goal_id`, `account_id`; `balance_adjustments`: `account_id`, `debt_id`, `goal_id`): si el padre existe y es de otro usuario, aborta con `OWNER_MISMATCH: <tabla>.<columna>`. Una categoría del sistema (`user_id` NULL) se acepta desde cualquier usuario. Si el padre no existe, el trigger no interviene y responde la FK de siempre.
+- Error: `SQLITE_CONSTRAINT_TRIGGER`. Es la **última** línea: los servicios siguen validando **todos** los ids embebidos con el `userId` del contexto antes de escribir (`NotFoundError`), y la guarda estructural exige `userId: ctx.userId` en cada `insert` de los servicios. En el flujo normal el trigger nunca salta.
+- **`trg_<tabla>_owner_replace`** en las 8 tablas con dueño: un `INSERT` con un `id` que ya existe con otro `user_id` aborta con `OWNER_IMMUTABLE`. Cierra `INSERT OR REPLACE` / `REPLACE INTO` cuando el choque es por `id`, que en SQLite borra e inserta sin disparar el trigger de `UPDATE` (hallazgo de la revisión de seguridad, 2026-10-18). **Límite conocido (revisión de seguridad, 2026-10-25):** no cubre un `REPLACE` que choque por un `rowid` explícito ni un `UPDATE OR REPLACE` que cambie `id`; ambos pueden borrar filas de otro usuario (y poner en NULL sus referencias `SET NULL`). Ninguno es alcanzable desde drizzle ni desde los repositorios. Endurecimiento propuesto, pendiente de decisión: un trigger que haga `id` inmutable y comparar también el `rowid` en `_owner_replace`.
+- En `UPDATE`, `_owner_upd` solo valida las columnas que **cambian** (`NEW.col IS NOT OLD.col`): una fila anterior a 0001 con una referencia cruzada no bloquea editar otra columna ni el `SET NULL` de un borrado. La migración no audita filas previas (con un único usuario local no pueden existir); antes de abrir multiusuario conviene una consulta de auditoría de referencias cruzadas.
+- Los `ON DELETE` no cambian (los `SET NULL` disparan el `_owner_upd` con la columna en NULL, que pasa). Rollback: `DROP TRIGGER` de los 24 `trg_*`.
+- **Migraciones futuras que reconstruyan una tabla con dueño** (patrón de drizzle-kit `__new_` + `DROP` + `RENAME`): tienen que hacer `DROP TRIGGER` de todos los `trg_*` antes y recrearlos después, en la misma migración; quitar solo los de la propia tabla no basta, porque fallan los de las hijas que la referencian. Con los triggers vivos, reconstruir una tabla padre (`accounts`, `goals`…) falla con «error in trigger … no such table» y la migración se revierte, así que la app no arranca; reconstruir una hoja (`transactions`) pasa pero borra triggers sin avisar (revisión de código, 2026-10-25, probado en SQLite 3.53). El test de `owner_triggers.test.ts` que cuenta los 24 triggers detecta la pérdida.
+- **NO probado en dispositivo** (expo-sqlite): los tests usan better-sqlite3. Ver R10.
+- Probado en `test/integration/schema/owner_triggers.test.ts`, incluida la actualización de una BD con datos que solo tenía la migración 0000 (los datos quedan idénticos y `foreign_key_check` vacío). Por qué no FK compuestas: [pendientes](#resuelto-un-update-que-reasigne-userid-y-las-fk-sin-userid).
 
 **Guarda estructural por AST** (`test/helpers/repositoryAst.ts`, ejecutada por `test/unit/repositoryOwnership.test.ts`). VERIFICADO EN CÓDIGO (2026-10-07): commiteada en `119a972` y verificada. Sustituye a la versión anterior, que usaba reflexión sobre `fn.toString()` y expresiones regulares sobre líneas.
 
@@ -683,20 +681,21 @@ Los tests de atomicidad (`test/integration/domain/atomicity.test.ts`) instalan t
   - **R4, qué cuenta como filtro.** Un `eq(col, userId)` (en cualquier orden) con `col` igual a `<tabla>.userId` o `users.id`. En `and(...)` y `or(...)` basta **un** argumento que filtre (necesario para `categoryRepository`: categorías propias o del sistema). Un ternario filtra si filtran **ambas** ramas. Un helper del propio archivo (`owned`, `targetWhere`) cuenta si la propia guarda lo verifica con el mismo método (tiene un parámetro `userId`, todos sus `return` filtran y se le pasa `userId` en esa posición). Una plantilla `sql` con un tramo `${userId}` y un tramo con una columna de propietario. Un identificador local `const` cuyo inicializador filtra. **No se desciende a subconsultas**: una subconsulta que filtra no hace que filtre la consulta exterior.
   - **R5, usos de `userId`.** Todo uso de `userId` como referencia de valor debe ser argumento directo de `eq(...)`, de un helper verificado, de una delegación `<x>Repository.f(db, userId, ...)` o un tramo de una plantilla `sql`. Fallan los comentarios que simulan uso, `void userId`, `userId.length`, los ternarios con `userId`, las variables sin uso real y las redeclaraciones. Una función sin consultas debe delegar con `userId` en segunda posición.
   - **R6, inserciones.** `.values(...)` recibe un literal de objeto con **una única** propiedad `userId`, sin spread ni claves calculadas, cuyo valor es `v.userId` (en `insert`) o `userId` (en otra función).
+  - **R7, `update`.** Exactamente un `.set(...)`, sin `userId`/`user_id`: un literal sin esa propiedad ni spread (claves calculadas solo `[MAPA[k]]` con un `const` literal del archivo sin `userId`), o un `const` local con un literal así cuyos únicos usos son `x.campo = ...` y el propio `.set(x)`. Cualquier otra forma falla por no verificable.
 - **Reglas para los servicios (`src/domain/services/*.ts`):**
   - **S1.** Toda llamada `<x>.insert(...)` (cualquier receptor; incluye alias de repositorio y `tx` como primer argumento) exige un segundo argumento que sea un literal de objeto con **una única** propiedad `userId` cuyo valor es exactamente `ctx.userId`: sin spread, sin claves calculadas, sin ternarios, sin `ctx!.userId` ni `ctx?.userId`. Si el argumento es una variable, falla con un mensaje que explica que no es verificable. El formato de líneas no importa.
   - **S2.** `x['insert'](...)`, una referencia a `.insert` sin llamarla (`const f = repo.insert`) y `{ insert } = repo` también fallan.
 - **Límites de la guarda** (lo que NO verifica):
   - No verifica la **semántica** del filtro: `or(eq(t.userId, userId), sql\`1=1\`)` pasa porque basta un disyunto; no comprueba que la tabla de la columna sea la consultada ni el operador fuera de `eq`.
   - El `sql` solo exige que existan un `${userId}` y una columna de propietario, sin relacionarlos entre sí; y cualquier `<x>.userId` cuenta como columna de propietario.
-  - La cláusula `.set({...})` de los `update` no se inspecciona: un `update` que cambiara `userId` no se vería. **Hueco conocido, anotado y no corregido por decisión del usuario:** ver [Hueco conocido de la guarda de propiedad](#hueco-conocido-de-la-guarda-de-propiedad-un-update-que-reasigne-userid) en los pendientes.
+  - R7 solo mira el `.set(...)` de las cadenas `db.update(...)` de los repositorios; un `UPDATE` por SQL crudo fuera de ellos lo para el trigger `OWNER_IMMUTABLE`.
   - Las consultas dentro de helpers de módulo no se analizan (solo que sus `return` filtren y sus usos de `userId`).
   - Los JOIN no se verifican: solo el `where` de la consulta.
   - `eq`, `and`, `or` y `sql` se reconocen por NOMBRE, no por su origen en `drizzle-orm`.
   - Los alias de `userId` no se siguen (usar un alias como filtro falla por R5, de forma conservadora).
   - Los valores devueltos (por ejemplo, los conteos de filas de los mutadores) no los ve la guarda.
   - Que `ctx.userId` sea el correcto depende de `createDomain`.
-  - Las FK de la BD no incluyen `userId` (ver el límite conocido más arriba).
+  - Que las referencias entre tablas sean del mismo usuario no lo ve la guarda: lo impone la BD con triggers (ver la invariante más arriba).
   - **Fragilidad:** el analizador detecta errores de sintaxis con `parseDiagnostics`, una API **interna** de TypeScript (no pública); puede romperse al actualizar `typescript` (el repo usa `~6.0.3`).
 - **Lo no cubierto por el AST lo cubren los tests de comportamiento y el fuzz:** `test/integration/repositories/ownership.test.ts` (un caso por función de cada repositorio, llamando a los repositorios directamente con el `userId` de B y ids de A, con un control positivo con el de A para que no sea vacuo; la lista de funciones se deriva dinámicamente con `Object.keys` de cada repositorio cargado desde disco, de modo que una función nueva sin caso rompe el test); `test/integration/domain/ownership.test.ts` (todos los puntos de entrada con id, con un segundo usuario aislado creado con `secondUserDomain`) y la prueba aleatoria (sección 8).
 
@@ -1017,8 +1016,8 @@ El estado actual de cada fase está en [Estado de implementación](#estado-de-im
 - **R7.** Diferencias entre la SQLite de tests y la de los dispositivos.
 - **R8.** El trabajo sin commit (onboarding, budget, settings, debt detail) choca con este diseño. **Mitigado:** el commit `e7fd4a5` ("snapshot pre-mvp") y el tag `pre-mvp` conservan el estado previo al rediseño.
 - **R9.** El target web (`app.json` con web output static) con expo-sqlite no está cubierto. SUPUESTO: el MVP es solo iOS y Android.
-- **R10.** `UPDATE/DELETE ... RETURNING` en expo-sqlite (la propiedad del usuario en los repositorios depende de ello; 3.5). Requiere SQLite ≥ 3.35 (el paquete trae 3.50.3 según el informe). NO probado en dispositivo. Plan B: `run()` y `changes`.
-- **R11.** Las FK de la BD no incluyen `userId`: un `INSERT` con `userId` de B y un `accountId` de A lo acepta la BD. Se mitiga con la validación de todos los ids embebidos en los servicios y con la guarda estructural (3.5). Opción futura no abordada: FK compuestas `(id, userId)` con migración.
+- **R10.** `UPDATE/DELETE ... RETURNING` en expo-sqlite (la propiedad del usuario en los repositorios depende de ello; 3.5). Requiere SQLite ≥ 3.35 (el paquete trae 3.50.3 según el informe). NO probado en dispositivo. Plan B: `run()` y `changes`. Tampoco están probados en dispositivo los triggers de `0001_owner_triggers.sql` (3.5).
+- **R11.** (Mitigado, 2026-10-18.) Las FK de la BD no incluyen `userId`, pero los triggers de `0001_owner_triggers.sql` rechazan una referencia a una fila de otro usuario y cualquier cambio de `user_id` (3.5). Primera defensa: la validación de todos los ids embebidos en los servicios y la guarda estructural.
 - **R12.** Las guardas estructurales verifican forma, no semántica: la guarda de repositorios (AST) comprueba que el `where` referencia `userId`, no que el filtro sea correcto (límites completos en 3.5, incluida su dependencia de `parseDiagnostics`, API interna de TypeScript); lo cubren los tests de comportamiento y la prueba aleatoria (por muestreo).
 - **R13.** Estado del árbol: hooks y componentes antiguos siguen importando módulos retirados y hay errores `tsc` y lint preexistentes (tsc 90 errores, eslint 126 problemas). Las 12 rutas antiguas rotas se aparcaron en `_parked/`, por lo que el bundle compila (`expo export --platform android`); ver [Estado de implementación](#estado-de-implementación).
 - **R14.** Versiones de Expo desalineadas (14 paquetes) y `async-storage` 3.1.1 frente a la 2.2.0 esperada por el SDK: pendiente de alinear antes de probar en dispositivo (según el informe de verificación; no se volvió a ejecutar la comprobación).
@@ -1216,7 +1215,7 @@ Leídas de `src/database/schema.ts` (VERIFICADO EN CÓDIGO 2026-10-07). Todas so
 | `balance_adjustments` | índices | `(accountId)`, `(debtId)`, `(goalId)` |
 | FK a `users` | `ON DELETE RESTRICT` | salvo `categories.userId` (`CASCADE`) |
 
-Sin CHECK en el esquema: `goals.targetDate` (la validación está en el servicio). Las FK no incluyen `userId` (3.5).
+Sin CHECK en el esquema: `goals.targetDate` (la validación está en el servicio). Las FK no incluyen `userId`; la propiedad entre tablas la imponen triggers (3.5).
 
 ### 12.2 Desviaciones y ampliaciones posteriores
 
