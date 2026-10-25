@@ -364,6 +364,28 @@ const cases: Case[] = [
   { name: 'settings.getWidget (usuario inexistente)', run: (w, u) => settingsRepository.getWidget(w.env.db, u, 'debts'), foreign: null, foreignUser: GHOST, prep: (w) => w.env.sqlite.prepare("update users set widget_debts = 1 where id = ?").run(USER_A), own: (r) => expect(r).toBe(1) },
 ];
 
+/** Tablas con dueno (`user_id`): las 8 que protegen los triggers de 0001_owner_triggers.sql. */
+const OWNED_TABLES = [
+  'accounts', 'categories', 'debts', 'goals', 'recurring_items', 'transactions', 'goal_contributions', 'balance_adjustments',
+] as const;
+
+/** `tabla:id` -> user_id de cada fila de las tablas con dueno. */
+function owners(w: World): Map<string, string | null> {
+  const out = new Map<string, string | null>();
+  for (const t of OWNED_TABLES) {
+    for (const r of w.env.sqlite.prepare(`select id, user_id from ${t}`).all() as { id: string; user_id: string | null }[]) {
+      out.set(`${t}:${r.id}`, r.user_id);
+    }
+  }
+  return out;
+}
+
+function expectSameOwners(before: Map<string, string | null>, after: Map<string, string | null>): void {
+  const changed = [...after].filter(([k, u]) => before.has(k) && before.get(k) !== u).map(([k]) => k);
+  expect(changed, `filas que cambiaron de dueno: ${changed.join(', ')}`).toEqual([]);
+  expect(before.size, 'el mundo tiene filas con dueno').toBeGreaterThan(0);
+}
+
 function expectedForeign(c: Case, w: World): unknown {
   return typeof c.foreign === 'function' ? (c.foreign as (w: World) => unknown)(w) : c.foreign;
 }
@@ -383,7 +405,10 @@ describe('repositorios: un userId ajeno no devuelve ni modifica nada (cada funci
     const w2 = world();
     c.prep?.(w2);
     c.prepOwn?.(w2);
+    const ownersBefore = owners(w2);
     c.own(c.run(w2, USER_A), w2);
+    // Estado final: ninguna fila que sobrevive cambio de dueno (con B existente como destino posible).
+    expectSameOwners(ownersBefore, owners(w2));
   });
 });
 
@@ -557,7 +582,7 @@ describe('repositorios: los mutadores devuelven el numero EXACTO de filas afecta
 });
 
 // ---------------------------------------------------------------------------------------------
-// Lo que la BD no impone, y las categorias del sistema.
+// Lo que la BD impone por trigger, y las categorias del sistema.
 // ---------------------------------------------------------------------------------------------
 
 describe('categorias: las del sistema las ve cualquier usuario, las propias solo su dueno', () => {
@@ -572,18 +597,27 @@ describe('categorias: las del sistema las ve cualquier usuario, las propias solo
   });
 });
 
-describe('limite documentado: la BD no distingue usuarios en las FK', () => {
-  it('un INSERT con userId de B y accountId de A lo acepta la BD (FK simples); lo impide el SERVICIO', () => {
-    // Esto es un limite, no un contrato deseable: las FK (accountId -> accounts.id) no incluyen el
-    // userId, y los INSERT reciben el userId dentro de la fila. La unica defensa es el servicio
-    // (requireActiveAccount/getById con NotFoundError, cubierto en test/integration/domain/ownership.test.ts).
-    // Si algun dia el esquema usa FK compuestas (id, userId), este test debe cambiar a esperar un error.
+describe('la BD distingue usuarios en las referencias (triggers de 0001_owner_triggers.sql)', () => {
+  it('un INSERT con userId de B y accountId/goalId de A lo rechaza la BD (OWNER_MISMATCH), ademas del SERVICIO', () => {
+    // Antes era un limite documentado (FK simples sin userId). Ahora los triggers lo impiden; la primera
+    // defensa sigue siendo el servicio (NotFoundError, test/integration/domain/ownership.test.ts).
     const w = world();
+    const before = snapshot(w.env);
     expect(() =>
       goalContributionRepository.insert(w.env.db, {
         userId: USER_B, goalId: w.goalSaved, accountId: w.accMov, amountMinor: 1, date: w.now, now: w.now,
       }),
-    ).not.toThrow();
+    ).toThrow(/OWNER_MISMATCH: goal_contributions\.goal_id/);
+    expect(snapshot(w.env)).toBe(before);
+  });
+
+  it('un update que reasigne userId a un usuario EXISTENTE lo rechaza la BD (OWNER_IMMUTABLE)', () => {
+    const w = world();
+    const before = snapshot(w.env);
+    expect(() =>
+      w.env.sqlite.prepare('update accounts set user_id = ? where id = ?').run(USER_B, w.accMov),
+    ).toThrow(/OWNER_IMMUTABLE: accounts\.user_id/);
+    expect(snapshot(w.env)).toBe(before);
   });
 });
 
@@ -595,7 +629,7 @@ describe('limite documentado: la BD no distingue usuarios en las FK', () => {
  * Excepciones: funciones SIN caso de "usuario ajeno" en este archivo, con su justificacion. Mantener MINIMA.
  * `insert(db, v)` no recibe ids ni lee: el userId viaja DENTRO de la fila `v`. Su unica defensa es estructural:
  * la guarda por AST (regla R6: `userId: v.userId` en `.values`) y la de servicios (S1: `userId: ctx.userId`),
- * ademas del limite documentado de arriba. Cada repositorio con `insert` figura aqui de forma explicita.
+ * ademas de los triggers de la BD (bloque de arriba). Cada repositorio con `insert` figura aqui de forma explicita.
  */
 const COVERAGE_EXCEPTIONS: Record<string, string> = Object.fromEntries(
   ['account', 'adjustment', 'category', 'debt', 'goal', 'goalContribution', 'recurring', 'transaction'].map((r) => [

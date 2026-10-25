@@ -1,5 +1,6 @@
 // Propiedad del usuario: un id de OTRO usuario se trata exactamente como un id inexistente
 // (NotFoundError indistinguible, sin efectos en la BD) en TODOS los puntos de entrada con id.
+import fs from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { Domain } from '../../../src/domain/createDomain';
 import { NotFoundError, RefundAccountRequiredError } from '../../../src/domain/services';
@@ -444,5 +445,51 @@ describe('propiedad: listados, reportes e integridad no se mezclan', () => {
     expect(reportA.ok).toBe(false);
     expect(reportA.violations.some((v) => v.invariant === 'I3')).toBe(true);
     expectIntegrity(w.b);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// COBERTURA DINAMICA: cada metodo de cada servicio (Object.keys del dominio real) esta clasificado.
+// Un metodo nuevo sin clasificar rompe el test: si recibe un id, necesita su caso de NotFoundError arriba.
+// ---------------------------------------------------------------------------------------------
+
+/** NOT_FOUND: tiene caso(s) con `expectNotFound` (id ajeno = inexistente). READ: lectura por id, ajeno -> undefined/vacio. NO_ID: no recibe ids de entidades. */
+const SERVICE_METHODS: Record<string, 'NOT_FOUND' | 'READ' | 'NO_ID'> = {
+  'accounts.create': 'NO_ID', 'accounts.update': 'NOT_FOUND', 'accounts.remove': 'NOT_FOUND',
+  'accounts.unarchive': 'NOT_FOUND', 'accounts.summary': 'NO_ID', 'accounts.get': 'READ',
+  'transactions.create': 'NOT_FOUND', 'transactions.remove': 'NOT_FOUND', 'transactions.list': 'READ',
+  'transactions.get': 'READ', 'transactions.categories': 'NO_ID',
+  'debts.create': 'NO_ID', 'debts.update': 'NOT_FOUND', 'debts.registerPayment': 'NOT_FOUND', 'debts.remove': 'NOT_FOUND',
+  'debts.list': 'NO_ID', 'debts.get': 'READ', 'debts.payments': 'READ',
+  'goals.create': 'NOT_FOUND', 'goals.contribute': 'NOT_FOUND', 'goals.update': 'NOT_FOUND', 'goals.close': 'NOT_FOUND',
+  'goals.remove': 'NOT_FOUND', 'goals.list': 'NO_ID', 'goals.get': 'READ', 'goals.contributions': 'READ',
+  'goals.refundPreview': 'READ',
+  'recurring.create': 'NOT_FOUND', 'recurring.update': 'NOT_FOUND', 'recurring.remove': 'NOT_FOUND',
+  'recurring.confirmOccurrence': 'NOT_FOUND', 'recurring.unconfirm': 'NOT_FOUND', 'recurring.snooze': 'NOT_FOUND',
+  'recurring.list': 'NO_ID', 'recurring.upcoming': 'NO_ID', 'recurring.pendingOccurrences': 'NO_ID',
+  'onboarding.complete': 'NOT_FOUND',
+  'reports.monthStatement': 'NO_ID', 'reports.monthStatementOf': 'NO_ID', 'reports.netWorth': 'NO_ID',
+  'integrity.check': 'NO_ID',
+};
+
+describe('cobertura dinamica: cada metodo de servicio con id tiene su caso de propiedad', () => {
+  it('todos los metodos del dominio estan clasificados (salvo settings: solo opera sobre el propio usuario)', () => {
+    const d = setup().d;
+    const discovered = Object.entries(d)
+      .filter(([svc]) => svc !== 'settings')
+      .flatMap(([svc, o]) => Object.keys(o).map((m) => `${svc}.${m}`))
+      .sort();
+    expect(discovered).toEqual(Object.keys(SERVICE_METHODS).sort());
+  });
+
+  // HEURISTICA (texto, no AST): basta con que `w.b.<metodo>(` aparezca en el archivo; un comentario o un `it.skip`
+  // tambien cuentan. La clasificacion NO_ID tampoco se verifica: revisarla al anadir un metodo.
+  it('cada metodo NOT_FOUND o READ aparece llamado como B en este archivo', () => {
+    const src = fs.readFileSync(__filename, 'utf8');
+    const missing = Object.entries(SERVICE_METHODS)
+      .filter(([, k]) => k !== 'NO_ID')
+      .map(([m]) => m)
+      .filter((m) => !src.includes(`w.b.${m}(`));
+    expect(missing, `sin caso como usuario B: ${missing.join(', ')}`).toEqual([]);
   });
 });

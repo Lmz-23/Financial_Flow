@@ -23,10 +23,10 @@ describe('migrador sobre BD vacia', () => {
     expect(names).toEqual(EXPECTED_TABLES);
     for (const r of RETIRED_TABLES) expect(names).not.toContain(r);
   });
-  it('registra una unica migracion aplicada y es repetible', () => {
+  it('registra una fila por migracion del journal (0000 esquema, 0001 triggers de propietario)', () => {
     t = createTestDb();
     const n = t.sqlite.prepare('SELECT count(*) AS n FROM __drizzle_migrations').get() as { n: number };
-    expect(n.n).toBe(1);
+    expect(n.n).toBe(2);
   });
   it('crea el UNIQUE parcial y los indices esperados', () => {
     t = createTestDb();
