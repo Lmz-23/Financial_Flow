@@ -41,3 +41,13 @@ example
 # generated native folders
 /ios
 /android
+
+# Contexto y configuración de IA (Claude, OpenCode, etc.): solo local, no se publica.
+.claude/
+CLAUDE.md
+AGENTS.md
+GEMINI.md
+.opencode/
+opencode.json
+opencode.jsonc
+docs/ESTADO.md
