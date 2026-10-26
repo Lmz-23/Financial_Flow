@@ -17,7 +17,11 @@ import { relativeDateLabel } from '../../../src/lib/dateLabels';
 import { errorMessage } from '../../../src/lib/screenErrors';
 import { useTheme } from '../../../src/theme';
 
-const MSG_DELETE_CONFIRM = '¿Eliminar esta transacción? Su monto vuelve al saldo de la cuenta.';
+/** Textos aprobados por el usuario (2026-10-26). */
+const MSG_DELETE_EXPENSE = '¿Eliminar este gasto? Su monto vuelve al saldo de la cuenta.';
+const MSG_DELETE_INCOME = '¿Eliminar este ingreso? Su monto se resta del saldo de la cuenta.';
+const MSG_ARCHIVED_TITLE = 'Cuenta archivada';
+const MSG_ARCHIVED_BODY = 'Esta transacción es de una cuenta archivada. Desarchívala para eliminarla.';
 const MSG_NOT_FOUND = 'No encontramos esta transacción.';
 const MSG_NO_CATEGORY = 'Sin categoría';
 
@@ -69,7 +73,7 @@ export default function TransactionDetailScreen() {
 
   /** Contrato de F5 (ARCHITECTURE 6): ofrecer "Desarchivar" y reintentar el borrado. */
   function offerUnarchive(archived: AccountArchivedError) {
-    Alert.alert('Cuenta archivada', archived.message, [
+    Alert.alert(MSG_ARCHIVED_TITLE, MSG_ARCHIVED_BODY, [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Desarchivar',
@@ -87,7 +91,7 @@ export default function TransactionDetailScreen() {
   }
 
   function confirmRemoval() {
-    Alert.alert('Eliminar transacción', MSG_DELETE_CONFIRM, [
+    Alert.alert('Eliminar transacción', tx?.type === 'INCOME' ? MSG_DELETE_INCOME : MSG_DELETE_EXPENSE, [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Eliminar', style: 'destructive', onPress: removeAndLeave },
     ]);

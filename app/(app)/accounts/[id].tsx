@@ -21,7 +21,7 @@ import { useTheme } from '../../../src/theme';
 
 /** Texto aprobado por el usuario para la cuenta con movimientos (se archiva en vez de borrar). */
 const MSG_ARCHIVE_CONFIRM = 'Esta cuenta tiene movimientos, así que la archivaremos en lugar de borrarla. Tu historial se conserva.';
-const MSG_DELETE_CONFIRM = '¿Eliminar esta cuenta?';
+const MSG_DELETE_CONFIRM = '¿Eliminar esta cuenta? Esta acción no se puede deshacer.';
 const MSG_BALANCE_REQUIRED = 'Escribe el saldo de la cuenta.';
 const MSG_NOT_FOUND = 'No encontramos esta cuenta.';
 /** Aprobados por el usuario (2026-10-26). */
