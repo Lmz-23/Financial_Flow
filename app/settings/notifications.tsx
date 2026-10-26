@@ -4,7 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Card } from '../../src/components/ui';
 import { colors, spacing, typography } from '../../src/theme';
 import { useUserStore } from '../../src/store/useUserStore';
-import { requestPermissions } from '../../src/lib/expo/notifications';
+import { ensureNotificationPermission } from '../../src/app-services';
 
 const DAYS_OPTIONS = [1, 2, 3, 5, 7];
 
@@ -18,21 +18,23 @@ export default function NotificationsScreen() {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
 
   useEffect(() => {
-    checkPermissions();
+    let active = true;
+    ensureNotificationPermission().then(
+      (granted) => {
+        if (active) setHasPermission(granted);
+      },
+      () => {
+        if (active) setHasPermission(false);
+      },
+    );
+    return () => {
+      active = false;
+    };
   }, []);
-
-  const checkPermissions = async () => {
-    try {
-      const granted = await requestPermissions();
-      setHasPermission(granted);
-    } catch {
-      setHasPermission(false);
-    }
-  };
 
   const handleToggleNotifications = async (value: boolean) => {
     if (value) {
-      const granted = await requestPermissions();
+      const granted = await ensureNotificationPermission();
       if (!granted) {
         Alert.alert(
           'Permisos denegados',

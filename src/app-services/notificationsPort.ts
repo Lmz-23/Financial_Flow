@@ -5,24 +5,9 @@
 // arquitectura 7: `reconcile()` compara lo programado con lo deseado, es IDEMPOTENTE y se llama
 // despues de cualquier comando que afecte recurrentes, deudas o ajustes.
 //
-// F4-INTEGRATION: el arranque de la app (por ejemplo `initializeApp` en startup.ts, o
-// app/_layout.tsx) debe registrar el reconciliador de `src/platform/notifications.ts`.
-//
-// Mientras no haya ninguno registrado, `reconcileNotifications` no hace nada. El `reconcile` de F4
-// recibe su entrada (`ReconcileInput`: ocurrencias, ajustes y `now`), asi que el registro debe
-// envolverlo en un cierre sin argumentos que la construya con el dominio, por ejemplo:
-//
-//   registerNotificationReconciler(async () => {
-//     await reconcile({
-//       occurrences: getDomain().recurring.pendingOccurrences(),
-//       settings: getDomain().settings.notificationSettings(),
-//       now: Date.now(),
-//     });
-//   });
-//
-// Tambien pendiente de integrar (F4): `subscribeToNotificationResponses({ onNavigate, onSnooze })`
-// con `onNavigate = router.push` y `onSnooze = (id) => commands.recurring.snooze(id)`; el comando
-// ya ejecuta los efectos y, por tanto, reconcilia.
+// El arranque registra el reconciliador real (`startNotifications` en notificationsStartup.ts,
+// llamado desde `initializeApp`). Mientras no haya ninguno registrado, `reconcileNotifications`
+// no hace nada. Las respuestas a notificaciones se conectan con `subscribeToNotifications` (index.ts).
 
 export type NotificationReconciler = () => Promise<void>;
 
