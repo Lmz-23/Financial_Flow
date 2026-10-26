@@ -1,6 +1,8 @@
 // Mock for expo-sqlite
 // This allows tests to run in Node.js environment
 
+import { vi } from 'vitest';
+
 export const openDatabaseSync = vi.fn(() => ({
   runAsync: vi.fn(),
   run: vi.fn(),

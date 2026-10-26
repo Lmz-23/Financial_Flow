@@ -4,6 +4,7 @@ import { database } from '../../database';
 import { recurringItems } from '../../database/schema';
 import { eq } from 'drizzle-orm';
 import type { RecurringItem } from '../../database/schema';
+import { formatCOP } from '../../domain/money';
 
 // Configure notification handler for foreground notifications
 Notifications.setNotificationHandler({
@@ -85,6 +86,11 @@ export async function scheduleRecurringNotification(
       return null;
     }
 
+    // NULL = "sin fecha": no hay cuándo avisar.
+    if (item.nextDueDate === null) {
+      return null;
+    }
+
     const nextDue = new Date(item.nextDueDate);
     const now = new Date();
 
@@ -93,22 +99,20 @@ export async function scheduleRecurringNotification(
       return null;
     }
 
-    // Format the notification text based on type
-    const formattedAmount = new Intl.NumberFormat('es-CO', {
-      style: 'currency',
-      currency: 'COP',
-      notation: 'compact',
-    }).format(item.amount);
+    // Format the notification text based on type.
+    // name y amountMinor son NULL en cuotas de deuda (salen de la deuda).
+    const label = item.name ?? 'tu cuota';
+    const amountText = item.amountMinor === null ? '' : ` de ${formatCOP(item.amountMinor)}`;
 
     let title: string;
     let body: string;
 
     if (item.type === 'INCOME') {
       title = 'Recordatorio de ingreso';
-      body = `¿Te llegó tu pago de ${item.name} de ${formattedAmount}?`;
+      body = `¿Te llegó tu pago de ${label}${amountText}?`;
     } else {
       title = 'Recordatorio de pago';
-      body = `¿Ya pagaste ${item.name} de ${formattedAmount}?`;
+      body = `¿Ya pagaste ${label}${amountText}?`;
     }
 
     // Schedule the notification
@@ -190,7 +194,7 @@ export async function rescheduleAll(userId: string): Promise<void> {
     // Filter to only ACTIVE items with future due dates
     const now = new Date();
     const itemsToSchedule = activeItems.filter((item) => {
-      if (item.status !== 'ACTIVE') return false;
+      if (item.status !== 'ACTIVE' || item.nextDueDate === null) return false;
       const nextDue = new Date(item.nextDueDate);
       return nextDue >= now;
     });
