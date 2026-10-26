@@ -13,7 +13,3 @@ export { useDebts } from './useDebts';
 export type { DebtsSummary } from './useDebts';
 export { useGoals } from './useGoals';
 export { useSettings, useSettingsStore, useThemePreference } from '../store/useSettingsStore';
-
-// TEMPORAL (F6 lo retira): hook antiguo que aun importa app/(modals)/category-detail.tsx desde este
-// barril. No se toca su implementacion; se conserva el export para no introducir errores de tsc.
-export { useCategories, useCategoriesByType } from './useCategories';
