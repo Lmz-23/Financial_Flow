@@ -113,6 +113,7 @@ describe('propiedad: cuentas', () => {
     ['update (saldo)', (w: World, id: string) => w.b.accounts.update(id, { balanceMinor: 1 })],
     ['remove', (w: World, id: string) => w.b.accounts.remove(id)],
     ['unarchive', (w: World, id: string) => w.b.accounts.unarchive(id)],
+    ['removalOutcome', (w: World, id: string) => w.b.accounts.removalOutcome(id)],
   ])('%s con una cuenta ajena activa: NotFoundError sin efectos', (_n, op) => {
     const w = world();
     expectNotFound(w.env, (id) => op(w, id), w.accA, 'Cuenta');
@@ -122,6 +123,7 @@ describe('propiedad: cuentas', () => {
     ['update', (w: World, id: string) => w.b.accounts.update(id, { name: 'X' })],
     ['remove', (w: World, id: string) => w.b.accounts.remove(id)],
     ['unarchive', (w: World, id: string) => w.b.accounts.unarchive(id)],
+    ['removalOutcome', (w: World, id: string) => w.b.accounts.removalOutcome(id)],
   ])('%s con una cuenta ajena ARCHIVADA no revela que existe ni que esta archivada', (_n, op) => {
     const w = world();
     expectNotFound(w.env, (id) => op(w, id), w.accArchA, 'Cuenta');
@@ -456,7 +458,7 @@ describe('propiedad: listados, reportes e integridad no se mezclan', () => {
 /** NOT_FOUND: tiene caso(s) con `expectNotFound` (id ajeno = inexistente). READ: lectura por id, ajeno -> undefined/vacio. NO_ID: no recibe ids de entidades. */
 const SERVICE_METHODS: Record<string, 'NOT_FOUND' | 'READ' | 'NO_ID'> = {
   'accounts.create': 'NO_ID', 'accounts.update': 'NOT_FOUND', 'accounts.remove': 'NOT_FOUND',
-  'accounts.unarchive': 'NOT_FOUND', 'accounts.summary': 'NO_ID', 'accounts.get': 'READ',
+  'accounts.unarchive': 'NOT_FOUND', 'accounts.removalOutcome': 'NOT_FOUND', 'accounts.summary': 'NO_ID', 'accounts.get': 'READ',
   'transactions.create': 'NOT_FOUND', 'transactions.remove': 'NOT_FOUND', 'transactions.list': 'READ',
   'transactions.get': 'READ', 'transactions.categories': 'NO_ID',
   'debts.create': 'NO_ID', 'debts.update': 'NOT_FOUND', 'debts.registerPayment': 'NOT_FOUND', 'debts.remove': 'NOT_FOUND',

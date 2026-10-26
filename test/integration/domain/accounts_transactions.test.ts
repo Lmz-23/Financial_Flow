@@ -109,6 +109,32 @@ describe('Cuentas', () => {
     expectIntegrity(d);
   });
 
+  it('removalOutcome anticipa lo que hara remove sin escribir nada', () => {
+    const env = setup();
+    const { d } = env;
+    const conMov = mkAccount(d, 'Con movimientos', 1000);
+    d.transactions.create({ type: 'EXPENSE', accountId: conMov, amountMinor: 10 });
+    const sinMov = mkAccount(d, 'Sin movimientos', 5_000);
+    const conMeta = mkAccount(d, 'Solo metas', 1000);
+    d.goals.create({ name: 'Meta', targetMinor: 5000, initialMinor: 1000, accountId: conMeta });
+    const before = count(env, 'balance_adjustments');
+
+    expect(d.accounts.removalOutcome(conMov)).toBe('ARCHIVED');
+    expect(d.accounts.removalOutcome(sinMov)).toBe('DELETED');
+    expect(d.accounts.removalOutcome(conMeta)).toBe('ARCHIVED');
+    expect(count(env, 'balance_adjustments')).toBe(before);
+    expect(d.accounts.summary().accounts).toHaveLength(3);
+
+    for (const id of [conMov, sinMov, conMeta]) {
+      const expected = d.accounts.removalOutcome(id);
+      expect(d.accounts.remove(id).result.outcome).toBe(expected);
+    }
+    expect(thrown(() => d.accounts.removalOutcome(conMov))).toBeInstanceOf(ValidationError);
+    expect(thrown(() => d.accounts.removalOutcome(sinMov))).toBeInstanceOf(NotFoundError);
+    expect(thrown(() => d.accounts.removalOutcome('no-existe'))).toBeInstanceOf(NotFoundError);
+    expectIntegrity(d);
+  });
+
   it('una cuenta con solo aportes a metas tambien cuenta como "con movimientos"', () => {
     const env = setup();
     const a = mkAccount(env.d, 'Efectivo', 1000);
