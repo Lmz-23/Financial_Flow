@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { Stack } from 'expo-router';
+import { router, Stack, type Href } from 'expo-router';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { View, ActivityIndicator } from 'react-native';
 import { ErrorScreen } from '../src/components/feedback/ErrorScreen';
 import { nextFailureCount, safeErrorLogArgs } from '../src/lib/errorScreen';
-import { initializeApp, subscribeToForeground } from '../src/app-services';
+import { initializeApp, subscribeToForeground, subscribeToNotifications } from '../src/app-services';
 import { useSettingsStore, useThemePreference } from '../src/store/useSettingsStore';
 import { ThemeProvider, useTheme } from '../src/theme';
 import { fontAssets } from '../src/theme/fontAssets';
@@ -53,6 +53,12 @@ function Initializer({ children }: { children: ReactNode }) {
 
   // Al volver a primer plano se invalida todo (mes en curso, "Hoy", estado de próximos pagos).
   useEffect(() => (status === 'ready' ? subscribeToForeground() : undefined), [status]);
+
+  // Tocar una notificación (o abrir la app desde ella) lleva a su pantalla; solo con la BD lista.
+  useEffect(
+    () => (status === 'ready' ? subscribeToNotifications((href) => router.push(href as Href)) : undefined),
+    [status],
+  );
 
   if (status === 'error') return <ErrorScreen onRetry={retry} failureCount={failureCount} />;
   if (status === 'loading') {

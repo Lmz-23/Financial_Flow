@@ -204,6 +204,40 @@ describe('reconcile', () => {
   });
 });
 
+describe('hora local (America/Bogota, UTC-5)', () => {
+  // Instantes absolutos escritos a mano: no reutilizan `localDateToEpochMs`, así que un
+  // 'YYYY-MM-DD' leído como medianoche UTC (19:00 del día anterior en Bogotá) haría fallar el test.
+  it('el huso de la suite es America/Bogota', () => {
+    expect(process.env.TZ).toBe('America/Bogota');
+  });
+
+  it('el aviso del día y el previo disparan a la hora del recordatorio, en su fecha local', async () => {
+    await reconcile(input([occ({ occurrence: '2026-10-20' })]));
+    const due = (state.store.get('rec:r1:2026-10-20:due') as FakeRequest).trigger.date as number;
+    const pre = (state.store.get('rec:r1:2026-10-20:pre') as FakeRequest).trigger.date as number;
+
+    expect(due).toBe(Date.parse('2026-10-20T14:00:00Z')); // 09:00 en Bogotá
+    expect(pre).toBe(Date.parse('2026-10-18T14:00:00Z')); // 2 días antes, 09:00 en Bogotá
+    for (const [instant, day] of [[due, 20], [pre, 18]] as const) {
+      const d = new Date(instant);
+      expect([d.getDate(), d.getHours(), d.getMinutes()]).toEqual([day, 9, 0]);
+    }
+  });
+
+  it('respeta una hora de recordatorio tardía sin pasarse al día siguiente', async () => {
+    await reconcile(input([occ({ occurrence: '2026-10-20' })], { ...settings, reminderHour: 23 }));
+    const due = (state.store.get('rec:r1:2026-10-20:due') as FakeRequest).trigger.date as number;
+    expect(due).toBe(Date.parse('2026-10-21T04:00:00Z')); // 23:00 del 20 en Bogotá
+    expect(new Date(due).getDate()).toBe(20);
+  });
+
+  it('el resumen semanal queda el domingo a las 19:00 locales', async () => {
+    await reconcile(input([]));
+    const weekly = (state.store.get('weekly-summary') as FakeRequest).trigger;
+    expect(weekly).toMatchObject({ type: 'weekly', weekday: 1, hour: 19, minute: 0 });
+  });
+});
+
 describe('respuestas', () => {
   const response = (actionIdentifier: string, data: Record<string, unknown>, id = 'n1') =>
     ({
