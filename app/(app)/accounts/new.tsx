@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -26,10 +26,16 @@ export default function NewAccountScreen() {
   const [type, setType] = useState<AccountType>('CASH');
   const [opening, setOpening] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Guarda síncrona: un segundo toque antes de que se cierre la pantalla no duplica la cuenta.
+  const saved = useRef(false);
+  const [done, setDone] = useState(false);
 
   function save() {
+    if (saved.current) return;
     try {
       commands.accounts.create({ name, type, openingMinor: opening ?? 0 });
+      saved.current = true;
+      setDone(true);
       router.back();
     } catch (e) {
       setError(errorMessage(e));
@@ -77,7 +83,7 @@ export default function NewAccountScreen() {
         ) : null}
       </ScrollView>
       <View style={{ paddingTop: space[4], paddingHorizontal: SCREEN_MARGIN, paddingBottom: Math.max(insets.bottom, 28) }}>
-        <Button label="Guardar cuenta" onPress={save} />
+        <Button label="Guardar cuenta" onPress={save} disabled={done} />
       </View>
     </KeyboardAvoidingView>
   );

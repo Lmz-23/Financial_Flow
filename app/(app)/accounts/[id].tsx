@@ -70,20 +70,27 @@ function AccountDetail({
   onBack: () => void;
 }) {
   const { colors, space } = useTheme();
-  const [name, setName] = useState(initialName);
-  const [balance, setBalance] = useState<number | null>(balanceMinor);
+  // Borradores: undefined = sin tocar, y el campo muestra el valor vivo de la cuenta. Solo se envía
+  // lo que el usuario tocó; así un saldo que cambió por fuera no se pisa con un ajuste MANUAL viejo.
+  const [nameDraft, setNameDraft] = useState<string | undefined>(undefined);
+  const [balanceDraft, setBalanceDraft] = useState<number | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
+  const name = nameDraft ?? initialName;
+  const balance = balanceDraft === undefined ? balanceMinor : balanceDraft;
 
   function saveChanges() {
-    if (balance === null) {
+    if (balanceDraft === null) {
       setError(MSG_BALANCE_REQUIRED);
       return;
     }
+    if (nameDraft === undefined && balanceDraft === undefined) return;
     try {
       commands.accounts.update(id, {
-        ...(name !== initialName ? { name } : {}),
-        ...(balance !== balanceMinor ? { balanceMinor: balance } : {}),
+        ...(nameDraft !== undefined ? { name: nameDraft } : {}),
+        ...(balanceDraft !== undefined ? { balanceMinor: balanceDraft } : {}),
       });
+      setNameDraft(undefined);
+      setBalanceDraft(undefined);
       setError(null);
     } catch (e) {
       setError(errorMessage(e));
@@ -143,7 +150,7 @@ function AccountDetail({
             label="Nombre"
             value={name}
             onChangeText={(t) => {
-              setName(t);
+              setNameDraft(t);
               setError(null);
             }}
             autoCapitalize="sentences"
@@ -153,7 +160,7 @@ function AccountDetail({
             label="Saldo"
             value={balance}
             onChangeValue={(v) => {
-              setBalance(v);
+              setBalanceDraft(v);
               setError(null);
             }}
           />

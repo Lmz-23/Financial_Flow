@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
@@ -73,6 +73,9 @@ export default function NewTransactionScreen() {
   const [accountId, setAccountId] = useState<string | null>(null);
   const [passive, setPassive] = useState(initial.passive);
   const [error, setError] = useState<string | null>(null);
+  // Guarda síncrona: un segundo toque antes de que se cierre la pantalla no duplica la transacción.
+  const saved = useRef(false);
+  const [done, setDone] = useState(false);
 
   const categories = useCategoryOptions(type);
   const { accounts } = useAccounts();
@@ -106,6 +109,7 @@ export default function NewTransactionScreen() {
   }
 
   function save() {
+    if (saved.current) return;
     if (!selectedAccountId) {
       setError(MSG_PICK_ACCOUNT);
       return;
@@ -118,6 +122,8 @@ export default function NewTransactionScreen() {
         ...(newCategory !== null ? { newCategoryName: newCategory } : { categoryId }),
         isPassive: isIncome && passive,
       });
+      saved.current = true;
+      setDone(true);
       router.back();
     } catch (e) {
       setError(errorMessage(e));
@@ -293,7 +299,7 @@ export default function NewTransactionScreen() {
         ) : null}
       </ScrollView>
       <View style={{ paddingTop: space[4], paddingHorizontal: SCREEN_MARGIN, paddingBottom: Math.max(insets.bottom, 28) }}>
-        <Button label="Guardar" onPress={save} />
+        <Button label="Guardar" onPress={save} disabled={done} />
       </View>
     </KeyboardAvoidingView>
   );
