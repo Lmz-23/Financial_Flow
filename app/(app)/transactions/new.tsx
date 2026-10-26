@@ -17,6 +17,7 @@ import { Text } from '../../../src/components/ui/ds/Text';
 import { useAccounts } from '../../../src/hooks';
 import { useCategoryOptions } from '../../../src/hooks/useTransactions';
 import { errorMessage } from '../../../src/lib/screenErrors';
+import { routes } from '../../../src/navigation/routes';
 import { fontFamilyFor, useTheme } from '../../../src/theme';
 
 type TxType = 'EXPENSE' | 'INCOME';
@@ -224,6 +225,9 @@ export default function NewTransactionScreen() {
           }}
           emptyText={MSG_NO_ACCOUNTS}
         />
+        {accounts.length === 0 ? (
+          <Button label="Agregar cuenta" variant="ghost" size="md" onPress={() => router.push(routes.accountNew())} />
+        ) : null}
 
         <View style={{ gap: space[2] }}>
           <Text variant="label" tone="secondary">
