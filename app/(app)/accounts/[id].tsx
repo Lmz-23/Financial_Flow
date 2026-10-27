@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
+import { Alert, ScrollView, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { commands, getDomain } from '../../../src/app-services';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenHeader } from '../../../src/components/screens/ScreenHeader';
 import { Amount } from '../../../src/components/ui/ds/Amount';
 import { Button } from '../../../src/components/ui/ds/Button';
@@ -18,6 +19,7 @@ import { transactionLabel } from '../../../src/lib/dashboardFormat';
 import { relativeDateLabel } from '../../../src/lib/dateLabels';
 import { errorMessage } from '../../../src/lib/screenErrors';
 import { useTheme } from '../../../src/theme';
+import { KeyboardScreen } from '../../../src/components/screens/KeyboardScreen';
 
 /** Texto aprobado por el usuario para la cuenta con movimientos (se archiva en vez de borrar). */
 const MSG_ARCHIVE_CONFIRM = 'Esta cuenta tiene movimientos, así que la archivaremos en lugar de borrarla. Tu historial se conserva.';
@@ -78,7 +80,8 @@ function AccountDetail({
   movements: Movements;
   onBack: () => void;
 }) {
-  const { colors, space } = useTheme();
+  const { space } = useTheme();
+  const insets = useSafeAreaInsets();
   // Borradores: undefined = sin tocar, y el campo muestra el valor vivo de la cuenta. Solo se envía
   // lo que el usuario tocó; así un saldo que cambió por fuera no se pisa con un ajuste MANUAL viejo.
   const [nameDraft, setNameDraft] = useState<string | undefined>(undefined);
@@ -150,16 +153,13 @@ function AccountDetail({
   }
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: colors.surfacePage }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <KeyboardScreen>
       <ScreenHeader title={initialName} onBack={onBack} />
       <ScrollView
         style={{ flex: 1 }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
-        contentContainerStyle={{ padding: SCREEN_MARGIN, gap: space[5], paddingBottom: space[6] }}
+        contentContainerStyle={{ padding: SCREEN_MARGIN, gap: space[5], paddingBottom: space[6] + insets.bottom }}
       >
         <View style={{ gap: 2 }}>
           <Amount value={balanceMinor} variant="amountLg" />
@@ -241,6 +241,6 @@ function AccountDetail({
 
         {archived ? null : <Button label="Eliminar cuenta" variant="danger" size="md" onPress={confirmRemoval} />}
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardScreen>
   );
 }

@@ -1,10 +1,10 @@
 import { useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { commands } from '../../../src/app-services';
+import { KeyboardFooter, KeyboardScreen } from '../../../src/components/screens/KeyboardScreen';
 import { ScreenHeader } from '../../../src/components/screens/ScreenHeader';
 import { AccountPicker } from '../../../src/components/ui/ds/AccountPicker';
 import { Button } from '../../../src/components/ui/ds/Button';
@@ -61,7 +61,6 @@ function CategoryIcon({ color }: { color: string }) {
 export default function NewTransactionScreen() {
   const { colors, radius, space } = useTheme();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const initial = parseParams(useLocalSearchParams<{ type?: string; passive?: string }>());
 
   const [type, setType] = useState<TxType>(initial.type);
@@ -132,10 +131,7 @@ export default function NewTransactionScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: colors.surfacePage }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <KeyboardScreen>
       <ScreenHeader title="Nueva transacción" icon="close" onBack={() => router.back()} />
       <ScrollView
         style={{ flex: 1 }}
@@ -302,9 +298,9 @@ export default function NewTransactionScreen() {
           </Text>
         ) : null}
       </ScrollView>
-      <View style={{ paddingTop: space[4], paddingHorizontal: SCREEN_MARGIN, paddingBottom: Math.max(insets.bottom, 28) }}>
+      <KeyboardFooter>
         <Button label="Guardar" onPress={save} disabled={done} />
-      </View>
-    </KeyboardAvoidingView>
+      </KeyboardFooter>
+    </KeyboardScreen>
   );
 }

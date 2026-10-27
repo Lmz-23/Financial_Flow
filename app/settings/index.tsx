@@ -1,5 +1,6 @@
 import { useRouter } from 'expo-router';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Card, Divider } from '../../src/components/ui';
 import { colors, spacing, typography } from '../../src/theme';
