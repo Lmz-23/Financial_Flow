@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { commands } from '../../../src/app-services';
 import { ScreenHeader } from '../../../src/components/screens/ScreenHeader';
@@ -14,14 +13,14 @@ import { Text } from '../../../src/components/ui/ds/Text';
 import { ACCOUNT_TYPE_OPTIONS } from '../../../src/lib/onboardingDraft';
 import { errorMessage } from '../../../src/lib/screenErrors';
 import { useTheme } from '../../../src/theme';
+import { KeyboardScreen, KeyboardFooter } from '../../../src/components/screens/KeyboardScreen';
 
 type AccountType = (typeof ACCOUNT_TYPE_OPTIONS)[number]['value'];
 
 /** Agregar cuenta (Dashboard.dc.html, onAgregarCuenta): nombre, tipo y saldo inicial. */
 export default function NewAccountScreen() {
-  const { colors, space } = useTheme();
+  const { space } = useTheme();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const [name, setName] = useState('');
   const [type, setType] = useState<AccountType>('CASH');
   const [opening, setOpening] = useState<number | null>(null);
@@ -43,10 +42,7 @@ export default function NewAccountScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: colors.surfacePage }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <KeyboardScreen>
       <ScreenHeader title="Agregar cuenta" onBack={() => router.back()} />
       <ScrollView
         style={{ flex: 1 }}
@@ -82,9 +78,9 @@ export default function NewAccountScreen() {
           </Text>
         ) : null}
       </ScrollView>
-      <View style={{ paddingTop: space[4], paddingHorizontal: SCREEN_MARGIN, paddingBottom: Math.max(insets.bottom, 28) }}>
+      <KeyboardFooter>
         <Button label="Guardar cuenta" onPress={save} disabled={done} />
-      </View>
-    </KeyboardAvoidingView>
+      </KeyboardFooter>
+    </KeyboardScreen>
   );
 }

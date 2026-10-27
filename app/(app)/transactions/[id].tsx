@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 
 import { commands } from '../../../src/app-services';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenHeader } from '../../../src/components/screens/ScreenHeader';
 import { Amount } from '../../../src/components/ui/ds/Amount';
 import { Button } from '../../../src/components/ui/ds/Button';
@@ -53,6 +54,7 @@ function DetailRow({ label, value, divider }: { label: string; value: string; di
 export default function TransactionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { space } = useTheme();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const tx = useTransaction(id);
   const [error, setError] = useState<string | null>(null);
@@ -111,7 +113,7 @@ export default function TransactionDetailScreen() {
   return (
     <View style={{ flex: 1 }}>
       <ScreenHeader title="Detalle" onBack={() => router.back()} />
-      <ScrollView contentContainerStyle={{ padding: SCREEN_MARGIN, gap: space[5], paddingBottom: space[6] }}>
+      <ScrollView contentContainerStyle={{ padding: SCREEN_MARGIN, gap: space[5], paddingBottom: space[6] + insets.bottom }}>
         <View style={{ alignItems: 'center', gap: 6, paddingVertical: space[3] }}>
           <Amount value={tx.type === 'INCOME' ? tx.amountMinor : -tx.amountMinor} variant="amountLg" tone="auto" />
           <Text variant="body" tone="secondary">
