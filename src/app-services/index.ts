@@ -17,6 +17,6 @@ export const commands = createCommands(getDomain, (effects) =>
 
 export { getDomain } from './domain';
 export { initializeApp, refreshSettings, subscribeToForeground } from './startup';
-export { ensureNotificationPermission } from './permissions';
+export { ensureNotificationPermission, readNotificationPermission } from './permissions';
 export { registerNotificationReconciler, reconcileNotifications } from './notificationsPort';
 export type { Commands } from './commands';

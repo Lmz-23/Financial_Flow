@@ -56,6 +56,7 @@ export default function DebtPayScreen() {
 
   return (
     <PayForm
+      key={id}
       debtId={id}
       name={debt.name}
       installmentMinor={debt.installmentMinor}

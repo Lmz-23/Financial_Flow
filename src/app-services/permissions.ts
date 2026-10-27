@@ -18,3 +18,9 @@ export async function ensureNotificationPermission(): Promise<boolean> {
     return false;
   }
 }
+
+/** Estado del permiso sin pedirlo (Ajustes lo lee al abrir). Import diferido, como arriba. */
+export async function readNotificationPermission(): Promise<{ granted: boolean; canAskAgain: boolean }> {
+  const { readNotificationPermission: read } = await import('../platform/notifications');
+  return read();
+}

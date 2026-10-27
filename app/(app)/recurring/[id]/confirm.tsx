@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import { commands } from '../../../../src/app-services';
@@ -84,6 +85,7 @@ function ConfirmContent({
   occurrence: LocalDate;
 }) {
   const { colors, radius, space } = useTheme();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { accounts } = useAccounts();
   const [accountId, setAccountId] = useState<string | null>(null);
@@ -111,7 +113,11 @@ function ConfirmContent({
       return;
     }
     try {
-      commands.recurring.confirmOccurrence({ recurringId: id, occurrenceDate: occurrence, accountId: selectedAccountId });
+      commands.recurring.confirmOccurrence({
+        recurringId: id,
+        occurrenceDate: occurrence,
+        accountId: selectedAccountId,
+      });
       busy.current = true;
       setConfirmed(true);
     } catch (e) {
@@ -144,7 +150,13 @@ function ConfirmContent({
           }}
         >
           <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" accessibilityElementsHidden>
-            <Path d="M4 12L9.5 17.5L20 6" stroke={colors.inkOnBrand} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+            <Path
+              d="M4 12L9.5 17.5L20 6"
+              stroke={colors.inkOnBrand}
+              strokeWidth={2.2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </Svg>
         </View>
         <View style={{ alignItems: 'center', gap: space[1] }} accessibilityLiveRegion="polite">
@@ -158,7 +170,12 @@ function ConfirmContent({
   return (
     <ScrollView
       style={{ flex: 1 }}
-      contentContainerStyle={{ padding: SCREEN_MARGIN, paddingTop: space[6], gap: space[5] }}
+      contentContainerStyle={{
+        padding: SCREEN_MARGIN,
+        paddingTop: space[6],
+        paddingBottom: SCREEN_MARGIN + insets.bottom,
+        gap: space[5],
+      }}
     >
       <View style={{ alignItems: 'center', gap: 6 }}>
         <Text variant="h3" style={{ textAlign: 'center' }}>{`¿Ya pagaste ${name}?`}</Text>

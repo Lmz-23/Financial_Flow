@@ -90,9 +90,14 @@ export function RecurringForm({
   const locked = useRef(false);
   const [done, setDone] = useState(false);
 
-  // Preselecciona la predeterminada (D8) si sigue activa; si no, la primera cuenta, visible y cambiable.
+  // Preselecciona la predeterminada (D8). Sin predeterminada, la primera cuenta, visible y cambiable; si la
+  // guardada ya no esta activa, no se reemplaza en silencio: queda sin elegir y el guardado la pide.
   const selectedAccountId =
-    accountId !== null && accounts.some((a) => a.id === accountId) ? accountId : (accounts[0]?.id ?? null);
+    accountId === null
+      ? (accounts[0]?.id ?? null)
+      : accounts.some((a) => a.id === accountId)
+        ? accountId
+        : null;
   // Aviso EN VIVO del ajuste quincenal: nunca en silencio tras guardar.
   const adjustNotice = biweeklyAdjustNotice(date, frequency);
 

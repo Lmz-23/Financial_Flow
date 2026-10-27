@@ -49,15 +49,12 @@ export function DatePickerField({
 }: DatePickerFieldProps) {
   const { colors, radius, space, type } = useTheme();
   const [iosDraft, setIosDraft] = useState<LocalDate | null>(null);
-  const today = (() => {
-    const now = new Date();
-    return formatLocalDate(now.getFullYear(), now.getMonth() + 1, now.getDate());
-  })();
-  const initial = value ?? today;
   const min = minimumDate ? toPickerDate(minimumDate) : undefined;
   const max = maximumDate ? toPickerDate(maximumDate) : undefined;
 
   function open() {
+    // «Hoy» se calcula al abrir, no en render: React Compiler lo memoizaria y quedaria viejo.
+    const initial = value ?? fromPickerDate(new Date());
     if (Platform.OS === 'android') {
       DateTimePickerAndroid.open({
         value: toPickerDate(initial),
