@@ -25,6 +25,8 @@ import {
 export const ANDROID_CHANNEL_ID = 'reminders';
 /** Sin ":" ni "-" (limitación de la API de categorías). */
 export const ACTIONS_CATEGORY_ID = 'recurringActions';
+/** Ingresos: misma accion `paid` con el texto «Recibido» (los avisos de ingreso dicen «¿Ya recibiste X?»). */
+export const INCOME_ACTIONS_CATEGORY_ID = 'recurringIncomeActions';
 export const ACTION_PAID = 'paid';
 export const ACTION_SNOOZE = 'snooze';
 /** Identificadores propios: todo lo demás que haya programado la app no se toca. */
@@ -86,6 +88,15 @@ export async function setupNotifications(): Promise<void> {
     { identifier: ACTION_PAID, buttonTitle: 'Ya pagué', options: { opensAppToForeground: true } },
     { identifier: ACTION_SNOOZE, buttonTitle: 'Todavía no', options: { opensAppToForeground: true } },
   ]);
+  await Notifications.setNotificationCategoryAsync(INCOME_ACTIONS_CATEGORY_ID, [
+    { identifier: ACTION_PAID, buttonTitle: 'Recibido', options: { opensAppToForeground: true } },
+    { identifier: ACTION_SNOOZE, buttonTitle: 'Todavía no', options: { opensAppToForeground: true } },
+  ]);
+}
+
+function categoryOf(n: PlannedNotification): string | undefined {
+  if (!n.hasActions) return undefined;
+  return n.direction === 'INCOME' ? INCOME_ACTIONS_CATEGORY_ID : ACTIONS_CATEGORY_ID;
 }
 
 /**
@@ -121,7 +132,7 @@ function bodyOf(n: PlannedNotification): string | undefined {
 function signatureOf(n: PlannedNotification): string {
   // El resumen semanal es repetitivo: su disparo no depende de la fecha concreta.
   const when = n.kind === 'WEEKLY_SUMMARY' ? 'weekly' : String(n.fireAt);
-  return JSON.stringify([when, n.title, bodyOf(n) ?? null, n.hasActions, n.target]);
+  return JSON.stringify([when, n.title, bodyOf(n) ?? null, categoryOf(n) ?? null, n.target]);
 }
 
 function triggerOf(n: PlannedNotification): Notifications.NotificationTriggerInput {
@@ -152,7 +163,7 @@ async function schedule(n: PlannedNotification): Promise<void> {
     content: {
       title: n.title,
       body: bodyOf(n),
-      categoryIdentifier: n.hasActions ? ACTIONS_CATEGORY_ID : undefined,
+      categoryIdentifier: categoryOf(n),
       data: { [SIGNATURE_KEY]: signatureOf(n), [TARGET_KEY]: n.target },
     },
     trigger: triggerOf(n),
