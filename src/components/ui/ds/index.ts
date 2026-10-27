@@ -31,5 +31,7 @@ export { ListRow } from './ListRow';
 export type { ListRowProps } from './ListRow';
 export { AccountPicker } from './AccountPicker';
 export type { AccountPickerProps, AccountOption } from './AccountPicker';
+export { DatePickerField } from './DatePickerField';
+export type { DatePickerFieldProps } from './DatePickerField';
 export { SCREEN_MARGIN } from './constants';
 export type { TextTone } from './tone';

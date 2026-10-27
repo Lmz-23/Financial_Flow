@@ -11,6 +11,12 @@ export function shortDateLabel(date: LocalDate): string {
   return `${day} ${MONTHS[month - 1]}`;
 }
 
+/** '2026-10-15' -> '15 oct 2026' (campo de fecha). */
+export function fullDateLabel(date: LocalDate): string {
+  const { year } = parseLocalDate(date);
+  return `${shortDateLabel(date)} ${year}`;
+}
+
 /**
  * Fecha de un movimiento: 'Hoy', 'Ayer', dia de la semana ('Lun') hasta 6 dias atras y '15 oct'
  * para lo mas antiguo o futuro. El diseno solo muestra 'Hoy', 'Ayer' y 'Lun' (datos de ejemplo);

@@ -10,12 +10,14 @@ import { KeyboardFooter, KeyboardScreen } from '../../../src/components/screens/
 import { ScreenHeader } from '../../../src/components/screens/ScreenHeader';
 import { AccountPicker } from '../../../src/components/ui/ds/AccountPicker';
 import { Button } from '../../../src/components/ui/ds/Button';
+import { DatePickerField } from '../../../src/components/ui/ds/DatePickerField';
 import { MIN_TOUCH, SCREEN_MARGIN } from '../../../src/components/ui/ds/constants';
 import { Input } from '../../../src/components/ui/ds/Input';
 import { MoneyInput } from '../../../src/components/ui/ds/MoneyInput';
 import { Pill } from '../../../src/components/ui/ds/Pill';
 import { SegmentedControl } from '../../../src/components/ui/ds/SegmentedControl';
 import { Text } from '../../../src/components/ui/ds/Text';
+import { localDateToEpochMs, toLocalDate, type LocalDate } from '../../../src/domain/dates';
 import { useAccounts } from '../../../src/hooks';
 import { useCategoryOptions } from '../../../src/hooks/useTransactions';
 import { consumePassiveHelpFirstTime } from '../../../src/lib/passiveIncomeHelp';
@@ -60,7 +62,7 @@ function CategoryIcon({ color }: { color: string }) {
   );
 }
 
-/** Nueva transaccion (Dashboard.dc.html, onAgregarTx). La fecha queda en «Hoy»: no se envia `date`. */
+/** Nueva transaccion (Dashboard.dc.html, onAgregarTx). Con fecha «Hoy» no se envia `date` (reloj del dominio). */
 export default function NewTransactionScreen() {
   const { colors, radius, space } = useTheme();
   const router = useRouter();
@@ -75,6 +77,8 @@ export default function NewTransactionScreen() {
   const [draftCategory, setDraftCategory] = useState('');
   const [accountId, setAccountId] = useState<string | null>(null);
   const [passive, setPassive] = useState(initial.passive);
+  const [today] = useState(() => toLocalDate(Date.now()));
+  const [date, setDate] = useState<LocalDate>(today);
   const [helpOpen, setHelpOpen] = useState(false);
   const onTogglePassive = () => {
     const next = !passive;
@@ -134,6 +138,8 @@ export default function NewTransactionScreen() {
         amountMinor: amount ?? 0,
         ...(newCategory !== null ? { newCategoryName: newCategory } : { categoryId }),
         isPassive: isIncome && passive,
+        // Otro dia: mediodia local, lejos de los bordes del dia por cambios de huso.
+        ...(date !== today ? { date: localDateToEpochMs(date, 12) } : {}),
       });
       saved.current = true;
       setDone(true);
@@ -223,6 +229,13 @@ export default function NewTransactionScreen() {
             </View>
           ) : null}
         </View>
+
+        <DatePickerField
+          label="Fecha"
+          value={date}
+          onChange={(d) => setDate(d ?? today)}
+          maximumDate={today}
+        />
 
         <AccountPicker
           label="Cuenta"
