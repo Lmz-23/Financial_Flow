@@ -3,6 +3,8 @@
 // =============================================================================
 // Las pantallas de estas rutas las crea F5b; hasta entonces `typedRoutes` no las conoce, por eso
 // cada ruta pasa por `href()`. Cuando existan, esta tabla es el unico sitio a actualizar.
+// Sin pantalla todavia (los botones que las usan van con `comingSoon` en components/dashboard):
+// recurringNew, recurringConfirm, debtInstallmentPay, cashflow, debts, debtNew, goals, goalNew.
 import type { Href } from 'expo-router';
 
 import type { LocalDate } from '../domain/dates';

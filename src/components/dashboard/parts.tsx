@@ -6,6 +6,9 @@ import { fontFamilyFor, useTheme } from '../../theme';
 import { Text } from '../ui/ds';
 import { CloseIcon, PlusIcon, SmallPlusIcon } from './icons';
 
+/** Etiqueta de las acciones que aun no tienen pantalla (F5b). */
+const COMING_SOON = 'Próximamente';
+
 /** Boton circular pequeno (26 px del diseno) con area tactil de 44 px via hitSlop. */
 function CircleIconButton({
   accessibilityLabel,
@@ -13,12 +16,14 @@ function CircleIconButton({
   bordered,
   children,
   size,
+  disabled = false,
 }: {
   accessibilityLabel: string;
   onPress: () => void;
   bordered: boolean;
   children: ReactNode;
   size: number;
+  disabled?: boolean;
 }) {
   const { colors, radius } = useTheme();
   const slop = Math.max(0, (44 - size) / 2);
@@ -26,6 +31,8 @@ function CircleIconButton({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
       onPress={onPress}
       hitSlop={{ top: slop, bottom: slop, left: slop, right: slop }}
       style={({ pressed }) => ({
@@ -36,7 +43,7 @@ function CircleIconButton({
         borderColor: colors.borderSubtle,
         alignItems: 'center',
         justifyContent: 'center',
-        opacity: pressed ? 0.7 : 1,
+        opacity: disabled ? 0.4 : pressed ? 0.7 : 1,
       })}
     >
       {children}
@@ -44,17 +51,19 @@ function CircleIconButton({
   );
 }
 
-/** Titulo de widget con una accion a la derecha (agregar o desactivar). */
+/** Titulo de widget con una accion a la derecha (agregar o desactivar). `addComingSoon` apaga la accion de agregar. */
 export function WidgetHeader({
   title,
   addLabel,
   onAdd,
+  addComingSoon = false,
   deactivateLabel,
   onDeactivate,
 }: {
   title: string;
   addLabel?: string;
   onAdd?: () => void;
+  addComingSoon?: boolean;
   deactivateLabel?: string;
   onDeactivate?: () => void;
 }) {
@@ -65,7 +74,13 @@ export function WidgetHeader({
         {title}
       </Text>
       {onAdd && addLabel ? (
-        <CircleIconButton accessibilityLabel={addLabel} onPress={onAdd} bordered size={26}>
+        <CircleIconButton
+          accessibilityLabel={addComingSoon ? `${addLabel}, ${COMING_SOON}` : addLabel}
+          onPress={onAdd}
+          bordered
+          size={26}
+          disabled={addComingSoon}
+        >
           <PlusIcon color={colors.inkSecondary} />
         </CircleIconButton>
       ) : null}
@@ -78,29 +93,50 @@ export function WidgetHeader({
   );
 }
 
-/** Enlace de texto de marca ("Ver todas", "Ver detalle"): 13 px, peso 600, brand-primary. */
-export function LinkButton({ label, onPress }: { label: string; onPress: () => void }) {
+/** Enlace de texto de marca ("Ver todas", "Ver detalle"): 13 px, peso 600, brand-primary. `comingSoon` lo apaga y cambia el texto por el de pendiente. */
+export function LinkButton({
+  label,
+  onPress,
+  comingSoon = false,
+}: {
+  label: string;
+  onPress: () => void;
+  comingSoon?: boolean;
+}) {
   return (
     <Pressable
       accessibilityRole="link"
+      accessibilityState={{ disabled: comingSoon }}
+      disabled={comingSoon}
       onPress={onPress}
       hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
-      style={({ pressed }) => ({ alignSelf: 'flex-start', opacity: pressed ? 0.7 : 1 })}
+      style={({ pressed }) => ({ alignSelf: 'flex-start', opacity: comingSoon ? 0.4 : pressed ? 0.7 : 1 })}
     >
       <Text variant="bodySm" tone="brand" style={{ fontFamily: fontFamilyFor('sans', 600) }}>
-        {label}
+        {comingSoon ? COMING_SOON : label}
       </Text>
     </Pressable>
   );
 }
 
-/** Boton punteado de "primer dato" dentro de un widget vacio (Agregar deuda, Crear meta). */
-export function DashedAddButton({ label, onPress }: { label: string; onPress: () => void }) {
+/** Boton punteado de "primer dato" dentro de un widget vacio (Agregar deuda, Crear meta). `comingSoon` lo apaga y añade el aviso de pendiente. */
+export function DashedAddButton({
+  label,
+  onPress,
+  comingSoon = false,
+}: {
+  label: string;
+  onPress: () => void;
+  comingSoon?: boolean;
+}) {
   const { colors, radius, space } = useTheme();
+  const text = comingSoon ? `${label} · ${COMING_SOON}` : label;
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={text}
+      accessibilityState={{ disabled: comingSoon }}
+      disabled={comingSoon}
       onPress={onPress}
       style={({ pressed }) => ({
         minHeight: 48,
@@ -112,12 +148,12 @@ export function DashedAddButton({ label, onPress }: { label: string; onPress: ()
         borderWidth: 1.5,
         borderStyle: 'dashed',
         borderColor: colors.borderSubtle,
-        opacity: pressed ? 0.7 : 1,
+        opacity: comingSoon ? 0.4 : pressed ? 0.7 : 1,
       })}
     >
       <SmallPlusIcon color={colors.inkSecondary} />
       <Text variant="body" tone="secondary">
-        {label}
+        {text}
       </Text>
     </Pressable>
   );

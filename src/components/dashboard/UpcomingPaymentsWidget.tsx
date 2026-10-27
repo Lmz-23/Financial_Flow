@@ -11,6 +11,9 @@ import { MIN_TOUCH } from '../ui/ds/constants';
 import { CheckIcon } from './icons';
 import { WidgetHeader } from './parts';
 
+/** Hojas de confirmacion de pago aun sin pantalla (F5b-3 / F5b-5). Quitar la constante al crearlas. */
+const COMING_SOON_CONFIRM = true;
+
 function UpcomingRow({ item }: { item: UpcomingItem }) {
   const router = useRouter();
   const { colors, radius, space } = useTheme();
@@ -26,11 +29,18 @@ function UpcomingRow({ item }: { item: UpcomingItem }) {
       <Pressable
         // Desmarcar un pago (D14) necesita la fecha de la ocurrencia confirmada, que `upcoming()` no
         // expone; hasta entonces un pendiente solo se marca (abre la hoja) y un pagado no es pulsable.
-        disabled={paid}
+        // Mientras las hojas de confirmacion (recurringConfirm / debtInstallmentPay) no existan, el circulo queda apagado (F5b).
+        disabled={paid || COMING_SOON_CONFIRM}
         onPress={() => router.push(upcomingConfirmRoute(item))}
         accessibilityRole="checkbox"
-        accessibilityState={{ checked: paid, disabled: paid }}
-        accessibilityLabel={paid ? `${item.name} ${verb}` : `Marcar ${item.name} como ${verb}`}
+        accessibilityState={{ checked: paid, disabled: paid || COMING_SOON_CONFIRM }}
+        accessibilityLabel={
+          paid
+            ? `${item.name} ${verb}`
+            : COMING_SOON_CONFIRM
+              ? `Marcar ${item.name} como ${verb}, Próximamente`
+              : `Marcar ${item.name} como ${verb}`
+        }
         hitSlop={{ top: 11, bottom: 11, left: 11, right: 11 }}
         style={{
           width: 22,
@@ -41,6 +51,7 @@ function UpcomingRow({ item }: { item: UpcomingItem }) {
           backgroundColor: paid ? colors.signalGrowth : 'transparent',
           alignItems: 'center',
           justifyContent: 'center',
+          opacity: COMING_SOON_CONFIRM && !paid ? 0.4 : 1,
         }}
       >
         {paid ? <CheckIcon color={colors.inkOnBrand} /> : null}
@@ -93,6 +104,7 @@ export function UpcomingPaymentsWidget({ items }: { items: UpcomingItem[] }) {
       <WidgetHeader
         title="Próximos pagos"
         addLabel="Agregar pago o ingreso recurrente"
+        addComingSoon
         onAdd={() => router.push(routes.recurringNew())}
       />
       <View style={{ gap: 12 }}>

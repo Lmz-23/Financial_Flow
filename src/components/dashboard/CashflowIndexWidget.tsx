@@ -24,7 +24,7 @@ export function CashflowIndexWidget({ index }: { index: CashflowIndex }) {
         {formatCashflowIndex(index)}
       </Text>
       <Text variant="bodySm">{describeCashflowIndex(index)}</Text>
-      <LinkButton label="Ver detalle" onPress={() => router.push(routes.cashflow())} />
+      <LinkButton label="Ver detalle" comingSoon onPress={() => router.push(routes.cashflow())} />
     </Widget>
   );
 }
