@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { useRouter } from 'expo-router';
 
 import { commands } from '../../app-services';
 import { describeCashflowIndex, formatCashflowIndex, type CashflowIndex } from '../../domain/rules/statement';
 import { routes } from '../../navigation/routes';
+import { PassiveIncomeHelpSheet, PassiveIncomeInfoButton } from '../help/PassiveIncomeHelp';
 import { Text, Widget } from '../ui/ds';
 import { LinkButton, WidgetHeader } from './parts';
 
@@ -13,10 +15,12 @@ import { LinkButton, WidgetHeader } from './parts';
  */
 export function CashflowIndexWidget({ index }: { index: CashflowIndex }) {
   const router = useRouter();
+  const [helpOpen, setHelpOpen] = useState(false);
   return (
     <Widget variant="hero">
       <WidgetHeader
         title="Índice de Flujo de Caja"
+        titleAccessory={<PassiveIncomeInfoButton onPress={() => setHelpOpen(true)} />}
         deactivateLabel="Desactivar Índice de Flujo de Caja"
         onDeactivate={() => commands.settings.setWidget('cashflow', false)}
       />
@@ -25,6 +29,7 @@ export function CashflowIndexWidget({ index }: { index: CashflowIndex }) {
       </Text>
       <Text variant="bodySm">{describeCashflowIndex(index)}</Text>
       <LinkButton label="Ver detalle" comingSoon onPress={() => router.push(routes.cashflow())} />
+      <PassiveIncomeHelpSheet visible={helpOpen} onClose={() => setHelpOpen(false)} />
     </Widget>
   );
 }

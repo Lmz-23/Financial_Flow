@@ -1,9 +1,11 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRef, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 
 import { commands } from '../../../src/app-services';
+import { PassiveIncomeHelpSheet, PassiveIncomeInfoButton } from '../../../src/components/help/PassiveIncomeHelp';
 import { KeyboardFooter, KeyboardScreen } from '../../../src/components/screens/KeyboardScreen';
 import { ScreenHeader } from '../../../src/components/screens/ScreenHeader';
 import { AccountPicker } from '../../../src/components/ui/ds/AccountPicker';
@@ -16,6 +18,7 @@ import { SegmentedControl } from '../../../src/components/ui/ds/SegmentedControl
 import { Text } from '../../../src/components/ui/ds/Text';
 import { useAccounts } from '../../../src/hooks';
 import { useCategoryOptions } from '../../../src/hooks/useTransactions';
+import { consumePassiveHelpFirstTime } from '../../../src/lib/passiveIncomeHelp';
 import { errorMessage } from '../../../src/lib/screenErrors';
 import { routes } from '../../../src/navigation/routes';
 import { fontFamilyFor, useTheme } from '../../../src/theme';
@@ -72,6 +75,16 @@ export default function NewTransactionScreen() {
   const [draftCategory, setDraftCategory] = useState('');
   const [accountId, setAccountId] = useState<string | null>(null);
   const [passive, setPassive] = useState(initial.passive);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const onTogglePassive = () => {
+    const next = !passive;
+    setPassive(next);
+    if (next) {
+      void consumePassiveHelpFirstTime(AsyncStorage).then((first) => {
+        if (first) setHelpOpen(true);
+      });
+    }
+  };
   const [error, setError] = useState<string | null>(null);
   // Guarda síncrona: un segundo toque antes de que se cierre la pantalla no duplica la transacción.
   const saved = useRef(false);
@@ -246,51 +259,56 @@ export default function NewTransactionScreen() {
         </View>
 
         {isIncome ? (
-          <Pressable
-            onPress={() => setPassive((p) => !p)}
-            accessibilityRole="switch"
-            accessibilityState={{ checked: passive }}
-            accessibilityLabel="Marcar como ingreso pasivo"
-            accessibilityHint="Esto alimenta tu Índice de Flujo de Caja."
-            style={({ pressed }) => ({
-              minHeight: MIN_TOUCH,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: space[3],
-              paddingVertical: 14,
-              paddingHorizontal: space[4],
-              borderRadius: radius.sm,
-              borderWidth: 1,
-              borderColor: colors.borderSubtle,
-              backgroundColor: colors.surfaceCard,
-              opacity: pressed ? 0.85 : 1,
-            })}
-          >
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text variant="bodySm" style={{ fontFamily: fontFamilyFor('sans', 500) }}>
-                Marcar como ingreso pasivo
-              </Text>
-              <Text variant="label" tone="secondary">
-                Esto alimenta tu Índice de Flujo de Caja.
-              </Text>
-            </View>
-            <View
-              style={{
-                width: 22,
-                height: 22,
-                borderRadius: radius.full,
-                borderWidth: 1.5,
-                borderColor: passive ? colors.signalGrowth : colors.borderSubtle,
-                backgroundColor: passive ? colors.signalGrowth : 'transparent',
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[1] }}>
+            <Pressable
+              onPress={onTogglePassive}
+              accessibilityRole="switch"
+              accessibilityState={{ checked: passive }}
+              accessibilityLabel="Marcar como ingreso pasivo"
+              accessibilityHint="Esto alimenta tu Índice de Flujo de Caja."
+              style={({ pressed }) => ({
+                flex: 1,
+                minHeight: MIN_TOUCH,
+                flexDirection: 'row',
                 alignItems: 'center',
-                justifyContent: 'center',
-              }}
+                justifyContent: 'space-between',
+                gap: space[3],
+                paddingVertical: 14,
+                paddingHorizontal: space[4],
+                borderRadius: radius.sm,
+                borderWidth: 1,
+                borderColor: colors.borderSubtle,
+                backgroundColor: colors.surfaceCard,
+                opacity: pressed ? 0.85 : 1,
+              })}
             >
-              {passive ? <CheckIcon color={colors.inkOnBrand} /> : null}
-            </View>
-          </Pressable>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text variant="bodySm" style={{ fontFamily: fontFamilyFor('sans', 500) }}>
+                  Marcar como ingreso pasivo
+                </Text>
+                <Text variant="label" tone="secondary">
+                  Esto alimenta tu Índice de Flujo de Caja.
+                </Text>
+              </View>
+              <View
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: radius.full,
+                  borderWidth: 1.5,
+                  borderColor: passive ? colors.signalGrowth : colors.borderSubtle,
+                  backgroundColor: passive ? colors.signalGrowth : 'transparent',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {passive ? <CheckIcon color={colors.inkOnBrand} /> : null}
+              </View>
+            </Pressable>
+            <PassiveIncomeInfoButton onPress={() => setHelpOpen(true)} />
+          </View>
         ) : null}
+        <PassiveIncomeHelpSheet visible={helpOpen} onClose={() => setHelpOpen(false)} />
 
         {error ? (
           <Text variant="bodySm" tone="debt" accessibilityLiveRegion="polite" accessibilityRole="alert">

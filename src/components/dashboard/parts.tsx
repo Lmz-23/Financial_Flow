@@ -54,6 +54,7 @@ function CircleIconButton({
 /** Titulo de widget con una accion a la derecha (agregar o desactivar). `addComingSoon` apaga la accion de agregar. */
 export function WidgetHeader({
   title,
+  titleAccessory,
   addLabel,
   onAdd,
   addComingSoon = false,
@@ -61,6 +62,8 @@ export function WidgetHeader({
   onDeactivate,
 }: {
   title: string;
+  /** Elemento junto al titulo (p. ej. el icono de ayuda). */
+  titleAccessory?: ReactNode;
   addLabel?: string;
   onAdd?: () => void;
   addComingSoon?: boolean;
@@ -70,9 +73,12 @@ export function WidgetHeader({
   const { colors } = useTheme();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-      <Text variant="h3" accessibilityRole="header">
-        {title}
-      </Text>
+      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+        <Text variant="h3" accessibilityRole="header">
+          {title}
+        </Text>
+        {titleAccessory}
+      </View>
       {onAdd && addLabel ? (
         <CircleIconButton
           accessibilityLabel={addComingSoon ? `${addLabel}, ${COMING_SOON}` : addLabel}
