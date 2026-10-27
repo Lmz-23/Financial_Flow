@@ -27,6 +27,8 @@ export { ProgressBar } from './ProgressBar';
 export type { ProgressBarProps } from './ProgressBar';
 export { Sheet } from './Sheet';
 export type { SheetProps } from './Sheet';
+export { Toggle } from './Toggle';
+export type { ToggleProps } from './Toggle';
 export { ListRow } from './ListRow';
 export type { ListRowProps } from './ListRow';
 export { AccountPicker } from './AccountPicker';
