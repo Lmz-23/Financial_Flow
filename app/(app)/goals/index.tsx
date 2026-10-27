@@ -31,6 +31,7 @@ const MSG_COMPLETE =
   '¡Meta cumplida! Ese dinero ya salió de tus cuentas cuando lo apartaste — esto solo registra que ya lo usaste.';
 /** Inferidos (no están en el diseño ni en docs). */
 const MSG_DELETE_CONFIRM = '¿Eliminar esta meta? Lo que apartaste vuelve a tus cuentas. Esta acción no se puede deshacer.';
+const MSG_CLOSE_CONFIRM = '¿Cerrar esta meta? Ya no podrás agregarle dinero. Esta acción no se puede deshacer.';
 const MSG_REFUND_INTRO = 'Esto es lo que se devolverá al eliminar la meta:';
 const MSG_REFUND_ARCHIVED = 'archivada';
 const MSG_REFUND_PICK = 'Algunas cuentas están archivadas. Elige una cuenta activa que reciba su dinero.';
@@ -179,13 +180,23 @@ function GoalCard({
     }
   }
 
+  /** Cerrar es irreversible: se confirma para evitar un toque accidental. */
   function close() {
-    try {
-      commands.goals.close(goal.id);
-      onError(null);
-    } catch (e) {
-      onError(errorMessage(e));
-    }
+    Alert.alert('Cerrar meta', MSG_CLOSE_CONFIRM, [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Cerrar meta',
+        style: 'destructive',
+        onPress: () => {
+          try {
+            commands.goals.close(goal.id);
+            onError(null);
+          } catch (e) {
+            onError(errorMessage(e));
+          }
+        },
+      },
+    ]);
   }
 
   if (editing) {
