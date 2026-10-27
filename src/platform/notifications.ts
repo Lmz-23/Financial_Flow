@@ -100,6 +100,15 @@ export async function ensureNotificationPermission(): Promise<boolean> {
   return asked.granted;
 }
 
+/**
+ * Estado actual del permiso SIN pedirlo (para mostrar Ajustes sin disparar el diálogo del sistema).
+ * `canAskAgain` false con `granted` false = el usuario lo negó y solo puede cambiarlo en el sistema.
+ */
+export async function readNotificationPermission(): Promise<{ granted: boolean; canAskAgain: boolean }> {
+  const current = await Notifications.getPermissionsAsync();
+  return { granted: current.granted, canAskAgain: current.canAskAgain };
+}
+
 // ----------------------------------------------------------------------------
 // Conciliación
 // ----------------------------------------------------------------------------

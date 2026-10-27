@@ -10,6 +10,7 @@ import {
   ensureNotificationPermission,
   hrefOf,
   interpretResponse,
+  readNotificationPermission,
   reconcile,
   setupNotifications,
   subscribeToNotificationResponses,
@@ -119,6 +120,14 @@ describe('ensureNotificationPermission', () => {
     state.granted = false;
     state.canAskAgain = false;
     expect(await ensureNotificationPermission()).toBe(false);
+    expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
+  });
+});
+
+describe('readNotificationPermission', () => {
+  it('lee el estado sin pedir el permiso', async () => {
+    state.granted = false;
+    expect(await readNotificationPermission()).toEqual({ granted: false, canAskAgain: true });
     expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
   });
 });
