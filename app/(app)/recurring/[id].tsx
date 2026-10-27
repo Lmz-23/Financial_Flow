@@ -49,7 +49,8 @@ export default function EditRecurringScreen() {
     const scheduleChanged = values.date !== nextDueDate || values.frequency !== row?.frequency;
     commands.recurring.update(id, {
       name: values.name,
-      amountMinor: values.amountMinor ?? 0,
+      // Sin monto no se envia: el servicio exige monto positivo y un recurrente puede no tenerlo.
+      ...(values.amountMinor !== null ? { amountMinor: values.amountMinor } : {}),
       frequency: values.frequency,
       defaultAccountId: values.accountId,
       ...(scheduleChanged ? { anchorDate: values.date } : {}),

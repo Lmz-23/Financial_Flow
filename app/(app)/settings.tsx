@@ -3,7 +3,7 @@ import { ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { commands } from '../../src/app-services';
+import { commands, ensureNotificationPermission, readNotificationPermission } from '../../src/app-services';
 import { ScreenHeader } from '../../src/components/screens/ScreenHeader';
 import { Button } from '../../src/components/ui/ds/Button';
 import { SCREEN_MARGIN } from '../../src/components/ui/ds/constants';
@@ -13,7 +13,6 @@ import { Text } from '../../src/components/ui/ds/Text';
 import { Toggle } from '../../src/components/ui/ds/Toggle';
 import { Widget } from '../../src/components/ui/ds/Widget';
 import { useSettings } from '../../src/store/useSettingsStore';
-import { ensureNotificationPermission, readNotificationPermission } from '../../src/platform/notifications';
 import { errorMessage } from '../../src/lib/screenErrors';
 import { useTheme } from '../../src/theme';
 import type { ThemePreference } from '../../src/theme/tokens';
@@ -81,13 +80,20 @@ export default function SettingsScreen() {
     async (key: 'notifyPaymentReminders' | 'notifyWeeklySummary', next: boolean) => {
       if (next) {
         let granted = false;
+        let canAskAgain = true;
         try {
           granted = await ensureNotificationPermission();
-          setPermission(await readNotificationPermission());
+          const state = await readNotificationPermission();
+          canAskAgain = state.canAskAgain;
+          setPermission(state);
         } catch {
           granted = false;
         }
-        if (!granted) return;
+        if (!granted) {
+          // Con canAskAgain=false ya sale el aviso fijo; si no, todo sigue apagado y no habria aviso.
+          if (canAskAgain) setError(MSG_PERMISSION_NEEDED);
+          return;
+        }
       }
       save(() => commands.settings.setNotifications({ [key]: next }));
     },
