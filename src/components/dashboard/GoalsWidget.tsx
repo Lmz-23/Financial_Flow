@@ -20,12 +20,12 @@ export function GoalsWidget({ goals }: { goals: GoalView[] }) {
       {goals.length > 0 ? (
         <>
           <Text variant="bodySm">{goalsCountLabel(goals.length)}</Text>
-          <LinkButton label="Ver todas" comingSoon onPress={() => router.push(routes.goals())} />
+          <LinkButton label="Ver todas" onPress={() => router.push(routes.goals())} />
         </>
       ) : (
         <>
           <Text variant="bodySm">Aún no tienes ninguna meta.</Text>
-          <DashedAddButton label="Crear meta" comingSoon onPress={() => router.push(routes.goalNew())} />
+          <DashedAddButton label="Crear meta" onPress={() => router.push(routes.goalNew())} />
         </>
       )}
     </Widget>
