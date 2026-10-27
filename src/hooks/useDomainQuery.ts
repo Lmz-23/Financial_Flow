@@ -17,6 +17,10 @@ export function useDomainQuery<T>(
   query: (domain: Domain) => T,
   inputKey = '',
 ): T {
+  // Fuera de React Compiler: la consulta lee la BD (no es pura) y el compilador memoizaba
+  // `query(getDomain())` solo por `query`, que es estable; al invalidar devolvia datos viejos
+  // hasta que la pantalla se volvia a montar.
+  'use no memo';
   const version = useInvalidationVersion(keys);
   const [snapshot, setSnapshot] = useState(() => ({ version, inputKey, data: query(getDomain()) }));
   if (snapshot.version === version && snapshot.inputKey === inputKey) return snapshot.data;
