@@ -9,10 +9,7 @@ import { useTheme } from '../../theme';
 import { Amount, Pill, Text, Widget } from '../ui/ds';
 import { MIN_TOUCH } from '../ui/ds/constants';
 import { CheckIcon } from './icons';
-import { WidgetHeader } from './parts';
-
-/** Hojas de confirmacion de pago aun sin pantalla (F5b-3 / F5b-5). Quitar la constante al crearlas. */
-const COMING_SOON_CONFIRM = true;
+import { LinkButton, WidgetHeader } from './parts';
 
 function UpcomingRow({ item }: { item: UpcomingItem }) {
   const router = useRouter();
@@ -23,39 +20,43 @@ function UpcomingRow({ item }: { item: UpcomingItem }) {
   const doneWord = isIncome ? 'Recibido' : 'Pagado';
   const verb = isIncome ? 'recibido' : 'pagado';
   const dueText = shortDateLabel(item.nextDueDate);
+  const markable = !isIncome && !paid;
+  const circleStyle = {
+    width: 22,
+    height: 22,
+    borderRadius: radius.full,
+    borderWidth: 1.5,
+    borderColor: paid ? colors.signalGrowth : colors.borderSubtle,
+    backgroundColor: paid ? colors.signalGrowth : 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as const;
 
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[3], minHeight: MIN_TOUCH }}>
-      <Pressable
-        // Desmarcar un pago (D14) necesita la fecha de la ocurrencia confirmada, que `upcoming()` no
-        // expone; hasta entonces un pendiente solo se marca (abre la hoja) y un pagado no es pulsable.
-        // Mientras las hojas de confirmacion (recurringConfirm / debtInstallmentPay) no existan, el circulo queda apagado (F5b).
-        disabled={paid || COMING_SOON_CONFIRM}
-        onPress={() => router.push(upcomingConfirmRoute(item))}
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: paid, disabled: paid || COMING_SOON_CONFIRM }}
-        accessibilityLabel={
-          paid
-            ? `${item.name} ${verb}`
-            : COMING_SOON_CONFIRM
-              ? `Marcar ${item.name} como ${verb}, Próximamente`
-              : `Marcar ${item.name} como ${verb}`
-        }
-        hitSlop={{ top: 11, bottom: 11, left: 11, right: 11 }}
-        style={{
-          width: 22,
-          height: 22,
-          borderRadius: radius.full,
-          borderWidth: 1.5,
-          borderColor: paid ? colors.signalGrowth : colors.borderSubtle,
-          backgroundColor: paid ? colors.signalGrowth : 'transparent',
-          alignItems: 'center',
-          justifyContent: 'center',
-          opacity: COMING_SOON_CONFIRM && !paid ? 0.4 : 1,
-        }}
-      >
-        {paid ? <CheckIcon color={colors.inkOnBrand} /> : null}
-      </Pressable>
+      {markable ? (
+        <Pressable
+          // Desmarcar un pago (D14) necesita la fecha de la ocurrencia confirmada, que `upcoming()` no
+          // expone; hasta entonces un pendiente solo se marca (abre la hoja) y un pagado no es pulsable.
+          // A los ingresos no se les ofrece marcar (decision 45): su circulo no es una accion.
+          onPress={() => router.push(upcomingConfirmRoute(item))}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: false }}
+          accessibilityLabel={`Marcar ${item.name} como ${verb}`}
+          hitSlop={{ top: 11, bottom: 11, left: 11, right: 11 }}
+          style={circleStyle}
+        />
+      ) : (
+        <View
+          accessible={paid}
+          accessibilityRole={paid ? 'checkbox' : undefined}
+          accessibilityState={paid ? { checked: true, disabled: true } : undefined}
+          accessibilityLabel={paid ? `${item.name} ${verb}` : undefined}
+          style={{ ...circleStyle, opacity: paid ? 1 : 0.4 }}
+        >
+          {paid ? <CheckIcon color={colors.inkOnBrand} /> : null}
+        </View>
+      )}
       <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space[2] }}>
         <Text
           variant="body"
@@ -95,7 +96,7 @@ function UpcomingRow({ item }: { item: UpcomingItem }) {
   );
 }
 
-/** "Proximos pagos": pagos e ingresos recurrentes con fecha; el circulo abre la hoja de confirmacion. */
+/** "Proximos pagos": pagos e ingresos recurrentes con fecha; el circulo de un pago abre la hoja de confirmacion. */
 export function UpcomingPaymentsWidget({ items }: { items: UpcomingItem[] }) {
   const router = useRouter();
   const notice = upcomingNoticeText(items);
@@ -104,7 +105,6 @@ export function UpcomingPaymentsWidget({ items }: { items: UpcomingItem[] }) {
       <WidgetHeader
         title="Próximos pagos"
         addLabel="Agregar pago o ingreso recurrente"
-        addComingSoon
         onAdd={() => router.push(routes.recurringNew())}
       />
       <View style={{ gap: 12 }}>
@@ -113,6 +113,7 @@ export function UpcomingPaymentsWidget({ items }: { items: UpcomingItem[] }) {
         ))}
       </View>
       {notice === null ? null : <Text variant="label">{notice}</Text>}
+      <LinkButton label="Ver todos" onPress={() => router.push(routes.recurring())} />
     </Widget>
   );
 }

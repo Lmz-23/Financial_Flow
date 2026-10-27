@@ -2,6 +2,7 @@
 import { diffDays, type LocalDate } from '../domain/dates';
 import { normalizeAnchor, type Frequency } from '../domain/rules/recurrence';
 import { fullDateLabel, shortDateLabel } from './dateLabels';
+import { FREQUENCY_OPTIONS } from './onboardingDraft';
 
 /**
  * Vista previa EN VIVO del ajuste quincenal (arquitectura 3.4 / decision 21): si la frecuencia es
@@ -33,4 +34,8 @@ export function sortRecurring<T extends { nextDueDate: string | null; name: stri
     if (b.nextDueDate === null) return 1;
     return a.nextDueDate < b.nextDueDate ? -1 : 1;
   });
+}
+
+export function frequencyLabel(frequency: Frequency): string {
+  return FREQUENCY_OPTIONS.find((o) => o.value === frequency)?.label ?? frequency;
 }
