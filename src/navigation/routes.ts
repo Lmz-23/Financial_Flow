@@ -20,6 +20,11 @@ export const routes = {
   transactions: () => href('/transactions'),
   transaction: (id: string) => href(`/transactions/${id}`),
   transactionNew: () => href('/transactions/new'),
+  transactionEdit: (id: string) => href(`/transactions/${id}/edit`),
+  /** Nueva transferencia: el mismo formulario de Nueva transaccion con la pestana Transferencia. */
+  transferNew: () => href('/transactions/new?type=TRANSFER'),
+  transfer: (id: string) => href(`/transfers/${id}`),
+  transferEdit: (id: string) => href(`/transfers/${id}/edit`),
   /** Nuevo ingreso con la marca de pasivo ya puesta (atajo del detalle de Cashflow). */
   transactionNewPassive: () => href('/transactions/new?type=INCOME&passive=1'),
   /** Lista de recurrentes (pagos e ingresos; edicion del proximo pago, decision 39). */

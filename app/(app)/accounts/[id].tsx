@@ -9,16 +9,15 @@ import { Amount } from '../../../src/components/ui/ds/Amount';
 import { Button } from '../../../src/components/ui/ds/Button';
 import { SCREEN_MARGIN } from '../../../src/components/ui/ds/constants';
 import { Input } from '../../../src/components/ui/ds/Input';
-import { ListRow } from '../../../src/components/ui/ds/ListRow';
 import { MoneyInput } from '../../../src/components/ui/ds/MoneyInput';
 import { Text } from '../../../src/components/ui/ds/Text';
 import { Widget } from '../../../src/components/ui/ds/Widget';
 import { useAccount } from '../../../src/hooks';
-import { useTransactions } from '../../../src/hooks/useTransactions';
-import { transactionLabel } from '../../../src/lib/dashboardFormat';
-import { relativeDateLabel } from '../../../src/lib/dateLabels';
+import { useActivity } from '../../../src/hooks/useActivity';
+import { activityRow } from '../../../src/lib/activityView';
 import { errorMessage } from '../../../src/lib/screenErrors';
 import { useTheme } from '../../../src/theme';
+import { ActivityListRow } from '../../../src/components/transactions/ActivityListRow';
 import { KeyboardScreen } from '../../../src/components/screens/KeyboardScreen';
 
 /** Texto aprobado por el usuario para la cuenta con movimientos (se archiva en vez de borrar). */
@@ -37,7 +36,7 @@ export default function AccountDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const account = useAccount(id);
-  const movements = useTransactions({ accountId: id });
+  const movements = useActivity({ accountId: id });
 
   if (!account) {
     return (
@@ -62,7 +61,7 @@ export default function AccountDetailScreen() {
   );
 }
 
-type Movements = ReturnType<typeof useTransactions>;
+type Movements = ReturnType<typeof useActivity>;
 
 function AccountDetail({
   id,
@@ -226,16 +225,10 @@ function AccountDetail({
               Todavía no hay movimientos en esta cuenta.
             </Text>
           ) : (
-            movements.items.map((tx) => (
-              <ListRow
-                key={tx.id}
-                title={transactionLabel(tx)}
-                subtitle={relativeDateLabel(tx.date, movements.now)}
-                trailing={
-                  <Amount value={tx.type === 'INCOME' ? tx.amountMinor : -tx.amountMinor} variant="amountSm" tone="auto" />
-                }
-              />
-            ))
+            movements.items.map((item) => {
+              const row = activityRow(item, movements.now);
+              return <ActivityListRow key={row.key} row={row} />;
+            })
           )}
         </View>
 
