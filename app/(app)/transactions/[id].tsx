@@ -12,10 +12,12 @@ import { Pill } from '../../../src/components/ui/ds/Pill';
 import { Text } from '../../../src/components/ui/ds/Text';
 import { Widget } from '../../../src/components/ui/ds/Widget';
 import { AccountArchivedError } from '../../../src/domain/services/errors';
+import { useAccount } from '../../../src/hooks';
 import { useTransaction } from '../../../src/hooks/useTransactions';
 import { transactionLabel } from '../../../src/lib/dashboardFormat';
 import { relativeDateLabel } from '../../../src/lib/dateLabels';
-import { errorMessage } from '../../../src/lib/screenErrors';
+import { errorMessage, MSG_DEBT_PAYMENT_NOT_EDITABLE } from '../../../src/lib/screenErrors';
+import { routes } from '../../../src/navigation/routes';
 import { useTheme } from '../../../src/theme';
 
 /** Textos aprobados por el usuario (2026-10-26). */
@@ -53,12 +55,32 @@ function DetailRow({ label, value, divider }: { label: string; value: string; di
 /** Detalle de transaccion (Dashboard.dc.html, onTxDetalle). */
 export default function TransactionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  const tx = useTransaction(id);
+  if (!tx) {
+    return (
+      <View style={{ flex: 1 }}>
+        <ScreenHeader title="Detalle" onBack={() => router.back()} />
+        <Text variant="bodySm" tone="secondary" style={{ padding: SCREEN_MARGIN }}>
+          {MSG_NOT_FOUND}
+        </Text>
+      </View>
+    );
+  }
+  return <TransactionDetail tx={tx} />;
+}
+
+function TransactionDetail({ tx }: { tx: NonNullable<ReturnType<typeof useTransaction>> }) {
+  const id = tx.id;
   const { space } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const tx = useTransaction(id);
+  const account = useAccount(tx.accountId);
   const [error, setError] = useState<string | null>(null);
   const [now] = useState(() => Date.now());
+  const isDebtPayment = tx.kind === 'DEBT_PAYMENT';
+  // Cuenta archivada: modo lectura (sin Editar); eliminar sigue ofreciendo «Desarchivar».
+  const canEdit = !isDebtPayment && account !== undefined && account.archivedAt === null;
 
   function removeAndLeave() {
     try {
@@ -93,21 +115,10 @@ export default function TransactionDetailScreen() {
   }
 
   function confirmRemoval() {
-    Alert.alert('Eliminar transacción', tx?.type === 'INCOME' ? MSG_DELETE_INCOME : MSG_DELETE_EXPENSE, [
+    Alert.alert('Eliminar transacción', tx.type === 'INCOME' ? MSG_DELETE_INCOME : MSG_DELETE_EXPENSE, [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Eliminar', style: 'destructive', onPress: removeAndLeave },
     ]);
-  }
-
-  if (!tx) {
-    return (
-      <View style={{ flex: 1 }}>
-        <ScreenHeader title="Detalle" onBack={() => router.back()} />
-        <Text variant="bodySm" tone="secondary" style={{ padding: SCREEN_MARGIN }}>
-          {MSG_NOT_FOUND}
-        </Text>
-      </View>
-    );
   }
 
   return (
@@ -132,6 +143,14 @@ export default function TransactionDetailScreen() {
           <Text variant="bodySm" tone="debt" accessibilityLiveRegion="polite" accessibilityRole="alert">
             {error}
           </Text>
+        ) : null}
+        {isDebtPayment ? (
+          <Text variant="bodySm" tone="secondary">
+            {MSG_DEBT_PAYMENT_NOT_EDITABLE}
+          </Text>
+        ) : null}
+        {canEdit ? (
+          <Button label="Editar" variant="ghost" size="md" onPress={() => router.push(routes.transactionEdit(tx.id))} />
         ) : null}
         <Button label="Eliminar transacción" variant="danger" size="md" onPress={confirmRemoval} />
       </ScrollView>
