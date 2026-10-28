@@ -5,6 +5,7 @@ export const MSG_TRANSFER_AMOUNT = 'Escribe el monto.';
 export const MSG_TRANSFER_FROM = 'Elige la cuenta de origen.';
 export const MSG_TRANSFER_TO = 'Elige la cuenta de destino.';
 export const MSG_TRANSFER_SAME = 'El origen y el destino deben ser distintos.';
+export const MSG_TRANSFER_NOT_FOUND = 'No encontramos esta transferencia.';
 
 /** Primer problema del formulario, o null si se puede enviar (los fondos los valida el dominio). */
 export function validateTransferForm(v: {
