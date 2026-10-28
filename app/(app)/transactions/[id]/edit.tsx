@@ -35,5 +35,5 @@ function EditTransaction({ tx }: { tx: NonNullable<ReturnType<typeof useTransact
   const account = useAccount(tx.accountId);
   if (tx.kind === 'DEBT_PAYMENT') return <Notice text={MSG_DEBT_PAYMENT_NOT_EDITABLE} />;
   if (!account || account.archivedAt !== null) return <Notice text={MSG_ACCOUNT_ARCHIVED} />;
-  return <TransactionForm initial={{ mode: 'edit-transaction', transaction: tx }} />;
+  return <TransactionForm key={tx.id} initial={{ mode: 'edit-transaction', transaction: tx }} />;
 }

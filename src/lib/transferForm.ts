@@ -26,15 +26,29 @@ export function destinationOptions<T extends { id: string }>(accounts: readonly 
 }
 
 /**
- * Disponible del origen para mostrar. Al editar, el disponible vivo ya descuenta la transferencia original:
- * si el origen es el mismo, se le devuelve ese monto (igual que hace el dominio al validar).
+ * Disponible del origen para mostrar, igual que valida el dominio al editar: sin la transferencia original,
+ * el origen original recupera su monto y el destino original lo pierde.
  */
 export function fromAvailable(
   availableMinor: number,
   accountId: string,
-  original?: { fromAccountId: string; amountMinor: number },
+  original?: { fromAccountId: string; toAccountId: string; amountMinor: number },
 ): number {
-  return original && original.fromAccountId === accountId ? availableMinor + original.amountMinor : availableMinor;
+  if (!original) return availableMinor;
+  if (original.fromAccountId === accountId) return availableMinor + original.amountMinor;
+  if (original.toAccountId === accountId) return availableMinor - original.amountMinor;
+  return availableMinor;
+}
+
+/** Mensaje de fondos insuficientes que nombra la cuenta cuando no es la de origen elegida (p. ej. el destino original). */
+export function insufficientFundsMessage(
+  error: { accountId: string; availableMinor: number },
+  fromAccountId: string | null,
+  accountName: string | undefined,
+  formatMinor: (minor: number) => string,
+): string | null {
+  if (error.accountId === fromAccountId || !accountName) return null;
+  return `${accountName} ya usó ese dinero y quedaría en negativo. Disponible: ${formatMinor(error.availableMinor)}.`;
 }
 
 export function availableLabel(availableMinor: number): string {

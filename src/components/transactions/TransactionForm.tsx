@@ -8,6 +8,8 @@ import { commands } from '../../app-services';
 import type { AccountTransferView } from '../../database/repositories/accountTransferRepository';
 import type { TransactionView } from '../../database/repositories/transactionRepository';
 import { localDateToEpochMs, toLocalDate, type LocalDate } from '../../domain/dates';
+import { formatCOP } from '../../domain/money';
+import { InsufficientFundsError } from '../../domain/services/errors';
 import { useAccounts } from '../../hooks';
 import { useCategoryOptions } from '../../hooks/useTransactions';
 import { consumePassiveHelpFirstTime } from '../../lib/passiveIncomeHelp';
@@ -17,6 +19,7 @@ import {
   availableLabel,
   destinationOptions,
   fromAvailable,
+  insufficientFundsMessage,
   validateTransferForm,
 } from '../../lib/transferForm';
 import { routes } from '../../navigation/routes';
@@ -174,7 +177,7 @@ export function TransactionForm({ initial }: { initial: TransactionFormInitial }
         fromAccountId: selectedAccountId,
         toAccountId: selectedToId,
         amountMinor: amount,
-        note,
+        note: note.trim(),
         ...(date !== originalDate ? { date: dateMs() } : {}),
       });
     } else {
@@ -182,7 +185,7 @@ export function TransactionForm({ initial }: { initial: TransactionFormInitial }
         fromAccountId: selectedAccountId,
         toAccountId: selectedToId,
         amountMinor: amount,
-        ...(note.trim() ? { note } : {}),
+        ...(note.trim() ? { note: note.trim() } : {}),
         ...(date !== today ? { date: dateMs() } : {}),
       });
     }
@@ -200,7 +203,7 @@ export function TransactionForm({ initial }: { initial: TransactionFormInitial }
         amountMinor: amount ?? 0,
         accountId: selectedAccountId,
         ...category,
-        isPassive: isIncome && passive,
+        ...(isIncome ? { isPassive: passive } : {}),
         ...(date !== originalDate ? { date: dateMs() } : {}),
       });
     } else {
@@ -221,7 +224,11 @@ export function TransactionForm({ initial }: { initial: TransactionFormInitial }
     try {
       if (!(isTransfer ? saveTransfer() : saveTransaction())) return;
     } catch (e) {
-      setError(errorMessage(e));
+      const named =
+        e instanceof InsufficientFundsError
+          ? insufficientFundsMessage(e, selectedAccountId, accounts.find((a) => a.id === e.accountId)?.name, formatCOP)
+          : null;
+      setError(named ?? errorMessage(e));
       return;
     }
     saved.current = true;
