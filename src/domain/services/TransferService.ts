@@ -56,6 +56,32 @@ export function createTransferService(ctx: DomainContext) {
     return available;
   }
 
+  /**
+   * Bloqueo de fondos (decision del 2026-10-27): ninguna cuenta implicada puede quedar con disponible negativo
+   * por el cambio. Se compara contra el disponible actual para no bloquear un cambio que no empeora una cuenta
+   * que ya estaba en negativo por otros motivos.
+   */
+  function assertNoNegative(
+    tx: DbOrTx,
+    old: AccountTransferRow,
+    next: { fromAccountId: string; toAccountId: string; amountMinor: number } | null,
+  ): void {
+    const affected = new Set([old.fromAccountId, old.toAccountId, ...(next ? [next.fromAccountId, next.toAccountId] : [])]);
+    for (const accountId of affected) {
+      const current = accountRepository.availableOf(tx, ctx.userId, accountId);
+      let after = availableWithout(tx, accountId, old);
+      if (next?.fromAccountId === accountId) after -= next.amountMinor;
+      if (next?.toAccountId === accountId) after += next.amountMinor;
+      if (after >= 0 || after >= current) continue;
+      // Origen: disponible sin esta transferencia frente al monto pedido; destino que pierde lo recibido: su
+      // disponible actual frente a lo que se le quitaria.
+      if (next?.fromAccountId === accountId) {
+        throw new InsufficientFundsError(accountId, availableWithout(tx, accountId, old), next.amountMinor);
+      }
+      throw new InsufficientFundsError(accountId, current, current - after);
+    }
+  }
+
   return {
     /**
      * Errores: `ValidationError` (monto/fecha invalidos, origen = destino), `NotFoundError` (cuenta inexistente
@@ -114,10 +140,7 @@ export function createTransferService(ctx: DomainContext) {
         }
         requireActiveAccount(tx, ctx.userId, fromAccountId);
         requireActiveAccount(tx, ctx.userId, toAccountId);
-        if (fromAccountId !== old.fromAccountId || amountMinor > old.amountMinor) {
-          const available = availableWithout(tx, fromAccountId, old);
-          if (amountMinor > available) throw new InsufficientFundsError(fromAccountId, available, amountMinor);
-        }
+        assertNoNegative(tx, old, { fromAccountId, toAccountId, amountMinor });
         accountTransferRepository.update(tx, ctx.userId, id, {
           fromAccountId,
           toAccountId,
@@ -133,8 +156,7 @@ export function createTransferService(ctx: DomainContext) {
 
     /**
      * Borra la transferencia (el dinero vuelve al origen). Con una cuenta implicada archivada lanza
-     * `AccountArchivedError`. No se bloquea si el destino ya gasto lo recibido (su disponible puede quedar negativo,
-     * igual que al borrar un ingreso).
+     * `AccountArchivedError`. Si el destino ya gasto lo recibido y quedaria en negativo, `InsufficientFundsError`.
      */
     remove(id: string): OperationResult<{ id: string }> {
       return runOperation(ctx, (tx, fx) => {
@@ -144,6 +166,7 @@ export function createTransferService(ctx: DomainContext) {
           const account = accountRepository.getById(tx, ctx.userId, accountId);
           if (account && account.archivedAt !== null) throw new AccountArchivedError(accountId);
         }
+        assertNoNegative(tx, row, null);
         accountTransferRepository.delete(tx, ctx.userId, id);
         fx.refresh('accounts', 'transactions');
         return { id };

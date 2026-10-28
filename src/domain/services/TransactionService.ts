@@ -178,6 +178,9 @@ export function createTransactionService(ctx: DomainContext) {
         if (current && current.archivedAt !== null) throw new AccountArchivedError(current.id);
         const accountId = input.accountId ?? row.accountId;
         if (accountId !== row.accountId) requireActiveAccount(tx, ctx.userId, accountId);
+        if (input.isPassive === true && row.type !== 'INCOME') {
+          throw new ValidationError('Solo un ingreso puede ser pasivo');
+        }
         const isPassive = row.type === 'INCOME' ? (input.isPassive ?? row.isPassive) : false;
         const categoryId =
           input.categoryId === undefined && input.newCategoryName === undefined

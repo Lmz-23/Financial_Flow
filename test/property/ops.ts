@@ -479,6 +479,19 @@ export function runSequence(seed: number, nOps: number, stats: Stats): SequenceR
   }
 
   /** Transferencias entre cuentas y edicion de transacciones (decision 2026-10-27). */
+  /** Regla de fondos (2026-10-27): ninguna cuenta implicada queda negativa por el cambio, salvo que no empeore. */
+  function wouldGoNegative(old: ModelTransfer, next: { from: string; to: string; amount: number } | null): boolean {
+    const affected = new Set([old.from, old.to, ...(next ? [next.from, next.to] : [])]);
+    for (const acc of affected) {
+      const current = M.available(acc);
+      let after = current + (old.from === acc ? old.amount : 0) - (old.to === acc ? old.amount : 0);
+      if (next?.from === acc) after -= next.amount;
+      if (next?.to === acc) after += next.amount;
+      if (after < 0 && after < current) return true;
+    }
+    return false;
+  }
+
   function transferOps(): string | null {
     const r = rng.next();
     if (r < 0.34) { // create
@@ -523,10 +536,7 @@ export function runSequence(seed: number, nOps: number, stats: Stats): SequenceR
       else if (M.accounts.get(newFrom)?.archived) expected = 'ACCOUNT_ARCHIVED';
       else if (!M.accounts.get(newTo)) expected = 'NOT_FOUND';
       else if (M.accounts.get(newTo)?.archived) expected = 'ACCOUNT_ARCHIVED';
-      else if (newFrom !== old.from || amount > old.amount) {
-        const free = M.available(newFrom) + (old.from === newFrom ? old.amount : 0) - (old.to === newFrom ? old.amount : 0);
-        if (amount > free) expected = 'INSUFFICIENT_FUNDS';
-      }
+      else if (wouldGoNegative(old, { from: newFrom, to: newTo, amount })) expected = 'INSUFFICIENT_FUNDS';
       return exec('transfers.update', () => A.transfers.update(id, input), expected, () => {
         if (!old) return;
         old.from = newFrom;
@@ -538,7 +548,13 @@ export function runSequence(seed: number, nOps: number, stats: Stats): SequenceR
     if (r < 0.82) { // remove
       const old = M.transfers.length > 0 && chance(0.92) ? pick(M.transfers) : undefined;
       const id = old ? old.id : unknownId('transfer');
-      const expected = !old ? 'NOT_FOUND' : M.accounts.get(old.from)?.archived || M.accounts.get(old.to)?.archived ? 'ACCOUNT_ARCHIVED' : null;
+      const expected = !old
+        ? 'NOT_FOUND'
+        : M.accounts.get(old.from)?.archived || M.accounts.get(old.to)?.archived
+          ? 'ACCOUNT_ARCHIVED'
+          : wouldGoNegative(old, null)
+            ? 'INSUFFICIENT_FUNDS'
+            : null;
       return exec('transfers.remove', () => A.transfers.remove(id), expected, () => {
         M.transfers = M.transfers.filter((t) => t !== old);
       });
@@ -563,6 +579,7 @@ export function runSequence(seed: number, nOps: number, stats: Stats): SequenceR
       if (!target) expected = 'NOT_FOUND';
       else if (target.archived) expected = 'ACCOUNT_ARCHIVED';
     }
+    if (expected === null && tx && input.isPassive === true && tx.type !== 'INCOME') expected = 'VALIDATION';
     return exec('transactions.update', () => A.transactions.update(id, input), expected, () => {
       if (!tx) return;
       if (input.amountMinor !== undefined) tx.amount = input.amountMinor;
