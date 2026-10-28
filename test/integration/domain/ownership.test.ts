@@ -191,6 +191,22 @@ describe('propiedad: transacciones', () => {
   });
 });
 
+describe('propiedad: edicion de transacciones', () => {
+  it('update de una transaccion ajena: NotFoundError sin efectos', () => {
+    const w = world();
+    expectNotFound(w.env, (id) => w.b.transactions.update(id, { amountMinor: 1 }), w.txA, 'Transaccion');
+  });
+
+  it('update propio con accountId o categoryId ajenos: NotFoundError sin efectos', () => {
+    const w = world();
+    const own = w.b.transactions.create({ type: 'EXPENSE', accountId: w.accB, amountMinor: 10 }).result.id;
+    for (const acc of [w.accA, w.accArchA]) {
+      expectNotFound(w.env, (id) => w.b.transactions.update(own, { accountId: id }), acc, 'Cuenta');
+    }
+    expectNotFound(w.env, (id) => w.b.transactions.update(own, { categoryId: id }), w.catA, 'Categoria');
+  });
+});
+
 describe('propiedad: transferencias', () => {
   it('get de una transferencia ajena es undefined, igual que una inexistente; B no la ve en list ni en activity', () => {
     const w = world();
@@ -523,7 +539,7 @@ describe('propiedad: listados, reportes e integridad no se mezclan', () => {
 const SERVICE_METHODS: Record<string, 'NOT_FOUND' | 'READ' | 'NO_ID'> = {
   'accounts.create': 'NO_ID', 'accounts.update': 'NOT_FOUND', 'accounts.remove': 'NOT_FOUND',
   'accounts.unarchive': 'NOT_FOUND', 'accounts.removalOutcome': 'NOT_FOUND', 'accounts.summary': 'NO_ID', 'accounts.get': 'READ',
-  'transactions.create': 'NOT_FOUND', 'transactions.remove': 'NOT_FOUND',
+  'transactions.create': 'NOT_FOUND', 'transactions.update': 'NOT_FOUND', 'transactions.remove': 'NOT_FOUND',
   'transactions.list': 'READ', 'transactions.get': 'READ', 'transactions.categories': 'NO_ID',
   'transfers.create': 'NOT_FOUND', 'transfers.update': 'NOT_FOUND', 'transfers.remove': 'NOT_FOUND',
   'transfers.list': 'READ', 'transfers.get': 'READ', 'activity.list': 'READ',

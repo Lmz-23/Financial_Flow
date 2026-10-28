@@ -139,6 +139,40 @@ export const transactionRepository = {
     }));
   },
 
+  /**
+   * Edita los campos editables de una transaccion STANDARD o de un ingreso/gasto (tipo, kind, deuda y vinculo con
+   * el recurrente NO cambian). Devuelve el numero de filas modificadas (0 = id inexistente o ajeno).
+   */
+  update(
+    db: DbOrTx,
+    userId: string,
+    id: string,
+    v: {
+      accountId: string;
+      amountMinor: number;
+      description: string;
+      date: number;
+      categoryId: string | null;
+      isPassive: boolean;
+      now: number;
+    },
+  ): number {
+    return db
+      .update(transactions)
+      .set({
+        accountId: v.accountId,
+        amountMinor: v.amountMinor,
+        description: v.description,
+        date: toDate(v.date),
+        categoryId: v.categoryId,
+        isPassive: v.isPassive,
+        updatedAt: toDate(v.now),
+      })
+      .where(and(eq(transactions.id, id), eq(transactions.userId, userId)))
+      .returning({ id: transactions.id })
+      .all().length;
+  },
+
   /** Devuelve el numero de filas borradas (0 = id inexistente o ajeno). */
   delete(db: DbOrTx, userId: string, id: string): number {
     return db

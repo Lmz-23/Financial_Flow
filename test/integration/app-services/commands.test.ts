@@ -104,7 +104,7 @@ describe('commands (app-services) sobre SQLite real', () => {
     expect(spy).toHaveBeenCalledTimes(2);
   });
 
-  it('transfers.* aplican sus efectos tras el COMMIT; los errores tipados llegan intactos', () => {
+  it('transfers.* y transactions.update aplican sus efectos tras el COMMIT; los errores tipados llegan intactos', () => {
     const { commands, applied } = makeCommands();
     const a = commands.accounts.create({ name: 'A', type: 'CASH', openingMinor: 10_000 }).id;
     const b = commands.accounts.create({ name: 'B', type: 'CASH', openingMinor: 0 }).id;
@@ -118,6 +118,10 @@ describe('commands (app-services) sobre SQLite real', () => {
       ['accounts', 'transactions'],
     ]);
     expect(() => commands.transfers.create({ fromAccountId: a, toAccountId: b, amountMinor: 10_001 })).toThrow(InsufficientFundsError);
+    const tx = commands.transactions.create({ type: 'EXPENSE', accountId: a, amountMinor: 100 }).id;
+    applied.length = 0;
+    commands.transactions.update(tx, { amountMinor: 200 });
+    expect(applied.map((e) => e.refresh)).toEqual([['accounts', 'transactions', 'statement']]);
     applied.length = 0;
     expect(() => commands.transfers.update('no-existe', { amountMinor: 1 })).toThrow();
     expect(applied).toEqual([]);

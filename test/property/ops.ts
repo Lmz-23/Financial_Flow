@@ -543,7 +543,34 @@ export function runSequence(seed: number, nOps: number, stats: Stats): SequenceR
         M.transfers = M.transfers.filter((t) => t !== old);
       });
     }
-    return null;
+    // transactions.update
+    const tx = M.txs.length > 0 && chance(0.92) ? pick(M.txs) : undefined;
+    const id = tx ? tx.id : unknownId('transaction');
+    const input: { amountMinor?: number; accountId?: string; date?: number; description?: string; isPassive?: boolean } = {};
+    if (chance(0.6)) input.amountMinor = chance(0.05) ? 0 : ri(1, 200000);
+    if (chance(0.3)) input.accountId = chance(0.05) ? MISSING : anyAcc();
+    if (chance(0.3)) input.date = chance(0.5) && tx ? tx.date : midnightMs(addDays(M.today(), -ri(0, 70))) + 12 * H;
+    if (chance(0.3)) input.description = pick(['', 'editada']);
+    if (chance(0.3)) input.isPassive = chance(0.5);
+    let expected: DomainErrorCode | null = null;
+    if (!tx) expected = 'NOT_FOUND';
+    else if (tx.kind === 'DEBT_PAYMENT') expected = 'TRANSACTION_NOT_EDITABLE';
+    else if (input.amountMinor !== undefined && input.amountMinor <= 0) expected = 'VALIDATION';
+    else if (tx.recurringId !== null && input.date !== undefined && input.date !== tx.date) expected = 'TRANSACTION_NOT_EDITABLE';
+    else if (M.accounts.get(tx.accountId)?.archived) expected = 'ACCOUNT_ARCHIVED';
+    else if (input.accountId !== undefined && input.accountId !== tx.accountId) {
+      const target = M.accounts.get(input.accountId);
+      if (!target) expected = 'NOT_FOUND';
+      else if (target.archived) expected = 'ACCOUNT_ARCHIVED';
+    }
+    return exec('transactions.update', () => A.transactions.update(id, input), expected, () => {
+      if (!tx) return;
+      if (input.amountMinor !== undefined) tx.amount = input.amountMinor;
+      if (input.accountId !== undefined) tx.accountId = input.accountId;
+      if (input.date !== undefined) tx.date = input.date;
+      tx.passive = tx.type === 'INCOME' ? (input.isPassive ?? tx.passive) : false;
+      if (tx.recurringId !== null) bump(stats.coverage, 'edicion de tx ligada a recurrente');
+    });
   }
 
   function goalOps(r: number): string | null | undefined {
@@ -1014,6 +1041,7 @@ export function runSequence(seed: number, nOps: number, stats: Stats): SequenceR
         () => mustNotFound('transactions.create', () => B.transactions.create({ type: 'INCOME', accountId: id, amountMinor: 5 })),
         () => mustNotFound('transfers.create(origen)', () => B.transfers.create({ fromAccountId: id, toAccountId: fAcc, amountMinor: 1 })),
         () => mustNotFound('transfers.create(destino)', () => B.transfers.create({ fromAccountId: fAcc, toAccountId: id, amountMinor: 1 })),
+        () => mustNotFound('transactions.update(cuenta)', () => B.transactions.update(fTx, { accountId: id })),
         () => mustNotFound('transfers.update(cuenta)', () => B.transfers.update(fXfer, { toAccountId: id })),
         () => mustNotFound('debts.registerPayment(cuenta)', () => B.debts.registerPayment({ debtId: fDebt.id, accountId: id, amountMinor: 5, type: 'EXTRA' })),
         () => mustNotFound('goals.contribute(cuenta)', () => B.goals.contribute({ goalId: fGoal, accountId: id, amountMinor: 1 })),
@@ -1029,6 +1057,7 @@ export function runSequence(seed: number, nOps: number, stats: Stats): SequenceR
       const id = pick(M.txs).id;
       return pick<() => string | null>([
         () => mustNotFound('transactions.remove', () => B.transactions.remove(id)),
+        () => mustNotFound('transactions.update', () => B.transactions.update(id, { amountMinor: 1 })),
         () => mustReadEmpty('transactions.get', () => B.transactions.get(id) ?? null, null),
       ])();
     }
