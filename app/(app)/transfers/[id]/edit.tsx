@@ -34,5 +34,5 @@ function EditTransfer({ transfer }: { transfer: NonNullable<ReturnType<typeof us
   const from = useAccount(transfer.fromAccountId);
   const to = useAccount(transfer.toAccountId);
   if (!from || !to || from.archivedAt !== null || to.archivedAt !== null) return <Notice text={MSG_ACCOUNT_ARCHIVED} />;
-  return <TransactionForm initial={{ mode: 'edit-transfer', transfer }} />;
+  return <TransactionForm key={transfer.id} initial={{ mode: 'edit-transfer', transfer }} />;
 }

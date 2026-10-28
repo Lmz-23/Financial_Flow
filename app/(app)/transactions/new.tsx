@@ -1,5 +1,4 @@
 import { useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
 
 import { TransactionForm, type FormType } from '../../../src/components/transactions/TransactionForm';
 
@@ -18,7 +17,7 @@ function parseParams(params: { type?: string | string[]; passive?: string | stri
 /** Nueva transaccion (Dashboard.dc.html, onAgregarTx): gasto, ingreso o transferencia entre cuentas. */
 export default function NewTransactionScreen() {
   const params = useLocalSearchParams<{ type?: string; passive?: string }>();
-  // El tipo inicial se fija una vez: el formulario no se reinicia si cambian los params.
-  const [initial] = useState(() => ({ mode: 'new' as const, ...parseParams(params) }));
-  return <TransactionForm initial={initial} />;
+  // Si la pantalla se reutiliza con otros params (navigate), la `key` reinicia el formulario.
+  const initial = { mode: 'new' as const, ...parseParams(params) };
+  return <TransactionForm key={`${initial.type}-${initial.passive}`} initial={initial} />;
 }
