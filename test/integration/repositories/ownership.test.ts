@@ -323,6 +323,7 @@ const cases: Case[] = [
   { name: 'transaction.getViewById', run: (w, u) => transactionRepository.getViewById(w.env.db, u, w.txA), foreign: undefined, own: defined },
   { name: 'transaction.list', run: (w, u) => ids(transactionRepository.list(w.env.db, u)), foreign: [], own: has('txA') },
   { name: 'transaction.list (filtros)', run: (w, u) => ids(transactionRepository.list(w.env.db, u, { accountId: w.accMov, type: 'EXPENSE', from: 0, to: FAR.end, limit: 50 })), foreign: [], own: has('txA') },
+  { name: 'transaction.update', run: (w, u) => transactionRepository.update(w.env.db, u, w.txA, { accountId: w.accMov, amountMinor: 1, description: 'Hackeada', date: w.now, categoryId: null, isPassive: false, now: w.now + 5 }), foreign: 0, own: one },
   { name: 'transaction.delete', run: (w, u) => transactionRepository.delete(w.env.db, u, w.txA), foreign: 0, own: one },
   { name: 'transaction.findByOccurrence', run: (w, u) => transactionRepository.findByOccurrence(w.env.db, u, w.recA, w.occurrence), foreign: undefined, own: defined },
   { name: 'transaction.confirmedOccurrences', run: (w, u) => transactionRepository.confirmedOccurrences(w.env.db, u, w.recA), foreign: [], own: (r) => expect((r as string[]).slice().sort()).toEqual(['2026-02-15', '2026-03-15']) },
