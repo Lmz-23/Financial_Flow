@@ -67,7 +67,10 @@ export class AccountRequiredError extends DomainError {
   }
 }
 
-/** Aporte a meta mayor al disponible de la cuenta (D12). */
+/**
+ * Salida de dinero mayor al disponible de la cuenta: aporte a meta (D12) o transferencia entre cuentas.
+ * `availableMinor` es lo que la operacion podia usar (al editar, ya con el monto original devuelto).
+ */
 export class InsufficientFundsError extends DomainError {
   readonly accountId: string;
   readonly availableMinor: number;

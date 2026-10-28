@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { createCommands } from '../../../src/app-services/commands';
-import { AccountArchivedError } from '../../../src/domain/services/errors';
+import { AccountArchivedError, InsufficientFundsError } from '../../../src/domain/services/errors';
 import type { DomainEffects } from '../../../src/domain/services/shared';
 import { setup } from '../domain/_helpers';
 
@@ -102,5 +102,24 @@ describe('commands (app-services) sobre SQLite real', () => {
     expect(spy).toHaveBeenCalledTimes(1);
     withSpy.goals.remove(goal.id);
     expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  it('transfers.* aplican sus efectos tras el COMMIT; los errores tipados llegan intactos', () => {
+    const { commands, applied } = makeCommands();
+    const a = commands.accounts.create({ name: 'A', type: 'CASH', openingMinor: 10_000 }).id;
+    const b = commands.accounts.create({ name: 'B', type: 'CASH', openingMinor: 0 }).id;
+    applied.length = 0;
+    const { id } = commands.transfers.create({ fromAccountId: a, toAccountId: b, amountMinor: 4_000 });
+    commands.transfers.update(id, { amountMinor: 5_000 });
+    commands.transfers.remove(id);
+    expect(applied.map((e) => e.refresh)).toEqual([
+      ['accounts', 'transactions'],
+      ['accounts', 'transactions'],
+      ['accounts', 'transactions'],
+    ]);
+    expect(() => commands.transfers.create({ fromAccountId: a, toAccountId: b, amountMinor: 10_001 })).toThrow(InsufficientFundsError);
+    applied.length = 0;
+    expect(() => commands.transfers.update('no-existe', { amountMinor: 1 })).toThrow();
+    expect(applied).toEqual([]);
   });
 });
