@@ -13,6 +13,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_USER_ID } from '../../../src/database/seed';
 import { accountRepository } from '../../../src/database/repositories/accountRepository';
+import { accountTransferRepository } from '../../../src/database/repositories/accountTransferRepository';
 import {
   adjustmentRepository,
   type AdjustmentTarget,
@@ -41,6 +42,8 @@ interface World {
   accEmpty: string;
   /** Cuenta archivada (tenia un aporte). */
   accArch: string;
+  /** Transferencia de A: accMov -> accArch (2.500, creada antes de archivar accArch). */
+  xfer: string;
   /** Cuenta del usuario B (apertura 5.000). */
   accB: string;
   txA: string;
@@ -76,6 +79,7 @@ function world(): World {
   const accMov = mkAccount(a, 'Con movimientos', 1_000_000);
   const accEmpty = mkAccount(a, 'Vacia', 0);
   const accArch = mkAccount(a, 'Archivada', 50_000);
+  const xfer = a.transfers.create({ fromAccountId: accMov, toAccountId: accArch, amountMinor: 2_500 }).result.id;
   const txA = a.transactions.create({
     type: 'EXPENSE', accountId: accMov, amountMinor: 100, newCategoryName: 'CatA',
   }).result.id;
@@ -118,7 +122,7 @@ function world(): World {
   const accB = mkAccount(b, 'Cuenta B', 5_000);
 
   return {
-    env, now: env.clock.now, accMov, accEmpty, accArch, accB, txA, catA,
+    env, now: env.clock.now, accMov, accEmpty, accArch, accB, xfer, txA, catA,
     debtPaid: debt.id, recDebt: debt.recurringId!, debtSpare,
     goalSaved, goalSpare, goalSpent, recA, occurrence: '2026-03-15', recC, recSpare,
   };
@@ -225,6 +229,13 @@ const cases: Case[] = [
       expect(m.has(w.accB)).toBe(false);
     },
   },
+  // ---- accountTransferRepository
+  { name: 'accountTransfer.getById', run: (w, u) => accountTransferRepository.getById(w.env.db, u, w.xfer), foreign: undefined, own: defined },
+  { name: 'accountTransfer.getViewById', run: (w, u) => accountTransferRepository.getViewById(w.env.db, u, w.xfer), foreign: undefined, own: defined },
+  { name: 'accountTransfer.list', run: (w, u) => ids(accountTransferRepository.list(w.env.db, u)), foreign: [], own: has('xfer') },
+  { name: 'accountTransfer.list (filtros)', run: (w, u) => ids(accountTransferRepository.list(w.env.db, u, { accountId: w.accArch, from: 0, to: FAR.end, limit: 50 })), foreign: [], own: has('xfer') },
+  { name: 'accountTransfer.update', run: (w, u) => accountTransferRepository.update(w.env.db, u, w.xfer, { fromAccountId: w.accMov, toAccountId: w.accEmpty, amountMinor: 1, date: w.now, note: 'Hackeada', now: w.now + 5 }), foreign: 0, own: one },
+  { name: 'accountTransfer.delete', run: (w, u) => accountTransferRepository.delete(w.env.db, u, w.xfer), foreign: 0, own: one },
   // ---- adjustmentRepository
   ...(['ACCOUNT', 'DEBT', 'GOAL'] as const).flatMap((type): Case[] => {
     const id = (w: World) => ({ ACCOUNT: w.accMov, DEBT: w.debtPaid, GOAL: w.goalSaved })[type];
@@ -364,9 +375,10 @@ const cases: Case[] = [
   { name: 'settings.getWidget (usuario inexistente)', run: (w, u) => settingsRepository.getWidget(w.env.db, u, 'debts'), foreign: null, foreignUser: GHOST, prep: (w) => w.env.sqlite.prepare("update users set widget_debts = 1 where id = ?").run(USER_A), own: (r) => expect(r).toBe(1) },
 ];
 
-/** Tablas con dueno (`user_id`): las 8 que protegen los triggers de 0001_owner_triggers.sql. */
+/** Tablas con dueno (`user_id`): las 8 de 0001_owner_triggers.sql y account_transfers (0002). */
 const OWNED_TABLES = [
-  'accounts', 'categories', 'debts', 'goals', 'recurring_items', 'transactions', 'goal_contributions', 'balance_adjustments',
+  'accounts', 'categories', 'debts', 'goals', 'recurring_items', 'transactions', 'goal_contributions',
+  'account_transfers', 'balance_adjustments',
 ] as const;
 
 /** `tabla:id` -> user_id de cada fila de las tablas con dueno. */
@@ -436,7 +448,7 @@ const userRow = (w: World, id: string) => JSON.stringify(w.env.sqlite.prepare('s
 function snapshotExceptUser(w: World, userId: string): string {
   const tables = [
     'users', 'accounts', 'categories', 'debts', 'goals', 'recurring_items',
-    'transactions', 'goal_contributions', 'balance_adjustments',
+    'transactions', 'goal_contributions', 'account_transfers', 'balance_adjustments',
   ];
   return JSON.stringify(
     tables.map((t) => [
@@ -632,7 +644,7 @@ describe('la BD distingue usuarios en las referencias (triggers de 0001_owner_tr
  * ademas de los triggers de la BD (bloque de arriba). Cada repositorio con `insert` figura aqui de forma explicita.
  */
 const COVERAGE_EXCEPTIONS: Record<string, string> = Object.fromEntries(
-  ['account', 'adjustment', 'category', 'debt', 'goal', 'goalContribution', 'recurring', 'transaction'].map((r) => [
+  ['account', 'accountTransfer', 'adjustment', 'category', 'debt', 'goal', 'goalContribution', 'recurring', 'transaction'].map((r) => [
     `${r}.insert`,
     'insert(db, v): el userId va dentro de la fila; cubierto por la guarda AST (R6/S1), no por un caso de lectura/mutacion por id',
   ]),
@@ -648,7 +660,7 @@ describe('cobertura dinamica: cada funcion exportada de cada repositorio tiene u
   const files = fs.readdirSync(REPO_DIR).filter((f) => /Repository\.ts$/.test(f)).sort();
 
   it('descubre los repositorios en disco', () => {
-    expect(files.length).toBeGreaterThanOrEqual(10);
+    expect(files.length).toBeGreaterThanOrEqual(11);
   });
 
   it('toda funcion exportada tiene un caso (o una excepcion justificada) y no hay casos huerfanos', async () => {

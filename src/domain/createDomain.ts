@@ -1,6 +1,7 @@
 import { DEFAULT_USER_ID } from '../database/seed';
 import type { AppDatabase } from '../database/types';
 import { createAccountService } from './services/AccountService';
+import { createActivityService } from './services/ActivityService';
 import { createDebtService } from './services/DebtService';
 import { createGoalService } from './services/GoalService';
 import { createIntegrityService } from './services/IntegrityService';
@@ -9,6 +10,7 @@ import { createRecurringService } from './services/RecurringService';
 import { createReportService } from './services/ReportService';
 import { createSettingsService } from './services/SettingsService';
 import { createTransactionService } from './services/TransactionService';
+import { createTransferService } from './services/TransferService';
 import type { DomainContext } from './services/shared';
 
 export interface CreateDomainOptions {
@@ -32,6 +34,8 @@ export function createDomain(db: AppDatabase, options: CreateDomainOptions = {})
   return {
     accounts: createAccountService(ctx),
     transactions: createTransactionService(ctx),
+    transfers: createTransferService(ctx),
+    activity: createActivityService(ctx),
     debts: createDebtService(ctx),
     goals: createGoalService(ctx),
     recurring: createRecurringService(ctx),

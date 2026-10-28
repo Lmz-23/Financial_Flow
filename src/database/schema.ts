@@ -371,6 +371,40 @@ export type GoalContribution = typeof goalContributions.$inferSelect;
 export type NewGoalContribution = typeof goalContributions.$inferInsert;
 
 // =============================================================================
+// ACCOUNT_TRANSFERS (transferencia interna cuenta -> cuenta; nunca es Transaction)
+// =============================================================================
+// Mueve dinero entre dos cuentas del usuario: resta del disponible de origen y suma al de destino. No es
+// ingreso ni gasto, asi que no entra al reporte del mes ni al Indice (decision 2026-10-27, revierte D9).
+
+export const accountTransfers = sqliteTable(
+  'account_transfers',
+  {
+    id: id(),
+    // PROPIETARIO (tambien por trigger, que drizzle no ve; 0002_account_transfers.sql): `user_id` es inmutable
+    // (trg_account_transfers_user_id_immutable) y cada referencia debe ser del mismo usuario (trg_account_transfers_owner_ins/_upd).
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
+    fromAccountId: text('from_account_id').notNull().references(() => accounts.id, { onDelete: 'restrict' }),
+    toAccountId: text('to_account_id').notNull().references(() => accounts.id, { onDelete: 'restrict' }),
+    amountMinor: integer('amount_minor').notNull(),
+    /** Instante de la transferencia (epoch ms). */
+    date: integer('date', { mode: 'timestamp_ms' }).notNull(),
+    note: text('note'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    check('ck_xfer_amount', sql`${t.amountMinor} > 0`),
+    check('ck_xfer_distinct', sql`${t.fromAccountId} <> ${t.toAccountId}`),
+    index('idx_xfer_user_date').on(t.userId, t.date),
+    index('idx_xfer_from').on(t.fromAccountId),
+    index('idx_xfer_to').on(t.toAccountId),
+  ],
+);
+
+export type AccountTransfer = typeof accountTransfers.$inferSelect;
+export type NewAccountTransfer = typeof accountTransfers.$inferInsert;
+
+// =============================================================================
 // BALANCE_ADJUSTMENTS (apertura / correccion manual / cierre de cuenta, deuda o meta)
 // =============================================================================
 // Tres FK reales (no referencia polimorfica) para que SQLite haga cumplir la integridad.
@@ -427,6 +461,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   debts: many(debts),
   goals: many(goals),
   goalContributions: many(goalContributions),
+  accountTransfers: many(accountTransfers),
   balanceAdjustments: many(balanceAdjustments),
   recurringItems: many(recurringItems),
 }));
@@ -435,6 +470,8 @@ export const accountsRelations = relations(accounts, ({ one, many }) => ({
   user: one(users, { fields: [accounts.userId], references: [users.id] }),
   transactions: many(transactions),
   goalContributions: many(goalContributions),
+  transfersOut: many(accountTransfers, { relationName: 'transferFrom' }),
+  transfersIn: many(accountTransfers, { relationName: 'transferTo' }),
   balanceAdjustments: many(balanceAdjustments),
   recurringItems: many(recurringItems),
 }));
@@ -486,4 +523,10 @@ export const balanceAdjustmentsRelations = relations(balanceAdjustments, ({ one 
   account: one(accounts, { fields: [balanceAdjustments.accountId], references: [accounts.id] }),
   debt: one(debts, { fields: [balanceAdjustments.debtId], references: [debts.id] }),
   goal: one(goals, { fields: [balanceAdjustments.goalId], references: [goals.id] }),
+}));
+
+export const accountTransfersRelations = relations(accountTransfers, ({ one }) => ({
+  user: one(users, { fields: [accountTransfers.userId], references: [users.id] }),
+  from: one(accounts, { fields: [accountTransfers.fromAccountId], references: [accounts.id], relationName: 'transferFrom' }),
+  to: one(accounts, { fields: [accountTransfers.toAccountId], references: [accounts.id], relationName: 'transferTo' }),
 }));
