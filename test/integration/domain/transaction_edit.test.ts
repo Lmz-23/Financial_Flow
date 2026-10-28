@@ -64,7 +64,8 @@ describe('TransactionService.update: STANDARD', () => {
   it('el tipo no se edita y un gasto nunca queda pasivo; un ingreso si puede marcarse y desmarcarse', () => {
     const { env, d, a } = world();
     const exp = d.transactions.create({ type: 'EXPENSE', accountId: a, amountMinor: 100 }).result.id;
-    d.transactions.update(exp, { isPassive: true });
+    // Igual que create: marcar pasivo un gasto es ValidationError.
+    expect(thrown(() => d.transactions.update(exp, { isPassive: true }))).toBeInstanceOf(ValidationError);
     expect(d.transactions.get(exp)).toMatchObject({ type: 'EXPENSE', isPassive: false });
     const inc = d.transactions.create({ type: 'INCOME', accountId: a, amountMinor: 1_000 }).result.id;
     d.transactions.update(inc, { isPassive: true });

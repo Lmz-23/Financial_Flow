@@ -181,7 +181,28 @@ describe('Transferencias: editar', () => {
     expect(thrown(() => d.transfers.remove(id))).toMatchObject({ code: 'ACCOUNT_ARCHIVED', accountId: b });
     expect(snapshot(env)).toBe(before);
     d.accounts.unarchive(b);
+    // Archivar deja el saldo de b en 0: ya no es AccountArchivedError, sino el bloqueo de fondos del destino
+    // (borrar le quitaria los 10.000 recibidos y quedaria en negativo).
+    expect(available(d, b)).toBe(0);
+    expect(thrown(() => d.transfers.remove(id))).toMatchObject({ code: 'INSUFFICIENT_FUNDS', accountId: b });
+    d.accounts.update(b, { balanceMinor: 10_000 });
     expect(() => d.transfers.remove(id)).not.toThrow();
+  });
+
+  it('borrar o desviar una transferencia no deja el destino en negativo si ya gasto lo recibido', () => {
+    const { env, d, a, b } = world();
+    const c = mkAccount(d, 'Tercera', 0);
+    const id = d.transfers.create({ fromAccountId: a, toAccountId: b, amountMinor: 30_000 }).result.id;
+    d.transactions.create({ type: 'EXPENSE', accountId: b, amountMinor: 45_000 }); // b: 20.000 + 30.000 - 45.000 = 5.000
+    const before = snapshot(env);
+    expect(thrown(() => d.transfers.remove(id))).toMatchObject({
+      code: 'INSUFFICIENT_FUNDS', accountId: b, availableMinor: 5_000, requestedMinor: 30_000,
+    });
+    expect(thrown(() => d.transfers.update(id, { toAccountId: c }))).toMatchObject({ code: 'INSUFFICIENT_FUNDS', accountId: b });
+    expect(thrown(() => d.transfers.update(id, { amountMinor: 20_000 }))).toMatchObject({ code: 'INSUFFICIENT_FUNDS', accountId: b });
+    expect(snapshot(env)).toBe(before);
+    d.transfers.update(id, { amountMinor: 25_000 }); // b queda en 0: se permite
+    expect(available(d, b)).toBe(0);
   });
 });
 
