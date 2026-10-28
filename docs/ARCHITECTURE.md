@@ -354,7 +354,7 @@ CHECK: `kind='DEBT_PAYMENT'` ⇔ (type='EXPENSE' AND debtId, debtPaymentType y d
 
 Índices: `(userId, date)`, `(accountId)`, `(debtId)`, `(categoryId)`, y el **UNIQUE parcial `(recurringItemId, occurrenceDate) WHERE recurringItemId IS NOT NULL`**.
 
-Se eliminan: `TRANSFER`, `pocketId`, `status`, `isConfirmed` y los campos `transferTo*`. SUPUESTO: el MVP no tiene transacciones pendientes; lo pendiente vive en los recurrentes. Que no haya transferencias entre cuentas es la decisión D9.
+Se eliminan: `TRANSFER`, `pocketId`, `status`, `isConfirmed` y los campos `transferTo*`. SUPUESTO: el MVP no tiene transacciones pendientes; lo pendiente vive en los recurrentes. Las transferencias entre cuentas ya no se descartan: viven en su propia tabla `account_transfers` (decisión 2026-10-27, ver abajo), no como `TRANSFER` en Transaction.
 
 **debts**
 - Campos: id, userId, name, installmentMinor (nullable: la cuota puede estar "sin definir"), monthlyRate (real, nullable), rateSource ('KNOWN' / 'ESTIMATED' / 'UNKNOWN'), initialPaidCount (int default 0), totalCount (int nullable), archivedAt (nullable), createdAt, updatedAt.
@@ -410,11 +410,26 @@ CHECK adicionales: `isPassive = 0 OR type = 'INCOME'` (`recurring_items.isPassiv
 
 **Relaciones:** users 1–N con todo. accounts 1–N con transactions, goal_contributions y adjustments. debts 1–N con transactions y adjustments, y 1–0..1 con recurring_items. goals 1–N con contributions y adjustments. recurring_items 1–N con transactions (una por ocurrencia).
 
+**account_transfers** (decisión del usuario 2026-10-27, revierte D9; migración `0002_account_transfers.sql`): transferencia interna cuenta → cuenta, como `goal_contributions` pero hacia otra cuenta; nunca es Transaction.
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| id | text PK | |
+| userId | FK users RESTRICT | inmutable (trigger) |
+| fromAccountId, toAccountId | FK accounts RESTRICT | del mismo usuario (triggers `OWNER_MISMATCH`); CHECK `ck_xfer_distinct` (from ≠ to) |
+| amountMinor | int CHECK > 0 | `ck_xfer_amount` |
+| date | int (epoch ms) | |
+| note | text, nullable | |
+| createdAt, updatedAt | | |
+
+Índices: `(userId, date)`, `(fromAccountId)`, `(toAccountId)`. Triggers `trg_account_transfers_user_id_immutable`, `_owner_replace`, `_owner_ins`, `_owner_upd` (28 triggers en total). La migración es aditiva: no reconstruye tablas.
+
 **PRAGMA foreign_keys = ON** al abrir la conexión, tanto en Expo como en tests (si no, RESTRICT no se aplica). VERIFICADO (2026-10-03): expo-sqlite **no** lo trae activo por defecto y se activa por conexión; better-sqlite3 sí lo trae activo, pero los tests lo ejecutan igualmente de forma explícita (`test/helpers/db.ts`). VERIFICADO EN CÓDIGO (2026-10-07): `src/database/client.ts` ejecuta `PRAGMA foreign_keys = ON` justo tras abrir la conexión y **falla cerrado** (lanza) si al releerlo no vale 1.
 
 ### 2.2 Estrategia por tipo de hecho
 
-- **Transacciones:** solo ingresos y gastos reales. Sin edición en el MVP (el diseño solo ofrece eliminar; D9). Se corrige eliminando y creando de nuevo.
+- **Transacciones:** solo ingresos y gastos reales. Se pueden editar (decisión 2026-10-27, antes D9: solo eliminar), salvo `DEBT_PAYMENT` (se borra y se registra de nuevo) y la fecha de las que confirman una ocurrencia recurrente; el tipo INCOME/EXPENSE no cambia.
+- **Transferencias entre cuentas:** una fila por transferencia (`account_transfers`); no son ingreso ni gasto y no entran al reporte del mes ni al Índice.
 - **Aportes:** una fila por aporte con su cuenta de origen. Nunca son Transaction.
 - **Ajustes:** el saldo de apertura de cuentas y deudas es un ajuste con reason `OPENING`. Así el saldo inicial deja de contarse como ingreso (corrige el problema 2). El "ahorro inicial" de una meta **no** es ajuste: es un aporte, porque sale de una cuenta.
 - **Estado de meta:** pasa de `ACTIVE` a `SPENT` una sola vez y no se puede revertir. Se guarda una foto del monto (`spentAmountMinor`) en ese momento. Una vez gastada, sus aportes y ajustes quedan inmutables.
@@ -451,7 +466,7 @@ CHECK adicionales: `isPassive = 0 OR type = 'INCOME'` (`recurring_items.isPassiv
 
 Notación: Σ = suma; "adj" = balance_adjustments; los montos son unidades menores.
 
-- **Disponible de una cuenta**: `Σ adj(cuenta).delta + Σ ingresos de la cuenta − Σ gastos de la cuenta − Σ aportes desde la cuenta`
+- **Disponible de una cuenta**: `Σ adj(cuenta).delta + Σ ingresos de la cuenta − Σ gastos de la cuenta − Σ aportes desde la cuenta − Σ transferencias salientes + Σ transferencias entrantes` (la suma global de disponibles no cambia con una transferencia, así que I1 y el patrimonio se conservan)
 - **Saldo de una deuda**: `Σ adj(deuda).delta − Σ capital aplicado por los pagos de esa deuda` (siempre ≥ 0; ver I2)
 - **Ahorro de una meta (saved)**: `Σ aportes a la meta + Σ adj(meta).delta`
 - **Pagos hechos de una deuda (paidCount)**: `initialPaidCount + número de pagos de esa deuda con debtPaymentType='INSTALLMENT'`
@@ -552,7 +567,17 @@ El dominio se construye con `createDomain(db, { userId?, now? })` (`src/domain/c
   - DESCARTADO por el usuario: desarchivar automáticamente al intentar operar. La UI ofrece "Desarchivar" a partir de `AccountArchivedError.accountId` y reintenta (pantalla pendiente de F5).
 - **Regla de las cuentas archivadas (decisión del usuario entre 2026-10-04 y 2026-10-07):** una cuenta archivada no cambia de saldo por ningún motivo. Se rechaza con `AccountArchivedError` (mensaje: "La cuenta está archivada. Desarchívala para modificar su saldo.") toda operación que crearía, borraría o movería dinero de ella: crear transacciones, ajustar el saldo, aportar a una meta, pagar una deuda, confirmar una ocurrencia y **borrar una transacción de esa cuenta** (esto último cubre `TransactionService.remove`, `RecurringService.unconfirm` y el borrado de la transacción de un pago de deuda, que pasan por `removeTransactionIn`). La única excepción es la redirección de aportes al eliminar una meta (ver GoalService), que no toca el saldo de la archivada sino que compensa sus aportes con un `ARCHIVE_CLOSE`.
 
+**TransferService** y **ActivityService** (decisión 2026-10-27; `domain.transfers`, `domain.activity`)
+- `transfers.create({fromAccountId, toAccountId, amountMinor, date?, note?})`, `update(id, {fromAccountId?, toAccountId?, amountMinor?, date?, note?})`, `remove(id)`; lecturas `get(id)` y `list({from?, to?, accountId?, limit?})` (fecha desc; `accountId` = origen o destino).
+- Orden de validaciones: monto > 0 y fecha (`ValidationError`), origen ≠ destino (`ValidationError`), cuentas existentes del usuario (`NotFoundError`) y activas (`AccountArchivedError`), fondos.
+- **Bloqueante:** el monto no puede superar el disponible del origen (`InsufficientFundsError`, el mismo de D12). Al editar, el chequeo considera el monto original devuelto y solo corre si cambia el origen o sube el monto. Sin comisiones.
+- `update` y `remove` con cualquiera de las cuentas originales archivada lanzan `AccountArchivedError`. Borrar no se bloquea si el destino ya gastó lo recibido (puede quedar negativo, como al borrar un ingreso).
+- Efectos: `refresh ['accounts', 'transactions']`.
+- Una cuenta con transferencias (origen o destino) cuenta como con movimientos: `remove`/`removalOutcome` la archivan, no la borran.
+- `activity.list({from?, to?, accountId?, limit?})`: transacciones y transferencias mezcladas por fecha desc, con discriminante `kind: 'TRANSACTION' | 'TRANSFER'` y el detalle anidado en `transaction` o `transfer` (el `kind` de la transacción, STANDARD/DEBT_PAYMENT, queda dentro). Las transferencias llevan `direction` ('OUT' | 'IN') cuando se filtra por cuenta.
+
 **TransactionService**
+- `update(id, {amountMinor?, accountId?, date?, description?, categoryId?|newCategoryName?, isPassive?})` (decisión 2026-10-27): lo omitido se conserva. `DEBT_PAYMENT` → `TransactionNotEditableError('DEBT_PAYMENT')`; la transacción ligada a un recurrente no cambia de fecha (`TransactionNotEditableError('RECURRING_DATE')`, reenviar la misma fecha se acepta); cuenta actual o nueva archivada → `AccountArchivedError`; un gasto fuerza `isPassive=false`; marcar pasivo hace autoActivate(cashflow). Efectos como `create`.
 - `create({type, accountId, amountMinor, categoryId|newCategoryName, isPassive, date, description})`:
   - Si viene una categoría nueva, la crea en la misma transacción (o reutiliza una existente con el mismo nombre y tipo). `categoryId` y `newCategoryName` son excluyentes (`ValidationError`).
   - Valida que la cuenta exista, sea del usuario y no esté archivada (`NotFoundError` / `AccountArchivedError`).
@@ -707,9 +732,9 @@ Los tests de atomicidad (`test/integration/domain/atomicity.test.ts`) instalan t
 |---|---|---|---|
 | `ValidationError` | `VALIDATION` | Entrada inválida (monto, nombre vacío, fecha, combinación no permitida, cuenta no archivada al desarchivar, cuenta ya archivada al eliminar) | |
 | `NotFoundError` | `NOT_FOUND` | Id inexistente **o de otro usuario** | `entity`, `entityId` |
-| `AccountArchivedError` | `ACCOUNT_ARCHIVED` | Operación que cambiaría el saldo de una cuenta archivada | `accountId` |
+| `AccountArchivedError` | `ACCOUNT_ARCHIVED` | Operación que cambiaría el saldo de una cuenta archivada (también editar o borrar una transferencia con una cuenta archivada) | `accountId` |
 | `AccountRequiredError` | `ACCOUNT_REQUIRED` | `confirmOccurrence` sin cuenta | |
-| `InsufficientFundsError` | `INSUFFICIENT_FUNDS` | Aporte mayor al disponible (D12) | `accountId`, `availableMinor`, `requestedMinor` |
+| `InsufficientFundsError` | `INSUFFICIENT_FUNDS` | Aporte a meta (D12) o transferencia mayor al disponible de la cuenta | `accountId`, `availableMinor`, `requestedMinor` |
 | `DebtSettledError` | `DEBT_SETTLED` | Pago a una deuda con saldo 0 (D13) | `debtId` |
 | `DebtArchivedError` | `DEBT_ARCHIVED` | Operación sobre una deuda archivada | `debtId` |
 | `GoalNotActiveError` | `GOAL_NOT_ACTIVE` | Aporte, ajuste, segundo cierre o borrado de una meta SPENT | `goalId` |
@@ -721,6 +746,7 @@ Los tests de atomicidad (`test/integration/domain/atomicity.test.ts`) instalan t
 | `RefundAccountRequiredError` | `REFUND_ACCOUNT_REQUIRED` | Eliminar una meta con aportes de cuentas archivadas sin un destino activo válido | `goalId`, `totalMinor`, `byAccount`, `invalidAccountId` |
 | `UseDebtPaymentFlow` | `USE_DEBT_PAYMENT_FLOW` | Confirmar por el camino genérico la cuota de una deuda (I4) | `debtId`, `recurringId`, `occurrenceDate` |
 | `OnboardingAlreadyCompletedError` | `ONBOARDING_ALREADY_COMPLETED` | Repetir el onboarding | |
+| `TransactionNotEditableError` | `TRANSACTION_NOT_EDITABLE` | Editar un `DEBT_PAYMENT` (`reason: 'DEBT_PAYMENT'`) o cambiar la fecha de una transacción ligada a un recurrente (`reason: 'RECURRING_DATE'`) | `transactionId`, `reason` |
 | `NotSupportedError` | `NOT_SUPPORTED` | Operación fuera del alcance del servicio (p. ej. editar una cuota de deuda como recurrente genérico) | |
 
 ### 3.7 Definiciones del ETA de una meta
@@ -1033,7 +1059,7 @@ Fecha de aprobación de los puntos 1 a 20: **2026-10-03**. Quedan todos aprobado
 6. "Quincenal" (BIWEEKLY) = los días 15 y último día del mes. No es cada 14 días. (Completado por el punto 21: qué pasa con la primera fecha.)
 7. "Agregar deuda" y el paso 2 del onboarding necesitan un campo de fecha (opcional); sin fecha no hay recordatorios. Precisión (2026-10-08, decisión 46 / A12): en F5b-1 el paso 2 no incluye el campo; la fecha se completa en Recurrentes (F5b-3).
 8. La hoja "Ya pagué" incluye un selector de cuenta, preseleccionando la cuenta predeterminada del recurrente. La pantalla "Agregar recurrente" debe pedir esa cuenta predeterminada (`defaultAccountId`).
-9. Sin transferencias entre cuentas ni edición de transacciones en el MVP.
+9. ~~Sin transferencias entre cuentas ni edición de transacciones en el MVP.~~ REVERTIDA por el usuario el 2026-10-27 (ver [11](#11-decisiones-del-usuario)).
 10. Los widgets se activan solo con la primera entidad (estado NULL), no con cada alta como en el prototipo.
 11. Cerrar una meta exige saved ≥ objetivo.
 12. No se puede aportar más que el disponible de la cuenta; las cuentas sí pueden quedar negativas por gastos.
@@ -1153,6 +1179,7 @@ Documentación de referencia: https://docs.expo.dev/versions/v56.0.0/
 Decisiones ya cerradas por el usuario. Prevalecen sobre cualquier otro texto del documento.
 
 - **Pagar deuda = gasto real.** Un pago de deuda es una Transaction EXPENSE (`kind='DEBT_PAYMENT'`).
+- **Transferencias entre cuentas y edición de transacciones (2026-10-27; revierte D9).** Tabla `account_transfers`; no son ingreso ni gasto (el reporte del mes y el Índice no cambian); disponible = fórmula de 3.1 − salientes + entrantes; bloqueante si el origen queda negativo; origen y destino activos y distintos; sin comisiones. Editar transacciones: STANDARD sí (sin cambiar el tipo), `DEBT_PAYMENT` no (se borra y se registra de nuevo), las que confirman una ocurrencia recurrente sin cambiar la fecha. Una cuenta con transferencias se archiva, no se borra. Las demás reglas cerradas (deudas, metas, ajustes) no cambian.
 - **Aportar a una meta = transferencia interna sin Transaction.** Es un GoalContribution.
 - **Cerrar meta = cambio de estado a SPENT** sin mover dinero ni pedir cuenta, guardando de qué cuenta salió cada aporte (cada GoalContribution conserva su `accountId`).
 - **Mes calendario** como periodo de los reportes.
