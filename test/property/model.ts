@@ -20,6 +20,8 @@ export interface ModelTx {
   occurrence: string | null;
 }
 
+export interface ModelTransfer { id: string; from: string; to: string; amount: number; date: number }
+
 export interface ModelContribution { goalId: string; accountId: string; amount: number; date: number }
 
 export interface ModelGoal {
@@ -57,6 +59,7 @@ export class Model {
   adjustments: Adjustment[] = [];
   txs: ModelTx[] = [];
   contributions: ModelContribution[] = [];
+  transfers: ModelTransfer[] = [];
   readonly goals = new Map<string, ModelGoal>();
   readonly debts = new Map<string, ModelDebt>();
   readonly recurring = new Map<string, ModelRecurring>();
@@ -75,6 +78,10 @@ export class Model {
     for (const x of this.adjustments) if (x.kind === 'ACCOUNT' && x.id === accountId) v += x.delta;
     for (const t of this.txs) if (t.accountId === accountId) v += t.type === 'INCOME' ? t.amount : -t.amount;
     for (const c of this.contributions) if (c.accountId === accountId) v -= c.amount;
+    for (const t of this.transfers) {
+      if (t.from === accountId) v -= t.amount;
+      if (t.to === accountId) v += t.amount;
+    }
     return v;
   }
 

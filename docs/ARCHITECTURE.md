@@ -79,7 +79,7 @@ Otros commits relacionados: `450af15` (documento de arquitectura inicial), `8357
 
 **Estado del árbol (importante).** Tras F5a, los hooks de dominio (`useAccounts`, `useDebts`, `useTransactions`) están reescritos y `app/(tabs)/` se borró, pero las pantallas y componentes antiguos restantes (`app/**` fuera de `app/(app)/`, `src/components/**` previos al rediseño) siguen importando módulos ya retirados (bolsillos, presupuesto, `cashflow` antiguo, repositorios de tarjetas y préstamos). Esas rutas rotas provocaban que el bundle de Metro no resolviera (primer fallo: `app/debt/add-card.tsx`).
 
-**Estado actual (verificado):** las 12 rutas antiguas rotas se aparcaron en `_parked/` (raíz del repo, excluida de tsconfig y eslint; commit «chore(app): aparcar 12 rutas rotas en _parked/ para que el bundle compile»), de modo que `expo export --platform android` compila. Los archivos aparcados se retiran, o se rehacen en su paso de F5b, y `_parked/` se elimina en F6. Cifras vigentes (2026-10-26): `tsc` 67 errores, eslint 91 problemas (24 errores, 67 avisos), vitest 966/966 (45 archivos). Las cifras de `tsc` (208) y lint (219) del informe de F4/F5a-fix citadas arriba son las de ese ciclo y quedan superadas por estas. El dominio, la capa de datos, el tema, las primitivas `ds/`, el adaptador de notificaciones y la capa `app-services/` están verificados con vitest.
+**Estado actual (verificado):** las 12 rutas antiguas rotas se aparcaron en `_parked/` (raíz del repo, excluida de tsconfig y eslint; commit «chore(app): aparcar 12 rutas rotas en _parked/ para que el bundle compile»), de modo que `expo export --platform android` compila. Los archivos aparcados se retiran, o se rehacen en su paso de F5b, y `_parked/` se elimina en F6. Cifras vigentes (2026-10-26, tras F5b-2): `tsc` 56 errores, eslint 80 problemas (23 errores, 57 avisos), vitest 969/969 (45 archivos). Las cifras de `tsc` (208) y lint (219) del informe de F4/F5a-fix citadas arriba son las de ese ciclo y quedan superadas por estas. El dominio, la capa de datos, el tema, las primitivas `ds/`, el adaptador de notificaciones y la capa `app-services/` están verificados con vitest.
 
 La guarda estructural de repositorios por AST (`test/helpers/repositoryAst.ts`, `test/unit/repositoryOwnership.test.ts`) está commiteada (`119a972`) y verificada; sus límites están en [3.5](#35-propiedad-del-usuario-y-convención-de-repositorios). La corrección de los comentarios obsoletos del código está hecha (ver [12.2](#122-desviaciones-y-ampliaciones-posteriores)).
 
@@ -102,16 +102,16 @@ Esta subsección es el único lugar donde se listan; el resto del documento los 
 - **F4, pendiente de dispositivo:** entrega y botones de la notificación; canal de Android; arranque en frío; que WEEKLY con `weekday` 1 sea domingo; que `content.data` vuelva intacto; el límite de ~64 de iOS; y la decisión de que ambas acciones usen `opensAppToForeground: true` (si «Todavía no» no abriera la app con la app cerrada, el aplazamiento se perdería). La fuente de la API fueron los tipos instalados de expo-notifications 56.0.18 (no hubo acceso a los docs web).
 - **Estado vacío de «Próximos pagos» (pendiente de decisión de diseño del usuario):** con la lista vacía el widget se muestra con un contenedor de filas vacío que añade unos 14 px bajo el título (inferido por lectura del código, no medido).
 - **Verificar en dispositivo el render del Dashboard con los nuevos tokens:** Deudas 18/24 (decisión 42), +2 px en las filas y +4 px entre widgets (decisión 43) y +2 px de holgura del FAB (decisión 44). Este ciclo no verificó render real.
-- **F5a, retirar en F6:** re-export TEMPORAL de `useCategories` / `useCategoriesByType` en `src/hooks/index.ts`. `AccountWithBalance` ya no se exporta de `hooks/useAccounts`; lo importa `forms/AccountPicker` (heredado): migrar en F5b/F6.
+- **F5a, retirar en F6:** `AccountWithBalance` ya no se exporta de `hooks/useAccounts`; lo importa `forms/AccountPicker` (heredado): migrar en F5b/F6.
 - **F5a, menores a decidir al conectar F4:** cualquier cambio de `settings` dispara reconcile (incluido tema y widgets). Algunos widgets del Dashboard usan `Pressable`/`View` de react-native directamente (desviación del criterio literal «solo primitivas ds», sin colores fijos).
 - **F5a, pendiente de dispositivo:** `Stack.Protected` y su redirect al completar el onboarding; modo oscuro; rutas de destino (inexistentes hasta F5b); y que no haya bucle de renders ni doble consulta en StrictMode en `useDomainQuery`.
 - **F5a, textos inferidos que el usuario podría querer cambiar:** fechas «Hoy/Ayer/día de semana/15 oct», «Vencido», «Sin definir».
 - **F5b:** pantallas por carpetas: cuentas, transacciones, deudas, metas, recurrentes, onboarding de 4 pasos y ajustes. Se parte en 5 ciclos, cada uno con su Review y su Verification (el quinto, F5b-5, es el detalle de Cashflow, por decisión del usuario del 2026-10-08):
   - **F5b-1 (onboarding; prioridad alta, decisión 41 de 10.2):** sin él, con BD limpia, la app arranca en una ruta inexistente `onboarding`. Incluye la pantalla de error con reintento si `initializeApp` falla (`app/_layout.tsx` ~L38-44), resuelta **junto con** un error boundary para consultas que lancen en render (`useDomainQuery`): una sola solución, no dos parches.
-  - **F5b-2:** cuentas y movimientos.
+  - **F5b-2 (implementada, 2026-10-26, rama `feat/f5b-2-cuentas-movimientos`):** cuentas y movimientos. Pantallas `app/(app)/accounts/{new,[id]}.tsx` y `app/(app)/transactions/{index,[id],new}.tsx`; consulta `AccountService.removalOutcome` para confirmar antes de eliminar una cuenta (texto aprobado: «Esta cuenta tiene movimientos, así que la archivaremos en lugar de borrarla. Tu historial se conserva.», Archivar / Cancelar); hooks `useTransactions`, `useTransaction`, `useCategoryOptions`. Lista sin filtros, agrupada por día; fecha de una transacción nueva fija en «Hoy» (sin selector). Retirados `app/(modals)/`, `_parked/(modals)/`, `_parked/accounts/` y el hook `useCategories` (leía categorías sin filtrar por usuario). Sin verificar en dispositivo.
   - **F5b-3:** deudas, metas y recurrentes. Incluye el texto confirmado para `monthsRemaining = null` (decisión 38; si se detecta un problema de longitud o espacio, se consulta al usuario antes de cambiarlo) y la edición de un próximo pago en la pantalla de recurrentes (decisión 39).
   - **F5b-4:** Ajustes, con la etiqueta del interruptor «Recordatorios de pagos y cobros» (decisión 35), que **no existe en código**.
-  - **F5b-5 (detalle de Cashflow; decisión del usuario, 2026-10-08):** ciclo propio, al final de F5b (después de F5b-1 a F5b-4), con su Review y su Verification. Rehace `app/(app)/cashflow.tsx` (origen: `cashflow/index.tsx`, hoy aparcado en `_parked/`), apoyada en `ReportService`, que reemplaza a `CashflowService`.
+  - **F5b-5 (detalle de Cashflow; decisión del usuario, 2026-10-08):** ciclo propio, al final de F5b (después de F5b-1 a F5b-4), con su Review y su Verification. Rehace `app/(app)/cashflow.tsx` (origen: `cashflow/index.tsx`, hoy aparcado en `_parked/`), apoyada en `ReportService`, que reemplaza a `CashflowService`. **Implementada (rama `f5b/cashflow`, sin verificar en dispositivo):** Índice del mes, desglose del gasto (día a día, pagos de deuda y metas cumplidas; deuda y metas solo si tienen monto), ícono de ayuda de ingreso pasivo y atajo «Marcar otro ingreso como pasivo» (`transactions/new?type=INCOME&passive=1`). Textos inferidos: «Gastos del día a día» y «Pagos de deuda». Retirados `_parked/cashflow/` y el hook `useCashflow`.
   - **Premisa a revisar en F5b-3 (edición/confirmación de recurrentes):** el usuario decidió que a los ingresos no se les ofrece «marcar» (decisión 45), pero la decisión 34 solo trata de avisos y la ruta `/recurring/[id]/confirm` podría aplicar a ingresos. Si se puede confirmar un ingreso como recibido, hay que revisar la frase de cierre «También puedes marcarlo tú mismo cuando quieras.».
 - **Backend-coder (ítem aparte, decisión 40):** `RecurringService.upcoming()` debe exponer la fecha de la ocurrencia confirmada para poder llamar a `unconfirm` al desmarcar un pago (D14).
 - **F6 (limpieza):** retirar el shim de `colors`, las primitivas antiguas de `src/components/ui/`, `src/domain/utils/` con su `formatCOP` homónima (ver [5](#5-sistema-de-tema)), hooks y pantallas antiguos, el alias de `expo-sqlite` y `test/mocks/expo-sqlite.ts` en `vitest.config.ts` (siguen presentes), y endurecer a `error` las reglas de ESLint de fronteras y de `colors` (hoy `warn`).
@@ -354,7 +354,7 @@ CHECK: `kind='DEBT_PAYMENT'` ⇔ (type='EXPENSE' AND debtId, debtPaymentType y d
 
 Índices: `(userId, date)`, `(accountId)`, `(debtId)`, `(categoryId)`, y el **UNIQUE parcial `(recurringItemId, occurrenceDate) WHERE recurringItemId IS NOT NULL`**.
 
-Se eliminan: `TRANSFER`, `pocketId`, `status`, `isConfirmed` y los campos `transferTo*`. SUPUESTO: el MVP no tiene transacciones pendientes; lo pendiente vive en los recurrentes. Que no haya transferencias entre cuentas es la decisión D9.
+Se eliminan: `TRANSFER`, `pocketId`, `status`, `isConfirmed` y los campos `transferTo*`. SUPUESTO: el MVP no tiene transacciones pendientes; lo pendiente vive en los recurrentes. Las transferencias entre cuentas ya no se descartan: viven en su propia tabla `account_transfers` (decisión 2026-10-27, ver abajo), no como `TRANSFER` en Transaction.
 
 **debts**
 - Campos: id, userId, name, installmentMinor (nullable: la cuota puede estar "sin definir"), monthlyRate (real, nullable), rateSource ('KNOWN' / 'ESTIMATED' / 'UNKNOWN'), initialPaidCount (int default 0), totalCount (int nullable), archivedAt (nullable), createdAt, updatedAt.
@@ -410,11 +410,26 @@ CHECK adicionales: `isPassive = 0 OR type = 'INCOME'` (`recurring_items.isPassiv
 
 **Relaciones:** users 1–N con todo. accounts 1–N con transactions, goal_contributions y adjustments. debts 1–N con transactions y adjustments, y 1–0..1 con recurring_items. goals 1–N con contributions y adjustments. recurring_items 1–N con transactions (una por ocurrencia).
 
+**account_transfers** (decisión del usuario 2026-10-27, revierte D9; migración `0002_account_transfers.sql`): transferencia interna cuenta → cuenta, como `goal_contributions` pero hacia otra cuenta; nunca es Transaction.
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| id | text PK | |
+| userId | FK users RESTRICT | inmutable (trigger) |
+| fromAccountId, toAccountId | FK accounts RESTRICT | del mismo usuario (triggers `OWNER_MISMATCH`); CHECK `ck_xfer_distinct` (from ≠ to) |
+| amountMinor | int CHECK > 0 | `ck_xfer_amount` |
+| date | int (epoch ms) | |
+| note | text, nullable | |
+| createdAt, updatedAt | | |
+
+Índices: `(userId, date)`, `(fromAccountId)`, `(toAccountId)`. Triggers `trg_account_transfers_user_id_immutable`, `_owner_replace`, `_owner_ins`, `_owner_upd` (28 triggers en total). La migración es aditiva: no reconstruye tablas.
+
 **PRAGMA foreign_keys = ON** al abrir la conexión, tanto en Expo como en tests (si no, RESTRICT no se aplica). VERIFICADO (2026-10-03): expo-sqlite **no** lo trae activo por defecto y se activa por conexión; better-sqlite3 sí lo trae activo, pero los tests lo ejecutan igualmente de forma explícita (`test/helpers/db.ts`). VERIFICADO EN CÓDIGO (2026-10-07): `src/database/client.ts` ejecuta `PRAGMA foreign_keys = ON` justo tras abrir la conexión y **falla cerrado** (lanza) si al releerlo no vale 1.
 
 ### 2.2 Estrategia por tipo de hecho
 
-- **Transacciones:** solo ingresos y gastos reales. Sin edición en el MVP (el diseño solo ofrece eliminar; D9). Se corrige eliminando y creando de nuevo.
+- **Transacciones:** solo ingresos y gastos reales. Se pueden editar (decisión 2026-10-27, antes D9: solo eliminar), salvo `DEBT_PAYMENT` (se borra y se registra de nuevo) y la fecha de las que confirman una ocurrencia recurrente; el tipo INCOME/EXPENSE no cambia.
+- **Transferencias entre cuentas:** una fila por transferencia (`account_transfers`); no son ingreso ni gasto y no entran al reporte del mes ni al Índice.
 - **Aportes:** una fila por aporte con su cuenta de origen. Nunca son Transaction.
 - **Ajustes:** el saldo de apertura de cuentas y deudas es un ajuste con reason `OPENING`. Así el saldo inicial deja de contarse como ingreso (corrige el problema 2). El "ahorro inicial" de una meta **no** es ajuste: es un aporte, porque sale de una cuenta.
 - **Estado de meta:** pasa de `ACTIVE` a `SPENT` una sola vez y no se puede revertir. Se guarda una foto del monto (`spentAmountMinor`) en ese momento. Una vez gastada, sus aportes y ajustes quedan inmutables.
@@ -451,7 +466,7 @@ CHECK adicionales: `isPassive = 0 OR type = 'INCOME'` (`recurring_items.isPassiv
 
 Notación: Σ = suma; "adj" = balance_adjustments; los montos son unidades menores.
 
-- **Disponible de una cuenta**: `Σ adj(cuenta).delta + Σ ingresos de la cuenta − Σ gastos de la cuenta − Σ aportes desde la cuenta`
+- **Disponible de una cuenta**: `Σ adj(cuenta).delta + Σ ingresos de la cuenta − Σ gastos de la cuenta − Σ aportes desde la cuenta − Σ transferencias salientes + Σ transferencias entrantes` (la suma global de disponibles no cambia con una transferencia, así que I1 y el patrimonio se conservan)
 - **Saldo de una deuda**: `Σ adj(deuda).delta − Σ capital aplicado por los pagos de esa deuda` (siempre ≥ 0; ver I2)
 - **Ahorro de una meta (saved)**: `Σ aportes a la meta + Σ adj(meta).delta`
 - **Pagos hechos de una deuda (paidCount)**: `initialPaidCount + número de pagos de esa deuda con debtPaymentType='INSTALLMENT'`
@@ -552,7 +567,17 @@ El dominio se construye con `createDomain(db, { userId?, now? })` (`src/domain/c
   - DESCARTADO por el usuario: desarchivar automáticamente al intentar operar. La UI ofrece "Desarchivar" a partir de `AccountArchivedError.accountId` y reintenta (pantalla pendiente de F5).
 - **Regla de las cuentas archivadas (decisión del usuario entre 2026-10-04 y 2026-10-07):** una cuenta archivada no cambia de saldo por ningún motivo. Se rechaza con `AccountArchivedError` (mensaje: "La cuenta está archivada. Desarchívala para modificar su saldo.") toda operación que crearía, borraría o movería dinero de ella: crear transacciones, ajustar el saldo, aportar a una meta, pagar una deuda, confirmar una ocurrencia y **borrar una transacción de esa cuenta** (esto último cubre `TransactionService.remove`, `RecurringService.unconfirm` y el borrado de la transacción de un pago de deuda, que pasan por `removeTransactionIn`). La única excepción es la redirección de aportes al eliminar una meta (ver GoalService), que no toca el saldo de la archivada sino que compensa sus aportes con un `ARCHIVE_CLOSE`.
 
+**TransferService** y **ActivityService** (decisión 2026-10-27; `domain.transfers`, `domain.activity`)
+- `transfers.create({fromAccountId, toAccountId, amountMinor, date?, note?})`, `update(id, {fromAccountId?, toAccountId?, amountMinor?, date?, note?})`, `remove(id)`; lecturas `get(id)` y `list({from?, to?, accountId?, limit?})` (fecha desc; `accountId` = origen o destino).
+- Orden de validaciones: monto > 0 y fecha (`ValidationError`), origen ≠ destino (`ValidationError`), cuentas existentes del usuario (`NotFoundError`) y activas (`AccountArchivedError`), fondos.
+- **Bloqueante:** el monto no puede superar el disponible del origen (`InsufficientFundsError`, el mismo de D12). Al editar, el chequeo considera el monto original devuelto y solo corre si cambia el origen o sube el monto. Sin comisiones.
+- `update` y `remove` con cualquiera de las cuentas originales archivada lanzan `AccountArchivedError`. Borrar no se bloquea si el destino ya gastó lo recibido (puede quedar negativo, como al borrar un ingreso).
+- Efectos: `refresh ['accounts', 'transactions']`.
+- Una cuenta con transferencias (origen o destino) cuenta como con movimientos: `remove`/`removalOutcome` la archivan, no la borran.
+- `activity.list({from?, to?, accountId?, limit?})`: transacciones y transferencias mezcladas por fecha desc, con discriminante `kind: 'TRANSACTION' | 'TRANSFER'` y el detalle anidado en `transaction` o `transfer` (el `kind` de la transacción, STANDARD/DEBT_PAYMENT, queda dentro). Las transferencias llevan `direction` ('OUT' | 'IN') cuando se filtra por cuenta.
+
 **TransactionService**
+- `update(id, {amountMinor?, accountId?, date?, description?, categoryId?|newCategoryName?, isPassive?})` (decisión 2026-10-27): lo omitido se conserva. `DEBT_PAYMENT` → `TransactionNotEditableError('DEBT_PAYMENT')`; la transacción ligada a un recurrente no cambia de fecha (`TransactionNotEditableError('RECURRING_DATE')`, reenviar la misma fecha se acepta); cuenta actual o nueva archivada → `AccountArchivedError`; un gasto fuerza `isPassive=false`; marcar pasivo hace autoActivate(cashflow). Efectos como `create`.
 - `create({type, accountId, amountMinor, categoryId|newCategoryName, isPassive, date, description})`:
   - Si viene una categoría nueva, la crea en la misma transacción (o reutiliza una existente con el mismo nombre y tipo). `categoryId` y `newCategoryName` son excluyentes (`ValidationError`).
   - Valida que la cuenta exista, sea del usuario y no esté archivada (`NotFoundError` / `AccountArchivedError`).
@@ -707,9 +732,9 @@ Los tests de atomicidad (`test/integration/domain/atomicity.test.ts`) instalan t
 |---|---|---|---|
 | `ValidationError` | `VALIDATION` | Entrada inválida (monto, nombre vacío, fecha, combinación no permitida, cuenta no archivada al desarchivar, cuenta ya archivada al eliminar) | |
 | `NotFoundError` | `NOT_FOUND` | Id inexistente **o de otro usuario** | `entity`, `entityId` |
-| `AccountArchivedError` | `ACCOUNT_ARCHIVED` | Operación que cambiaría el saldo de una cuenta archivada | `accountId` |
+| `AccountArchivedError` | `ACCOUNT_ARCHIVED` | Operación que cambiaría el saldo de una cuenta archivada (también editar o borrar una transferencia con una cuenta archivada) | `accountId` |
 | `AccountRequiredError` | `ACCOUNT_REQUIRED` | `confirmOccurrence` sin cuenta | |
-| `InsufficientFundsError` | `INSUFFICIENT_FUNDS` | Aporte mayor al disponible (D12) | `accountId`, `availableMinor`, `requestedMinor` |
+| `InsufficientFundsError` | `INSUFFICIENT_FUNDS` | Aporte a meta (D12) o transferencia mayor al disponible de la cuenta | `accountId`, `availableMinor`, `requestedMinor` |
 | `DebtSettledError` | `DEBT_SETTLED` | Pago a una deuda con saldo 0 (D13) | `debtId` |
 | `DebtArchivedError` | `DEBT_ARCHIVED` | Operación sobre una deuda archivada | `debtId` |
 | `GoalNotActiveError` | `GOAL_NOT_ACTIVE` | Aporte, ajuste, segundo cierre o borrado de una meta SPENT | `goalId` |
@@ -721,6 +746,7 @@ Los tests de atomicidad (`test/integration/domain/atomicity.test.ts`) instalan t
 | `RefundAccountRequiredError` | `REFUND_ACCOUNT_REQUIRED` | Eliminar una meta con aportes de cuentas archivadas sin un destino activo válido | `goalId`, `totalMinor`, `byAccount`, `invalidAccountId` |
 | `UseDebtPaymentFlow` | `USE_DEBT_PAYMENT_FLOW` | Confirmar por el camino genérico la cuota de una deuda (I4) | `debtId`, `recurringId`, `occurrenceDate` |
 | `OnboardingAlreadyCompletedError` | `ONBOARDING_ALREADY_COMPLETED` | Repetir el onboarding | |
+| `TransactionNotEditableError` | `TRANSACTION_NOT_EDITABLE` | Editar un `DEBT_PAYMENT` (`reason: 'DEBT_PAYMENT'`) o cambiar la fecha de una transacción ligada a un recurrente (`reason: 'RECURRING_DATE'`) | `transactionId`, `reason` |
 | `NotSupportedError` | `NOT_SUPPORTED` | Operación fuera del alcance del servicio (p. ej. editar una cuota de deuda como recurrente genérico) | |
 
 ### 3.7 Definiciones del ETA de una meta
@@ -776,8 +802,7 @@ src/
                            useNotificationStore                                                     [parcial: F5a]
   hooks/                 ← un hook por dominio: useDomainQuery (base), useAccounts, useMonthStatement,
                            useDebts, useGoals, useUpcoming, useTransactions; se suscriben a claves
-                           de invalidación. Re-export temporal de useCategories/useCategoriesByType
-                           en index.ts (se retira en F6)                                            [existen (F5a)]
+                           de invalidación (useCategories retirado en F5b-2)                        [existen (F5a)]
   lib/                   ← dateLabels.ts, dashboardFormat.ts                                        [existen (F5a)]
   navigation/            ← routes.ts                                                                [existe (F5a)]
   components/dashboard/  ← widgets del Dashboard                                                    [existen (F5a)]
@@ -1019,7 +1044,7 @@ El estado actual de cada fase está en [Estado de implementación](#estado-de-im
 - **R10.** `UPDATE/DELETE ... RETURNING` en expo-sqlite (la propiedad del usuario en los repositorios depende de ello; 3.5). Requiere SQLite ≥ 3.35 (el paquete trae 3.50.3 según el informe). NO probado en dispositivo. Plan B: `run()` y `changes`. Tampoco están probados en dispositivo los triggers de `0001_owner_triggers.sql` (3.5).
 - **R11.** (Mitigado, 2026-10-18.) Las FK de la BD no incluyen `userId`, pero los triggers de `0001_owner_triggers.sql` rechazan una referencia a una fila de otro usuario y cualquier cambio de `user_id` (3.5). Primera defensa: la validación de todos los ids embebidos en los servicios y la guarda estructural.
 - **R12.** Las guardas estructurales verifican forma, no semántica: la guarda de repositorios (AST) comprueba que el `where` referencia `userId`, no que el filtro sea correcto (límites completos en 3.5, incluida su dependencia de `parseDiagnostics`, API interna de TypeScript); lo cubren los tests de comportamiento y la prueba aleatoria (por muestreo).
-- **R13.** Estado del árbol: hooks y componentes antiguos siguen importando módulos retirados y hay errores `tsc` y lint preexistentes (tsc 67 errores, eslint 91 problemas, 2026-10-26). Las 12 rutas antiguas rotas se aparcaron en `_parked/`, por lo que el bundle compila (`expo export --platform android`); ver [Estado de implementación](#estado-de-implementación).
+- **R13.** Estado del árbol: hooks y componentes antiguos siguen importando módulos retirados y hay errores `tsc` y lint preexistentes (tsc 56 errores, eslint 80 problemas, 2026-10-26). Las 12 rutas antiguas rotas se aparcaron en `_parked/`, por lo que el bundle compila (`expo export --platform android`); ver [Estado de implementación](#estado-de-implementación).
 - **R14.** Versiones de Expo desalineadas (14 paquetes) y `async-storage` 3.1.1 frente a la 2.2.0 esperada por el SDK: pendiente de alinear antes de probar en dispositivo (según el informe de verificación; no se volvió a ejecutar la comprobación).
 
 ### 10.2 Decisiones aprobadas
@@ -1034,7 +1059,7 @@ Fecha de aprobación de los puntos 1 a 20: **2026-10-03**. Quedan todos aprobado
 6. "Quincenal" (BIWEEKLY) = los días 15 y último día del mes. No es cada 14 días. (Completado por el punto 21: qué pasa con la primera fecha.)
 7. "Agregar deuda" y el paso 2 del onboarding necesitan un campo de fecha (opcional); sin fecha no hay recordatorios. Precisión (2026-10-08, decisión 46 / A12): en F5b-1 el paso 2 no incluye el campo; la fecha se completa en Recurrentes (F5b-3).
 8. La hoja "Ya pagué" incluye un selector de cuenta, preseleccionando la cuenta predeterminada del recurrente. La pantalla "Agregar recurrente" debe pedir esa cuenta predeterminada (`defaultAccountId`).
-9. Sin transferencias entre cuentas ni edición de transacciones en el MVP.
+9. ~~Sin transferencias entre cuentas ni edición de transacciones en el MVP.~~ REVERTIDA por el usuario el 2026-10-27 (ver [11](#11-decisiones-del-usuario)).
 10. Los widgets se activan solo con la primera entidad (estado NULL), no con cada alta como en el prototipo.
 11. Cerrar una meta exige saved ≥ objetivo.
 12. No se puede aportar más que el disponible de la cuenta; las cuentas sí pueden quedar negativas por gastos.
@@ -1154,6 +1179,7 @@ Documentación de referencia: https://docs.expo.dev/versions/v56.0.0/
 Decisiones ya cerradas por el usuario. Prevalecen sobre cualquier otro texto del documento.
 
 - **Pagar deuda = gasto real.** Un pago de deuda es una Transaction EXPENSE (`kind='DEBT_PAYMENT'`).
+- **Transferencias entre cuentas y edición de transacciones (2026-10-27; revierte D9).** Tabla `account_transfers`; no son ingreso ni gasto (el reporte del mes y el Índice no cambian); disponible = fórmula de 3.1 − salientes + entrantes; bloqueante si el origen queda negativo; origen y destino activos y distintos; sin comisiones. Editar transacciones: STANDARD sí (sin cambiar el tipo), `DEBT_PAYMENT` no (se borra y se registra de nuevo), las que confirman una ocurrencia recurrente sin cambiar la fecha. Una cuenta con transferencias se archiva, no se borra. Las demás reglas cerradas (deudas, metas, ajustes) no cambian.
 - **Aportar a una meta = transferencia interna sin Transaction.** Es un GoalContribution.
 - **Cerrar meta = cambio de estado a SPENT** sin mover dinero ni pedir cuenta, guardando de qué cuenta salió cada aporte (cada GoalContribution conserva su `accountId`).
 - **Mes calendario** como periodo de los reportes.

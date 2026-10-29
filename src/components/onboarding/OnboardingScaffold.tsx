@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
+import { KeyboardAvoidingView, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { stepLabel, ONBOARDING_TOTAL_STEPS } from '../../lib/onboardingDraft';
 import { useTheme } from '../../theme';
+import { useKeyboardVisible } from '../screens/KeyboardScreen';
 import { MIN_TOUCH, SCREEN_MARGIN } from '../ui/ds/constants';
 import { ChevronLeftIcon } from './icons';
 
@@ -36,11 +37,12 @@ export function OnboardingScaffold({
 }: OnboardingScaffoldProps) {
   const { colors, radius, space } = useTheme();
   const insets = useSafeAreaInsets();
+  const keyboardVisible = useKeyboardVisible();
 
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: colors.surfacePage }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior="padding"
     >
       <View
         style={{
@@ -122,7 +124,7 @@ export function OnboardingScaffold({
         style={{
           paddingTop: space[4],
           paddingHorizontal: SCREEN_MARGIN,
-          paddingBottom: Math.max(insets.bottom, 28),
+          paddingBottom: keyboardVisible ? space[3] : Math.max(insets.bottom, 28),
           gap: space[3],
         }}
       >

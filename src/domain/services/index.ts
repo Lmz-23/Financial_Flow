@@ -1,6 +1,7 @@
 export * from './errors';
 export * from './shared';
 export * from './AccountService';
+export * from './ActivityService';
 export * from './DebtService';
 export * from './GoalService';
 export * from './IntegrityService';
@@ -9,3 +10,4 @@ export * from './RecurringService';
 export * from './ReportService';
 export * from './SettingsService';
 export * from './TransactionService';
+export * from './TransferService';

@@ -8,7 +8,7 @@ import {
 } from '../../database/repositories/transactionRepository';
 import type { DbOrTx } from '../../database/types';
 import { isOccurrenceOfSeries } from '../rules/recurrence';
-import { AccountArchivedError, NotFoundError, ValidationError } from './errors';
+import { AccountArchivedError, NotFoundError, TransactionNotEditableError, ValidationError } from './errors';
 import {
   assertEpochMs,
   assertPositiveMinor,
@@ -34,6 +34,21 @@ export interface CreateTransactionInput {
   /** Epoch ms; por defecto el reloj del dominio. */
   date?: number;
   description?: string;
+}
+
+/** Campos editables (§2): el tipo INCOME/EXPENSE no cambia. Lo omitido se conserva. */
+export interface UpdateTransactionInput {
+  amountMinor?: number;
+  accountId?: string;
+  /** Epoch ms. Una transaccion que confirma una recurrente no cambia de fecha. */
+  date?: number;
+  description?: string;
+  /** Categoria existente (null la quita). Excluyente con `newCategoryName`. */
+  categoryId?: string | null;
+  /** Categoria nueva en linea (o la existente con ese nombre). */
+  newCategoryName?: string;
+  /** Solo ingresos; en un gasto se fuerza false. */
+  isPassive?: boolean;
 }
 
 /**
@@ -130,6 +145,51 @@ export function createTransactionService(ctx: DomainContext) {
           kind: 'STANDARD',
           amountMinor: input.amountMinor,
           description: input.description?.trim() ?? '',
+          date,
+          categoryId,
+          isPassive,
+          now: ctx.now(),
+        });
+        fx.refresh('accounts', 'transactions', 'statement');
+        if (isPassive && autoActivateWidget(tx, ctx, 'cashflow')) fx.refresh('settings');
+        return { id };
+      });
+    },
+
+    /**
+     * Edita una transaccion STANDARD. `DEBT_PAYMENT` no se edita (`TransactionNotEditableError` 'DEBT_PAYMENT');
+     * la que confirma una ocurrencia recurrente admite todo menos una fecha distinta
+     * (`TransactionNotEditableError` 'RECURRING_DATE'). La cuenta actual o la nueva archivada lanzan
+     * `AccountArchivedError`. Saldos y reportes se rederivan solos.
+     */
+    update(id: string, input: UpdateTransactionInput): OperationResult<{ id: string }> {
+      return runOperation(ctx, (tx, fx) => {
+        const row = transactionRepository.getById(tx, ctx.userId, id);
+        if (!row) throw new NotFoundError('Transaccion', id);
+        if (row.kind === 'DEBT_PAYMENT') throw new TransactionNotEditableError(id, 'DEBT_PAYMENT');
+        const amountMinor = input.amountMinor ?? row.amountMinor;
+        assertPositiveMinor(amountMinor, 'El monto');
+        const date = input.date ?? row.date;
+        assertEpochMs(date, 'La fecha');
+        if (row.recurringItemId !== null && date !== row.date) {
+          throw new TransactionNotEditableError(id, 'RECURRING_DATE');
+        }
+        const current = accountRepository.getById(tx, ctx.userId, row.accountId);
+        if (current && current.archivedAt !== null) throw new AccountArchivedError(current.id);
+        const accountId = input.accountId ?? row.accountId;
+        if (accountId !== row.accountId) requireActiveAccount(tx, ctx.userId, accountId);
+        if (input.isPassive === true && row.type !== 'INCOME') {
+          throw new ValidationError('Solo un ingreso puede ser pasivo');
+        }
+        const isPassive = row.type === 'INCOME' ? (input.isPassive ?? row.isPassive) : false;
+        const categoryId =
+          input.categoryId === undefined && input.newCategoryName === undefined
+            ? row.categoryId
+            : resolveCategory(tx, row.type, input.categoryId, input.newCategoryName);
+        transactionRepository.update(tx, ctx.userId, id, {
+          accountId,
+          amountMinor,
+          description: input.description === undefined ? row.description : input.description.trim(),
           date,
           categoryId,
           isPassive,

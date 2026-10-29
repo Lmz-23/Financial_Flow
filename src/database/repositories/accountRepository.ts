@@ -11,9 +11,10 @@
 // `userId` en CADA consulta, `insert` con `v.userId`) y test/integration/repositories/ownership.test.ts
 // (comportamiento con dos usuarios). LIMITE: la guarda comprueba que el `where` REFERENCIA `userId`, no que la
 // columna o el operador sean correctos; eso lo cubren los tests de comportamiento y el fuzz (test/property).
-import { and, asc, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, isNull, or, sql } from 'drizzle-orm';
 import { newId } from '../ids';
 import {
+  accountTransfers,
   accounts,
   balanceAdjustments,
   goalContributions,
@@ -132,7 +133,7 @@ export const accountRepository = {
     return db.delete(accounts).where(owned(userId, id)).returning({ id: accounts.id }).all().length;
   },
 
-  /** true si la cuenta tiene transacciones o aportes a metas. */
+  /** true si la cuenta tiene transacciones, aportes a metas o transferencias (como origen o destino). */
   hasMovements(db: DbOrTx, userId: string, id: string): boolean {
     const tx = db
       .select({ n: num(sql<number>`count(*)`) })
@@ -145,12 +146,23 @@ export const accountRepository = {
       .from(goalContributions)
       .where(and(eq(goalContributions.userId, userId), eq(goalContributions.accountId, id)))
       .get();
-    return (gc?.n ?? 0) > 0;
+    if ((gc?.n ?? 0) > 0) return true;
+    const tr = db
+      .select({ n: num(sql<number>`count(*)`) })
+      .from(accountTransfers)
+      .where(
+        and(
+          eq(accountTransfers.userId, userId),
+          or(eq(accountTransfers.fromAccountId, id), eq(accountTransfers.toAccountId, id)),
+        ),
+      )
+      .get();
+    return (tr?.n ?? 0) > 0;
   },
 
   /**
    * Disponible derivado (§3.1):
-   * Σ ajustes + Σ ingresos − Σ gastos − Σ aportes desde la cuenta.
+   * Σ ajustes + Σ ingresos − Σ gastos − Σ aportes desde la cuenta − Σ transferencias salientes + Σ entrantes.
    */
   availableOf(db: DbOrTx, userId: string, id: string): number {
     const adj = db
@@ -171,7 +183,17 @@ export const accountRepository = {
       .from(goalContributions)
       .where(and(eq(goalContributions.userId, userId), eq(goalContributions.accountId, id)))
       .get();
-    return (adj?.v ?? 0) + (tx?.income ?? 0) - (tx?.expense ?? 0) - (gc?.v ?? 0);
+    const out = db
+      .select({ v: num(sql<number>`coalesce(sum(${accountTransfers.amountMinor}), 0)`) })
+      .from(accountTransfers)
+      .where(and(eq(accountTransfers.userId, userId), eq(accountTransfers.fromAccountId, id)))
+      .get();
+    const inc = db
+      .select({ v: num(sql<number>`coalesce(sum(${accountTransfers.amountMinor}), 0)`) })
+      .from(accountTransfers)
+      .where(and(eq(accountTransfers.userId, userId), eq(accountTransfers.toAccountId, id)))
+      .get();
+    return (adj?.v ?? 0) + (tx?.income ?? 0) - (tx?.expense ?? 0) - (gc?.v ?? 0) - (out?.v ?? 0) + (inc?.v ?? 0);
   },
 
   /** Disponible de todas las cuentas del usuario (incluidas archivadas), por id. */
@@ -218,6 +240,28 @@ export const accountRepository = {
       .groupBy(goalContributions.accountId)
       .all()) {
       add(r.accountId, -r.v);
+    }
+    for (const r of db
+      .select({
+        accountId: accountTransfers.fromAccountId,
+        v: num(sql<number>`coalesce(sum(${accountTransfers.amountMinor}), 0)`),
+      })
+      .from(accountTransfers)
+      .where(eq(accountTransfers.userId, userId))
+      .groupBy(accountTransfers.fromAccountId)
+      .all()) {
+      add(r.accountId, -r.v);
+    }
+    for (const r of db
+      .select({
+        accountId: accountTransfers.toAccountId,
+        v: num(sql<number>`coalesce(sum(${accountTransfers.amountMinor}), 0)`),
+      })
+      .from(accountTransfers)
+      .where(eq(accountTransfers.userId, userId))
+      .groupBy(accountTransfers.toAccountId)
+      .all()) {
+      add(r.accountId, r.v);
     }
     return result;
   },

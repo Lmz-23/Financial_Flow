@@ -1,5 +1,6 @@
 export * from './mapping';
 export * from './accountRepository';
+export * from './accountTransferRepository';
 export * from './adjustmentRepository';
 export * from './categoryRepository';
 export * from './debtRepository';

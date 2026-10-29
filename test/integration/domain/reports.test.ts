@@ -149,3 +149,73 @@ describe('Date <-> epoch ms en la frontera de los repositorios (escenario p)', (
     expect(plan.some((n) => n.target?.route === 'PAY_DEBT')).toBe(true);
   });
 });
+
+describe('Detalle del flujo por periodo', () => {
+  it('barras por semana, totales y desglose por categoria que suma el total', () => {
+    const env = setup();
+    const { d } = env;
+    const acc = mkAccount(d, 'E', 2_000_000);
+    d.transactions.create({ type: 'INCOME', accountId: acc, amountMinor: 500_000, newCategoryName: 'Sueldo', date: localMs(2026, 3, 1, 0, 0) });
+    d.transactions.create({ type: 'INCOME', accountId: acc, amountMinor: 80_000, date: localMs(2026, 3, 9) });
+    d.transactions.create({ type: 'EXPENSE', accountId: acc, amountMinor: 30_000, newCategoryName: 'Servicios', description: 'Luz', date: localMs(2026, 3, 7, 23, 59) });
+    d.transactions.create({ type: 'EXPENSE', accountId: acc, amountMinor: 20_000, newCategoryName: 'Servicios', date: localMs(2026, 3, 31, 23, 59) });
+    d.transactions.create({ type: 'EXPENSE', accountId: acc, amountMinor: 5_000, date: localMs(2026, 3, 22, 0, 0) });
+    const debtId = d.debts.create({ name: 'D', balanceMinor: 100_000, rate: { known: 0 } }).result.id;
+    d.debts.registerPayment({ debtId, accountId: acc, amountMinor: 40_000, type: 'EXTRA' });
+    // Fuera del mes: no cuenta.
+    d.transactions.create({ type: 'EXPENSE', accountId: acc, amountMinor: 999, date: localMs(2026, 4, 1, 0, 0) });
+
+    const r = d.reports.periodReport({ kind: 'MONTH', year: 2026, index: 3 });
+    expect(r.buckets.map((b) => [b.from, b.ingresoTotal, b.gastoTotal])).toEqual([
+      ['2026-03-01', 500_000, 30_000],
+      ['2026-03-08', 80_000, 40_000], // NOW = 10 mar: el abono de deuda cae en la semana 2
+      ['2026-03-15', 0, 0],
+      ['2026-03-22', 0, 25_000],
+    ]);
+    expect(r.statement).toMatchObject({ ingresoTotal: 580_000, gastoTotal: 95_000 });
+    expect(r.incomeByCategory.map((l) => [l.group, l.name, l.totalMinor])).toEqual([
+      ['CATEGORY', 'Sueldo', 500_000],
+      ['UNCATEGORIZED', null, 80_000],
+    ]);
+    expect(r.expenseByCategory.map((l) => [l.group, l.name, l.totalMinor])).toEqual([
+      ['CATEGORY', 'Servicios', 50_000],
+      ['DEBT', null, 40_000],
+      ['UNCATEGORIZED', null, 5_000],
+    ]);
+    const sum = (lines: { totalMinor: number }[]) => lines.reduce((a, l) => a + l.totalMinor, 0);
+    expect(sum(r.incomeByCategory)).toBe(r.statement.ingresoTotal);
+    expect(sum(r.expenseByCategory)).toBe(r.statement.gastoTotal);
+
+    const q = d.reports.periodReport({ kind: 'QUARTER', year: 2026, index: 1 });
+    expect(q.buckets.map((b) => b.gastoTotal)).toEqual([0, 0, 95_000]);
+    expect(d.reports.periodReport({ kind: 'SEMESTER', year: 2026, index: 1 }).statement.gastoTotal).toBe(95_999);
+    const y = d.reports.periodReport({ kind: 'YEAR', year: 2025, index: 1 });
+    expect(y.buckets).toHaveLength(12);
+    expect(y.incomeByCategory).toEqual([]);
+    expect(thrown(() => d.reports.periodReport({ kind: 'QUARTER', year: 2026, index: 5 }))).toBeInstanceOf(ValidationError);
+    expectIntegrity(d);
+  });
+
+  it('las metas cumplidas entran al desglose de gastos', () => {
+    const env = setup();
+    const { d } = env;
+    const acc = mkAccount(d, 'E', 100_000);
+    const g = d.goals.create({ name: 'Viaje', targetMinor: 10_000, initialMinor: 10_000, accountId: acc }).result.id;
+    d.goals.close(g);
+    const r = d.reports.periodReport({ kind: 'YEAR', year: 2026, index: 1 });
+    expect(r.expenseByCategory).toEqual([{ key: 'EXPENSE:goals', group: 'GOALS', name: null, totalMinor: 10_000 }]);
+    expect(r.buckets[2].gastoTotal).toBe(10_000);
+  });
+
+  it('firstActivityDate: el primer ingreso, gasto o meta cumplida (con fecha manual hacia atras)', () => {
+    const env = setup();
+    const { d } = env;
+    expect(d.reports.firstActivityDate()).toBeNull();
+    const acc = mkAccount(d, 'E', 100_000);
+    expect(d.reports.firstActivityDate()).toBeNull(); // el saldo inicial no es un movimiento
+    d.transactions.create({ type: 'EXPENSE', accountId: acc, amountMinor: 1_000 });
+    expect(d.reports.firstActivityDate()).toBe('2026-03-10');
+    d.transactions.create({ type: 'INCOME', accountId: acc, amountMinor: 1_000, date: localMs(2025, 11, 3) });
+    expect(d.reports.firstActivityDate()).toBe('2025-11-03');
+  });
+});

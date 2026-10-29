@@ -10,7 +10,7 @@
 // operador sean correctos, ni verifica los JOIN; eso lo cubren los tests de comportamiento y el fuzz.
 import { and, eq, sql } from 'drizzle-orm';
 import type { MonthAggregates } from '../../domain/rules/statement';
-import { balanceAdjustments, goals, recurringItems, transactions, users } from '../schema';
+import { balanceAdjustments, categories, goals, recurringItems, transactions, users } from '../schema';
 import type { DbOrTx } from '../types';
 
 const num = (expr: ReturnType<typeof sql<number>>) => expr.mapWith(Number);
@@ -19,6 +19,15 @@ export interface PaymentRangeViolation {
   id: string;
   amountMinor: number;
   principalMinor: number | null;
+}
+
+export interface CategoryTotalRow {
+  type: 'INCOME' | 'EXPENSE';
+  kind: 'STANDARD' | 'DEBT_PAYMENT';
+  /** null = sin categoria (o pago de deuda, que no lleva categoria). */
+  categoryId: string | null;
+  categoryName: string | null;
+  totalMinor: number;
 }
 
 export const reportRepository = {
@@ -56,6 +65,51 @@ export const reportRepository = {
       gastoDeuda: t?.gastoDeuda ?? 0,
       gastoMetas: g?.v ?? 0,
     };
+  },
+
+  /**
+   * Ingresos y gastos del intervalo [startMs, endMs) sumados por (tipo, clase, categoria). Las metas
+   * cumplidas no estan aqui: su gasto sale de `monthAggregates`. El JOIN solo trae el nombre; el filtro
+   * de usuario va sobre `transactions`.
+   */
+  categoryTotals(db: DbOrTx, userId: string, startMs: number, endMs: number): CategoryTotalRow[] {
+    return db
+      .select({
+        type: transactions.type,
+        kind: transactions.kind,
+        categoryId: transactions.categoryId,
+        categoryName: categories.name,
+        totalMinor: num(sql<number>`coalesce(sum(${transactions.amountMinor}), 0)`),
+      })
+      .from(transactions)
+      .leftJoin(categories, eq(categories.id, transactions.categoryId))
+      .where(
+        and(
+          eq(transactions.userId, userId),
+          sql`${transactions.date} >= ${startMs} AND ${transactions.date} < ${endMs}`,
+        ),
+      )
+      .groupBy(transactions.type, transactions.kind, transactions.categoryId)
+      .all();
+  },
+
+  /**
+   * Instante (epoch ms) del primer ingreso, gasto o meta cumplida del usuario; null si no hay ninguno.
+   * Limita hasta dónde se puede retroceder en el detalle del flujo.
+   */
+  firstActivityMs(db: DbOrTx, userId: string): number | null {
+    const tx = db
+      .select({ v: sql<number | null>`min(${transactions.date})` })
+      .from(transactions)
+      .where(eq(transactions.userId, userId))
+      .get();
+    const g = db
+      .select({ v: sql<number | null>`min(${goals.spentAt})` })
+      .from(goals)
+      .where(and(eq(goals.userId, userId), eq(goals.status, 'SPENT')))
+      .get();
+    const values = [tx?.v, g?.v].filter((v): v is number => v !== null && v !== undefined).map(Number);
+    return values.length > 0 ? Math.min(...values) : null;
   },
 
   /** Lado derecho de I1: Σ ajustes de cuentas + Σ ajustes de metas + Σ ingresos − Σ gastos. */

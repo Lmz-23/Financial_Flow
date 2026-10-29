@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BackHandler, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
+import { BackHandler, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -16,6 +16,7 @@ import { MoneyInput } from '../ui/ds/MoneyInput';
 import { Pill } from '../ui/ds/Pill';
 import { Text } from '../ui/ds/Text';
 import { ChevronLeftIcon } from './icons';
+import { KeyboardScreen, KeyboardFooter } from '../screens/KeyboardScreen';
 
 export interface AccountFormProps {
   /** Título de la pantalla («Agregar cuenta» al crear; el nombre de la cuenta al editar). */
@@ -49,10 +50,7 @@ export function AccountForm({ title, initial, onCancel, onSubmit }: AccountFormP
   }
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: colors.surfacePage }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <KeyboardScreen>
       <View
         style={{
           flexDirection: 'row',
@@ -105,9 +103,9 @@ export function AccountForm({ title, initial, onCancel, onSubmit }: AccountFormP
         </View>
         <MoneyInput label="Saldo inicial" value={opening} onChangeValue={setOpening} />
       </ScrollView>
-      <View style={{ paddingTop: space[4], paddingHorizontal: SCREEN_MARGIN, paddingBottom: Math.max(insets.bottom, 28) }}>
+      <KeyboardFooter>
         <Button label="Guardar cuenta" onPress={save} />
-      </View>
-    </KeyboardAvoidingView>
+      </KeyboardFooter>
+    </KeyboardScreen>
   );
 }
