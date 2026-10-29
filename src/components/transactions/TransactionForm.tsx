@@ -99,7 +99,8 @@ export function TransactionForm({ initial }: { initial: TransactionFormInitial }
   const [draftCategory, setDraftCategory] = useState('');
   const [accountId, setAccountId] = useState<string | null>(editedTx?.accountId ?? editedTransfer?.fromAccountId ?? null);
   const [toId, setToId] = useState<string | null>(editedTransfer?.toAccountId ?? null);
-  const [note, setNote] = useState(editedTransfer?.note ?? '');
+  /** Nota de la transferencia o descripcion del ingreso/gasto (opcional en ambos). */
+  const [note, setNote] = useState(editedTransfer?.note ?? editedTx?.description ?? '');
   const [passive, setPassive] = useState(initial.mode === 'new' ? initial.passive : (editedTx?.isPassive ?? false));
   const [today] = useState(() => toLocalDate(Date.now()));
   const [originalDate] = useState<LocalDate | null>(() => {
@@ -143,6 +144,8 @@ export function TransactionForm({ initial }: { initial: TransactionFormInitial }
     setNewCategory(null);
     setAdding(false);
     setDraftCategory('');
+    // La nota de una transferencia no se vuelve la descripcion de un gasto (ni al reves).
+    if ((next === 'TRANSFER') !== (type === 'TRANSFER')) setNote('');
     setError(null);
   }
 
@@ -203,6 +206,7 @@ export function TransactionForm({ initial }: { initial: TransactionFormInitial }
         amountMinor: amount ?? 0,
         accountId: selectedAccountId,
         ...category,
+        description: note.trim(),
         ...(isIncome ? { isPassive: passive } : {}),
         ...(date !== originalDate ? { date: dateMs() } : {}),
       });
@@ -212,6 +216,7 @@ export function TransactionForm({ initial }: { initial: TransactionFormInitial }
         accountId: selectedAccountId,
         amountMinor: amount ?? 0,
         ...category,
+        ...(note.trim() ? { description: note.trim() } : {}),
         isPassive: isIncome && passive,
         ...(date !== today ? { date: dateMs() } : {}),
       });
@@ -416,6 +421,14 @@ export function TransactionForm({ initial }: { initial: TransactionFormInitial }
             {accounts.length === 0 ? (
               <Button label="Agregar cuenta" variant="ghost" size="md" onPress={() => router.push(routes.accountNew())} />
             ) : null}
+            <Input
+              label="Descripción (opcional)"
+              value={note}
+              onChangeText={setNote}
+              placeholder={isIncome ? 'Ej.: prima de diciembre' : 'Ej.: suscripción de Amazon'}
+              autoCapitalize="sentences"
+              returnKeyType="done"
+            />
           </>
         )}
 
