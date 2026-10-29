@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { recurringByWeek } from '../../../src/lib/recurringWeeks';
+import { recurringByWeek, upcomingThisWeek } from '../../../src/lib/recurringWeeks';
 
 const item = (name: string, anchorDate: string | null, frequency: 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY') => ({
   name,
@@ -38,5 +38,26 @@ describe('recurringByWeek', () => {
     const { weeks } = recurringByWeek([item('Fin de mes', '2026-01-31', 'MONTHLY')], 2026, 2);
     expect(weeks[3].title).toBe('Semana 4 · 22–28 feb');
     expect(weeks[3].occurrences.map((o) => o.date)).toEqual(['2026-02-28']);
+  });
+});
+
+describe('upcomingThisWeek', () => {
+  const up = (name: string, nextDueDate: string, status: 'PENDING' | 'OVERDUE' | 'PAID') => ({ name, nextDueDate, status });
+
+  it('deja solo la semana de hoy y los vencidos, ordenados por fecha', () => {
+    const items = [
+      up('Luz', '2026-10-30', 'PENDING'),
+      up('Arriendo', '2026-10-22', 'PENDING'),
+      up('Gym', '2026-10-20', 'OVERDUE'),
+      up('Agua', '2026-10-14', 'PENDING'),
+      up('Internet', '2026-11-02', 'PENDING'),
+      up('Sueldo', '2026-11-15', 'PAID'),
+    ];
+    expect(upcomingThisWeek(items, '2026-10-29').map((i) => i.name)).toEqual(['Gym', 'Arriendo', 'Luz']);
+  });
+
+  it('en la semana 1 no trae la semana 1 de otro mes', () => {
+    const items = [up('Arriendo', '2026-11-05', 'PENDING'), up('Gym', '2026-10-03', 'PENDING')];
+    expect(upcomingThisWeek(items, '2026-10-02').map((i) => i.name)).toEqual(['Gym']);
   });
 });
