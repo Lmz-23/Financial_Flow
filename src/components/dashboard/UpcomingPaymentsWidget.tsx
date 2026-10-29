@@ -1,8 +1,10 @@
 import { Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
+import { toLocalDate } from '../../domain/dates';
 import type { UpcomingItem } from '../../domain/services/RecurringService';
 import { shortDateLabel } from '../../lib/dateLabels';
+import { upcomingThisWeek } from '../../lib/recurringWeeks';
 import { upcomingNoticeText } from '../../lib/upcomingNotice';
 import { routes, upcomingConfirmRoute } from '../../navigation/routes';
 import { useTheme } from '../../theme';
@@ -96,9 +98,13 @@ function UpcomingRow({ item }: { item: UpcomingItem }) {
   );
 }
 
-/** "Proximos pagos": pagos e ingresos recurrentes con fecha; el circulo de un pago abre la hoja de confirmacion. */
-export function UpcomingPaymentsWidget({ items }: { items: UpcomingItem[] }) {
+/**
+ * "Proximos pagos": pagos e ingresos recurrentes de la semana del mes en curso y los vencidos; el circulo
+ * de un pago abre la hoja de confirmacion. El mes completo esta en "Ver todos".
+ */
+export function UpcomingPaymentsWidget({ items: all }: { items: UpcomingItem[] }) {
   const router = useRouter();
+  const items = upcomingThisWeek(all, toLocalDate(Date.now()));
   const notice = upcomingNoticeText(items);
   return (
     <Widget gap={14}>
@@ -108,9 +114,13 @@ export function UpcomingPaymentsWidget({ items }: { items: UpcomingItem[] }) {
         onAdd={() => router.push(routes.recurringNew())}
       />
       <View style={{ gap: 12 }}>
-        {items.map((item) => (
-          <UpcomingRow key={item.recurringId} item={item} />
-        ))}
+        {items.length === 0 ? (
+          <Text variant="body" tone="secondary">
+            Nada esta semana.
+          </Text>
+        ) : (
+          items.map((item) => <UpcomingRow key={item.recurringId} item={item} />)
+        )}
       </View>
       {notice === null ? null : <Text variant="label">{notice}</Text>}
       <LinkButton label="Ver todos" onPress={() => router.push(routes.recurring())} />
