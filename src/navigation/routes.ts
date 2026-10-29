@@ -37,6 +37,8 @@ export const routes = {
   debtInstallmentPay: (debtId: string, occurrence: LocalDate) =>
     href(`/debts/${debtId}/pay?type=INSTALLMENT&occurrence=${occurrence}`),
   cashflow: () => href('/cashflow'),
+  /** Detalle del flujo ("Ver detalles" en Flujo del mes): gráfico por periodo y desglose por categoría. */
+  flow: () => href('/flow'),
   debts: () => href('/debts'),
   debtNew: () => href('/debts/new'),
   goals: () => href('/goals'),
