@@ -1,14 +1,17 @@
 import { View } from 'react-native';
+import { useRouter } from 'expo-router';
 
 import type { MonthStatement } from '../../domain/rules/statement';
 import { incomeSharePercent } from '../../lib/dashboardFormat';
+import { routes } from '../../navigation/routes';
 import { useTheme } from '../../theme';
 import { Amount, Text, Widget } from '../ui/ds';
-import { WidgetHeader } from './parts';
+import { LinkButton, WidgetHeader } from './parts';
 
-/** "Flujo del mes": barra ingresos/gastos y los dos totales del mes calendario. */
+/** "Flujo del mes": barra ingresos/gastos, los dos totales del mes calendario y el enlace al detalle. */
 export function MonthFlowWidget({ statement }: { statement: MonthStatement }) {
   const { colors, radius } = useTheme();
+  const router = useRouter();
   const incomePct = incomeSharePercent(statement.ingresoTotal, statement.gastoTotal);
   return (
     <Widget gap={14}>
@@ -35,6 +38,7 @@ export function MonthFlowWidget({ statement }: { statement: MonthStatement }) {
           <Amount value={statement.gastoTotal} variant="amountMd" />
         </View>
       </View>
+      <LinkButton label="Ver detalles" onPress={() => router.push(routes.flow())} />
     </Widget>
   );
 }

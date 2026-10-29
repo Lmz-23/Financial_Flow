@@ -37,3 +37,5 @@ export { DatePickerField } from './DatePickerField';
 export type { DatePickerFieldProps } from './DatePickerField';
 export { SCREEN_MARGIN } from './constants';
 export type { TextTone } from './tone';
+export { PeriodStepper } from './PeriodStepper';
+export type { PeriodStepperProps } from './PeriodStepper';

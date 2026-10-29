@@ -330,7 +330,7 @@ const cases: Case[] = [
   { name: 'transaction.countPaymentsOfDebt', run: (w, u) => transactionRepository.countPaymentsOfDebt(w.env.db, u, w.debtPaid), foreign: 0, own: one },
   { name: 'transaction.listPaymentsOfDebt', run: (w, u) => transactionRepository.listPaymentsOfDebt(w.env.db, u, w.debtPaid), foreign: [], own: (r) => expect((r as unknown[]).length).toBe(1) },
   { name: 'transaction.unlinkRecurring', run: (w, u) => transactionRepository.unlinkRecurring(w.env.db, u, w.recA), foreign: 0, own: exact(2) },
-  // ---- reportRepository (8): B tiene SU cuenta con 5.000 de apertura, nada mas
+  // ---- reportRepository (10): B tiene SU cuenta con 5.000 de apertura, nada mas
   {
     name: 'report.monthAggregates (marzo)', run: (w, u) => reportRepository.monthAggregates(w.env.db, u, MARCH.start, MARCH.end),
     foreign: ZERO_MONTH,
@@ -341,6 +341,12 @@ const cases: Case[] = [
     foreign: ZERO_MONTH,
     own: (r) => expect((r as { gastoVida: number }).gastoVida).toBeGreaterThan(0),
   },
+  {
+    name: 'report.categoryTotals', run: (w, u) => reportRepository.categoryTotals(w.env.db, u, FAR.start, FAR.end),
+    foreign: [],
+    own: (r) => expect((r as unknown[]).length).toBeGreaterThan(0),
+  },
+  { name: 'report.firstActivityMs', run: (w, u) => reportRepository.firstActivityMs(w.env.db, u), foreign: null, own: (r) => expect(r).toEqual(expect.any(Number)) },
   { name: 'report.ledgerTotal', run: (w, u) => reportRepository.ledgerTotal(w.env.db, u), foreign: 5_000, own: (r) => { expect(r).not.toBe(5_000); expect(r as number).toBeGreaterThan(5_000); } },
   { name: 'report.spentGoalsTotal', run: (w, u) => reportRepository.spentGoalsTotal(w.env.db, u), foreign: 0, own: exact(20_000) },
   {

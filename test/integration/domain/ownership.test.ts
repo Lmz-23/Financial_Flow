@@ -477,6 +477,10 @@ describe('propiedad: listados, reportes e integridad no se mezclan', () => {
       gastoTotal: 0, netCashflow: 0, index: { kind: 'NONE' },
     });
     expect(empty.reports.monthStatementOf(localMs(2026, 3, 10))).toEqual(zero);
+    expect(empty.reports.firstActivityDate()).toBeNull();
+    const year = empty.reports.periodReport({ kind: 'YEAR', year: 2026, index: 1 });
+    expect(year.statement).toEqual(zero);
+    expect([year.incomeByCategory, year.expenseByCategory]).toEqual([[], []]);
     expectIntegrity(empty);
   });
 
@@ -487,6 +491,7 @@ describe('propiedad: listados, reportes e integridad no se mezclan', () => {
         w.a.accounts.summary(), w.a.transactions.list(), w.a.debts.list(), w.a.goals.list(), w.a.goals.list('ACTIVE'),
         w.a.recurring.list(), w.a.recurring.upcoming(), w.a.recurring.pendingOccurrences(),
         w.a.reports.monthStatement(2026, 3), w.a.reports.netWorth(),
+        w.a.reports.periodReport({ kind: 'QUARTER', year: 2026, index: 1 }), w.a.reports.firstActivityDate(),
       ]);
     const before = viewsOfA();
     expect(w.a.accounts.summary().accounts.map((x) => x.id)).toEqual([w.accA, w.accA2]);
@@ -513,6 +518,9 @@ describe('propiedad: listados, reportes e integridad no se mezclan', () => {
     expect(viewsOfA()).toBe(before);
     expect(w.b.reports.monthStatement(2026, 3).ingresoTotal).toBe(123_456);
     expect(w.a.reports.monthStatement(2026, 3).ingresoTotal).toBe(0);
+    const reportB = w.b.reports.periodReport({ kind: 'MONTH', year: 2026, index: 3 });
+    expect(reportB.incomeByCategory.map((l) => l.totalMinor)).toEqual([123_456]);
+    expect(reportB.expenseByCategory.find((l) => l.group === 'CATEGORY')).toMatchObject({ name: 'CatA', totalMinor: 1_000 });
     expectIntegrity(w.a);
     expectIntegrity(w.b);
   });
@@ -552,7 +560,7 @@ const SERVICE_METHODS: Record<string, 'NOT_FOUND' | 'READ' | 'NO_ID'> = {
   'recurring.confirmOccurrence': 'NOT_FOUND', 'recurring.unconfirm': 'NOT_FOUND', 'recurring.snooze': 'NOT_FOUND',
   'recurring.list': 'NO_ID', 'recurring.upcoming': 'NO_ID', 'recurring.pendingOccurrences': 'NO_ID',
   'onboarding.complete': 'NOT_FOUND',
-  'reports.monthStatement': 'NO_ID', 'reports.monthStatementOf': 'NO_ID', 'reports.netWorth': 'NO_ID',
+  'reports.monthStatement': 'NO_ID', 'reports.monthStatementOf': 'NO_ID', 'reports.periodReport': 'NO_ID', 'reports.firstActivityDate': 'NO_ID', 'reports.netWorth': 'NO_ID',
   'integrity.check': 'NO_ID',
 };
 
