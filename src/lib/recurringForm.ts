@@ -26,16 +26,6 @@ export function confirmSubtitle(occurrence: LocalDate, today: LocalDate): string
   return `Vence el ${shortDateLabel(occurrence)}. ${tail}`;
 }
 
-/** Orden de la lista: primero los recurrentes sin fecha (piden atencion) y luego por proximo vencimiento. */
-export function sortRecurring<T extends { nextDueDate: string | null; name: string | null }>(items: readonly T[]): T[] {
-  return [...items].sort((a, b) => {
-    if (a.nextDueDate === b.nextDueDate) return (a.name ?? '').localeCompare(b.name ?? '');
-    if (a.nextDueDate === null) return -1;
-    if (b.nextDueDate === null) return 1;
-    return a.nextDueDate < b.nextDueDate ? -1 : 1;
-  });
-}
-
 export function frequencyLabel(frequency: Frequency): string {
   return FREQUENCY_OPTIONS.find((o) => o.value === frequency)?.label ?? frequency;
 }
