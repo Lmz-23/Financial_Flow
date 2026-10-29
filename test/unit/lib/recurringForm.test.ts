@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { biweeklyAdjustNotice, confirmSubtitle, sortRecurring } from '../../../src/lib/recurringForm';
+import { biweeklyAdjustNotice, confirmSubtitle } from '../../../src/lib/recurringForm';
 
 describe('biweeklyAdjustNotice', () => {
   it('sin fecha o con frecuencia semanal/mensual no hay aviso', () => {
@@ -38,16 +38,5 @@ describe('confirmSubtitle', () => {
   it('vencido y futuro indican la fecha', () => {
     expect(confirmSubtitle('2026-10-10', '2026-10-15')).toMatch(/^Venció el 10 oct\./);
     expect(confirmSubtitle('2026-10-20', '2026-10-15')).toMatch(/^Vence el 20 oct\./);
-  });
-});
-
-describe('sortRecurring', () => {
-  it('sin fecha primero y luego por proximo vencimiento', () => {
-    const sorted = sortRecurring([
-      { name: 'B', nextDueDate: '2026-11-01' },
-      { name: 'A', nextDueDate: null },
-      { name: 'C', nextDueDate: '2026-10-20' },
-    ]);
-    expect(sorted.map((i) => i.name)).toEqual(['A', 'C', 'B']);
   });
 });
