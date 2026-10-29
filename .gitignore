@@ -42,6 +42,10 @@ example
 /ios
 /android
 
+# AIEOS / herramientas locales
+.opencode/
+.claude/pipeline-state.json
+
 # Contexto y configuración de IA (Claude, OpenCode, etc.): solo local, no se publica.
 .claude/
 CLAUDE.md
