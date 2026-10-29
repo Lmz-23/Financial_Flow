@@ -18,10 +18,10 @@ import {
   useDebts,
   useGoals,
   useMonthStatement,
-  useRecentTransactions,
   useSettings,
   useUpcoming,
 } from '../../src/hooks';
+import { useActivity } from '../../src/hooks/useActivity';
 import { useTheme } from '../../src/theme';
 
 /** Dashboard: 4 widgets fijos, los opcionales activados y las invitaciones a los inactivos. */
@@ -31,7 +31,7 @@ export default function DashboardScreen() {
   const { widgets } = useSettings();
   const accounts = useAccounts();
   const statement = useMonthStatement();
-  const recent = useRecentTransactions(4);
+  const recent = useActivity({ limit: 4 });
   const upcoming = useUpcoming();
   const debts = useDebts();
   const goals = useGoals();
@@ -50,7 +50,7 @@ export default function DashboardScreen() {
       >
         <AccountsSummaryWidget summary={accounts} />
         <MonthFlowWidget statement={statement} />
-        <RecentTransactionsWidget transactions={recent.items} now={recent.now} />
+        <RecentTransactionsWidget items={recent.items} now={recent.now} />
         <UpcomingPaymentsWidget items={upcoming} />
         {widgets.cashflow ? <CashflowIndexWidget index={statement.index} /> : null}
         {widgets.debts ? <DebtsWidget summary={debts} /> : null}

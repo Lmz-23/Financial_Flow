@@ -3,7 +3,7 @@
 // Una secuencia = BD en memoria con dos usuarios (el principal y "otro", con datos de todas las clases)
 // + N operaciones elegidas por una semilla. Tras cada operacion ACEPTADA se compara el estado completo
 // de los servicios con el del modelo; cada operacion RECHAZADA debe lanzar el error tipado que predice el
-// modelo y dejar las 9 tablas identicas. Los ids del otro usuario se usan en todas las clases de operacion
+// modelo y dejar las 10 tablas identicas. Los ids del otro usuario se usan en todas las clases de operacion
 // y el modelo los trata como inexistentes (NOT_FOUND).
 import { DEFAULT_USER_ID } from '../../src/database/seed';
 import type {
@@ -17,7 +17,7 @@ import {
   addDays, addMonths, DAY, fmt, H, inSeries, midnightMs, nextPending, normalizeAnchor, parts, shiftMonth,
   type Frequency,
 } from './calendar';
-import { Model, type ModelDebt, type ModelRecurring } from './model';
+import { Model, type ModelDebt, type ModelRecurring, type ModelTransfer } from './model';
 import { createRng } from './random';
 
 export interface Stats {
@@ -46,7 +46,7 @@ const FREQUENCIES = ['WEEKLY', 'BIWEEKLY', 'MONTHLY'] as const;
 const MISSING = 'no-existe';
 const ALL_TABLES = [
   'users', 'accounts', 'categories', 'debts', 'goals', 'recurring_items',
-  'transactions', 'goal_contributions', 'balance_adjustments',
+  'transactions', 'goal_contributions', 'account_transfers', 'balance_adjustments',
 ];
 
 const bump = (rec: Record<string, number>, key: string): void => {
@@ -61,7 +61,7 @@ function errorCode(e: unknown): string {
 }
 
 type DateInput = { v: string; bad: 'YEAR' | 'FORMAT' | null };
-type ForeignKind = 'account' | 'transaction' | 'debt' | 'goal' | 'recurring' | 'category';
+type ForeignKind = 'account' | 'transaction' | 'transfer' | 'debt' | 'goal' | 'recurring' | 'category';
 
 export function runSequence(seed: number, nOps: number, stats: Stats): SequenceResult {
   const rng = createRng(seed);
@@ -92,6 +92,8 @@ export function runSequence(seed: number, nOps: number, stats: Stats): SequenceR
   const fDebtTx = B.debts.registerPayment({
     debtId: fDebt.id, accountId: fAcc, amountMinor: 9_000, type: 'INSTALLMENT',
   }).result.transactionId;
+  const fAcc2 = B.accounts.create({ name: 'Ajena2', type: 'CASH', openingMinor: 0 }).result.id;
+  const fXfer = B.transfers.create({ fromAccountId: fAcc, toAccountId: fAcc2, amountMinor: 700 }).result.id;
   const fGoal = B.goals.create({ name: 'Meta ajena', targetMinor: 1_000_000 }).result.id;
   B.goals.contribute({ goalId: fGoal, accountId: fAcc, amountMinor: 100 });
   const fRecOccurrence = addDays(today0, -3);
@@ -102,8 +104,9 @@ export function runSequence(seed: number, nOps: number, stats: Stats): SequenceR
     recurringId: fRec, occurrenceDate: fRecOccurrence, accountId: fAcc,
   }).result.transactionId;
   const foreign: Record<ForeignKind, string[]> = {
-    account: [fAcc, fArch],
+    account: [fAcc, fArch, fAcc2],
     transaction: [fTx, fDebtTx, fRecTx],
+    transfer: [fXfer],
     debt: [fDebt.id],
     goal: [fGoal],
     recurring: [fRec, fDebt.recurringId ?? ''],
@@ -117,6 +120,8 @@ export function runSequence(seed: number, nOps: number, stats: Stats): SequenceR
     JSON.stringify([
       B.accounts.summary(),
       B.transactions.list(),
+      B.transfers.list(),
+      B.activity.list(),
       B.debts.list().map((x) => [x.id, x.balanceMinor, x.paidCount, x.nextDueDate]),
       B.goals.list().map((x) => [x.id, x.savedMinor, x.status]),
       B.recurring.list().map((x) => [x.id, x.nextDueDate]),
@@ -207,7 +212,7 @@ export function runSequence(seed: number, nOps: number, stats: Stats): SequenceR
     return compareAll();
   }
 
-  /** El OTRO usuario opera con un id del principal: NOT_FOUND y la BD identica (9 tablas). */
+  /** El OTRO usuario opera con un id del principal: NOT_FOUND y la BD identica (10 tablas). */
   function mustNotFound(name: string, call: () => unknown): string | null {
     stats.ops++;
     const before = snap();
@@ -248,6 +253,16 @@ export function runSequence(seed: number, nOps: number, stats: Stats): SequenceR
       if (JSON.stringify(summary.accounts.map((a) => a.id).sort()) !== JSON.stringify(active)) throw new Error('summary ids distintos');
       const total = active.reduce((s, id) => s + M.available(id), 0);
       if (summary.totalMinor !== total) throw new Error(`total cuentas BD=${summary.totalMinor} modelo=${total}`);
+      // transferencias y actividad unificada
+      const xferList = A.transfers.list();
+      if (JSON.stringify(xferList.map((x) => x.id).sort()) !== JSON.stringify(M.transfers.map((x) => x.id).sort())) throw new Error('transfers.list ids distintos');
+      for (const x of xferList) {
+        const mt = M.transfers.find((t) => t.id === x.id);
+        if (!mt || mt.from !== x.fromAccountId || mt.to !== x.toAccountId || mt.amount !== x.amountMinor || mt.date !== x.date) throw new Error(`transferencia ${x.id} distinta del modelo`);
+      }
+      const activity = A.activity.list();
+      if (activity.length !== M.txs.length + M.transfers.length) throw new Error(`activity: ${activity.length} items vs ${M.txs.length + M.transfers.length}`);
+      for (let i = 1; i < activity.length; i++) if (activity[i - 1].date < activity[i].date) throw new Error('activity no esta ordenada por fecha desc');
       // deudas
       const debtList = A.debts.list();
       const liveDebts = debtIds().filter((x) => !M.debts.get(x)?.archived).sort();
@@ -315,7 +330,7 @@ export function runSequence(seed: number, nOps: number, stats: Stats): SequenceR
       if (!report.ok || report.violations.length > 0) throw new Error(`INTEGRIDAD: ${JSON.stringify(report.violations)}`);
       if (A.recurring.pendingOccurrences().some((p) => foreignIds.has(p.recurringId))) throw new Error('pendingOccurrences incluye datos del otro usuario');
       if (
-        A.accounts.get(fAcc) !== undefined || A.transactions.get(fTx) !== undefined || A.debts.get(fDebt.id) !== undefined ||
+        A.accounts.get(fAcc) !== undefined || A.transfers.get(fXfer) !== undefined || A.transactions.get(fTx) !== undefined || A.debts.get(fDebt.id) !== undefined ||
         A.goals.get(fGoal) !== undefined || A.debts.payments(fDebt.id).length > 0 || A.goals.contributions(fGoal).length > 0
       ) {
         throw new Error('el usuario principal ve datos del otro usuario');
@@ -373,7 +388,9 @@ export function runSequence(seed: number, nOps: number, stats: Stats): SequenceR
       const a = M.accounts.get(id);
       const expected = !a ? 'NOT_FOUND' : a.archived ? 'VALIDATION' : null;
       return exec('accounts.remove', () => A.accounts.remove(id), expected, (res) => {
-        const hasMovements = M.txs.some((x) => x.accountId === id) || M.contributions.some((x) => x.accountId === id);
+        const hasMovements =
+          M.txs.some((x) => x.accountId === id) || M.contributions.some((x) => x.accountId === id) ||
+          M.transfers.some((x) => x.from === id || x.to === id);
         if (res.result.outcome !== (hasMovements ? 'ARCHIVED' : 'DELETED')) throw new Error('outcome distinto');
         if (!hasMovements) {
           M.adjustments = M.adjustments.filter((x) => !(x.kind === 'ACCOUNT' && x.id === id));
@@ -459,6 +476,118 @@ export function runSequence(seed: number, nOps: number, stats: Stats): SequenceR
       });
     }
     return undefined;
+  }
+
+  /** Transferencias entre cuentas y edicion de transacciones (decision 2026-10-27). */
+  /** Regla de fondos (2026-10-27): ninguna cuenta implicada queda negativa por el cambio, salvo que no empeore. */
+  function wouldGoNegative(old: ModelTransfer, next: { from: string; to: string; amount: number } | null): boolean {
+    const affected = new Set([old.from, old.to, ...(next ? [next.from, next.to] : [])]);
+    for (const acc of affected) {
+      const current = M.available(acc);
+      let after = current + (old.from === acc ? old.amount : 0) - (old.to === acc ? old.amount : 0);
+      if (next?.from === acc) after -= next.amount;
+      if (next?.to === acc) after += next.amount;
+      if (after < 0 && after < current) return true;
+    }
+    return false;
+  }
+
+  function transferOps(): string | null {
+    const r = rng.next();
+    if (r < 0.34) { // create
+      const from = anyAcc();
+      const to = chance(0.06) ? from : anyAcc();
+      const a = M.accounts.get(from);
+      const b = M.accounts.get(to);
+      const av = a ? M.available(from) : 0;
+      const amount = chance(0.04) ? 0 : chance(0.2) && av > 0 ? av : chance(0.1) ? av + 1 : ri(1, 80000);
+      const date = chance(0.5) ? env.clock.now - ri(0, 100) * DAY : undefined;
+      let expected: DomainErrorCode | null = null;
+      if (amount <= 0) expected = 'VALIDATION';
+      else if (from === to) expected = 'VALIDATION';
+      else if (!a) expected = 'NOT_FOUND';
+      else if (a.archived) expected = 'ACCOUNT_ARCHIVED';
+      else if (!b) expected = 'NOT_FOUND';
+      else if (b.archived) expected = 'ACCOUNT_ARCHIVED';
+      else if (amount > av) expected = 'INSUFFICIENT_FUNDS';
+      return exec('transfers.create', () => A.transfers.create({ fromAccountId: from, toAccountId: to, amountMinor: amount, date, note: chance(0.3) ? ' nota ' : undefined }), expected, (res) => {
+        M.transfers.push({ id: res.result.id, from, to, amount, date: date ?? env.clock.now });
+        if (amount === av) bump(stats.coverage, 'transferencia por todo el disponible');
+      });
+    }
+    if (r < 0.7) { // update
+      const old: ModelTransfer | undefined = M.transfers.length > 0 && chance(0.92) ? pick(M.transfers) : undefined;
+      const id = old ? old.id : unknownId('transfer');
+      const input: { fromAccountId?: string; toAccountId?: string; amountMinor?: number; date?: number; note?: string } = {};
+      if (chance(0.6)) input.amountMinor = chance(0.04) ? 0 : old && chance(0.25) ? old.amount : chance(0.2) ? M.available(old?.from ?? '') + (old?.amount ?? 0) : ri(1, 80000);
+      if (chance(0.3)) input.fromAccountId = chance(0.05) ? MISSING : anyAcc();
+      if (chance(0.3)) input.toAccountId = chance(0.05) ? MISSING : anyAcc();
+      if (chance(0.3)) input.date = env.clock.now - ri(0, 100) * DAY;
+      if (chance(0.3)) input.note = pick(['', 'otra nota', '   ']);
+      const newFrom = input.fromAccountId ?? old?.from ?? '';
+      const newTo = input.toAccountId ?? old?.to ?? '';
+      const amount = input.amountMinor ?? old?.amount ?? 0;
+      let expected: DomainErrorCode | null = null;
+      if (!old) expected = 'NOT_FOUND';
+      else if (amount <= 0) expected = 'VALIDATION';
+      else if (newFrom === newTo) expected = 'VALIDATION';
+      else if (M.accounts.get(old.from)?.archived || M.accounts.get(old.to)?.archived) expected = 'ACCOUNT_ARCHIVED';
+      else if (!M.accounts.get(newFrom)) expected = 'NOT_FOUND';
+      else if (M.accounts.get(newFrom)?.archived) expected = 'ACCOUNT_ARCHIVED';
+      else if (!M.accounts.get(newTo)) expected = 'NOT_FOUND';
+      else if (M.accounts.get(newTo)?.archived) expected = 'ACCOUNT_ARCHIVED';
+      else if (wouldGoNegative(old, { from: newFrom, to: newTo, amount })) expected = 'INSUFFICIENT_FUNDS';
+      return exec('transfers.update', () => A.transfers.update(id, input), expected, () => {
+        if (!old) return;
+        old.from = newFrom;
+        old.to = newTo;
+        old.amount = amount;
+        if (input.date !== undefined) old.date = input.date;
+      });
+    }
+    if (r < 0.82) { // remove
+      const old = M.transfers.length > 0 && chance(0.92) ? pick(M.transfers) : undefined;
+      const id = old ? old.id : unknownId('transfer');
+      const expected = !old
+        ? 'NOT_FOUND'
+        : M.accounts.get(old.from)?.archived || M.accounts.get(old.to)?.archived
+          ? 'ACCOUNT_ARCHIVED'
+          : wouldGoNegative(old, null)
+            ? 'INSUFFICIENT_FUNDS'
+            : null;
+      return exec('transfers.remove', () => A.transfers.remove(id), expected, () => {
+        M.transfers = M.transfers.filter((t) => t !== old);
+      });
+    }
+    // transactions.update
+    const tx = M.txs.length > 0 && chance(0.92) ? pick(M.txs) : undefined;
+    const id = tx ? tx.id : unknownId('transaction');
+    const input: { amountMinor?: number; accountId?: string; date?: number; description?: string; isPassive?: boolean } = {};
+    if (chance(0.6)) input.amountMinor = chance(0.05) ? 0 : ri(1, 200000);
+    if (chance(0.3)) input.accountId = chance(0.05) ? MISSING : anyAcc();
+    if (chance(0.3)) input.date = chance(0.5) && tx ? tx.date : midnightMs(addDays(M.today(), -ri(0, 70))) + 12 * H;
+    if (chance(0.3)) input.description = pick(['', 'editada']);
+    if (chance(0.3)) input.isPassive = chance(0.5);
+    let expected: DomainErrorCode | null = null;
+    if (!tx) expected = 'NOT_FOUND';
+    else if (tx.kind === 'DEBT_PAYMENT') expected = 'TRANSACTION_NOT_EDITABLE';
+    else if (input.amountMinor !== undefined && input.amountMinor <= 0) expected = 'VALIDATION';
+    else if (tx.recurringId !== null && input.date !== undefined && input.date !== tx.date) expected = 'TRANSACTION_NOT_EDITABLE';
+    else if (M.accounts.get(tx.accountId)?.archived) expected = 'ACCOUNT_ARCHIVED';
+    else if (input.accountId !== undefined && input.accountId !== tx.accountId) {
+      const target = M.accounts.get(input.accountId);
+      if (!target) expected = 'NOT_FOUND';
+      else if (target.archived) expected = 'ACCOUNT_ARCHIVED';
+    }
+    if (expected === null && tx && input.isPassive === true && tx.type !== 'INCOME') expected = 'VALIDATION';
+    return exec('transactions.update', () => A.transactions.update(id, input), expected, () => {
+      if (!tx) return;
+      if (input.amountMinor !== undefined) tx.amount = input.amountMinor;
+      if (input.accountId !== undefined) tx.accountId = input.accountId;
+      if (input.date !== undefined) tx.date = input.date;
+      tx.passive = tx.type === 'INCOME' ? (input.isPassive ?? tx.passive) : false;
+      if (tx.recurringId !== null) bump(stats.coverage, 'edicion de tx ligada a recurrente');
+    });
   }
 
   function goalOps(r: number): string | null | undefined {
@@ -913,7 +1042,7 @@ export function runSequence(seed: number, nOps: number, stats: Stats): SequenceR
    * debe fallar con NOT_FOUND sin tocar la BD; las lecturas deben devolver lo mismo que para un id inexistente.
    */
   function actAsOtherUser(): string | null {
-    const kind = pick(['account', 'transaction', 'debt', 'goal', 'recurring', 'category'] as const);
+    const kind = pick(['account', 'transaction', 'transfer', 'debt', 'goal', 'recurring', 'category'] as const);
     const fOccurrence = addMonths(fRecOccurrence, 1);
     const widgets = { cashflow: true, debts: true, goals: true };
     const recurringInput = { type: 'EXPENSE', name: 'N', amountMinor: 10, frequency: 'MONTHLY' } as const;
@@ -927,6 +1056,10 @@ export function runSequence(seed: number, nOps: number, stats: Stats): SequenceR
         () => mustNotFound('accounts.unarchive', () => B.accounts.unarchive(id)),
         () => mustReadEmpty('accounts.get', () => B.accounts.get(id) ?? null, null),
         () => mustNotFound('transactions.create', () => B.transactions.create({ type: 'INCOME', accountId: id, amountMinor: 5 })),
+        () => mustNotFound('transfers.create(origen)', () => B.transfers.create({ fromAccountId: id, toAccountId: fAcc, amountMinor: 1 })),
+        () => mustNotFound('transfers.create(destino)', () => B.transfers.create({ fromAccountId: fAcc, toAccountId: id, amountMinor: 1 })),
+        () => mustNotFound('transactions.update(cuenta)', () => B.transactions.update(fTx, { accountId: id })),
+        () => mustNotFound('transfers.update(cuenta)', () => B.transfers.update(fXfer, { toAccountId: id })),
         () => mustNotFound('debts.registerPayment(cuenta)', () => B.debts.registerPayment({ debtId: fDebt.id, accountId: id, amountMinor: 5, type: 'EXTRA' })),
         () => mustNotFound('goals.contribute(cuenta)', () => B.goals.contribute({ goalId: fGoal, accountId: id, amountMinor: 1 })),
         () => mustNotFound('goals.create(cuenta)', () => B.goals.create({ name: 'N', targetMinor: 9_000, initialMinor: 1, accountId: id })),
@@ -941,7 +1074,18 @@ export function runSequence(seed: number, nOps: number, stats: Stats): SequenceR
       const id = pick(M.txs).id;
       return pick<() => string | null>([
         () => mustNotFound('transactions.remove', () => B.transactions.remove(id)),
+        () => mustNotFound('transactions.update', () => B.transactions.update(id, { amountMinor: 1 })),
         () => mustReadEmpty('transactions.get', () => B.transactions.get(id) ?? null, null),
+      ])();
+    }
+    if (kind === 'transfer') {
+      if (M.transfers.length === 0) return null;
+      const id = pick(M.transfers).id;
+      return pick<() => string | null>([
+        () => mustNotFound('transfers.update', () => B.transfers.update(id, { amountMinor: 1 })),
+        () => mustNotFound('transfers.remove', () => B.transfers.remove(id)),
+        () => mustReadEmpty('transfers.get', () => B.transfers.get(id) ?? null, null),
+        () => mustReadEmpty('activity.list(cuenta)', () => B.activity.list({ accountId: M.transfers[0].from }), []),
       ])();
     }
     if (kind === 'debt') {
@@ -1001,6 +1145,7 @@ export function runSequence(seed: number, nOps: number, stats: Stats): SequenceR
     if (chance(0.07)) return actAsOtherUser();
     // Los recurrentes tienen ramas estrechas en el reparto base: se refuerzan para ejercitarlos en secuencias cortas.
     if (chance(0.05)) return goalOps(70) ?? null;
+    if (chance(0.1)) return transferOps();
     if (chance(0.12)) {
       const focus = pick([95, 96, 96, 97, 98, 98, 98, 99, 99]);
       return focus === 99 ? (chance(0.5) ? unconfirmOp() : snoozeOp()) : (recurringOps(focus) ?? null);

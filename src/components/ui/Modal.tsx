@@ -7,9 +7,10 @@ import {
   StyleSheet,
   Pressable,
   KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, typography } from '../../theme';
+import { useKeyboardVisible } from '../screens/KeyboardScreen';
 
 interface ModalProps {
   visible: boolean;
@@ -19,19 +20,22 @@ interface ModalProps {
 }
 
 export function Modal({ visible, onClose, title, children }: ModalProps) {
+  const insets = useSafeAreaInsets();
+  const keyboardVisible = useKeyboardVisible();
   return (
     <RNModal
       visible={visible}
       transparent
+      statusBarTranslucent
       animationType="slide"
       onRequestClose={onClose}
     >
       <Pressable style={styles.overlay} onPress={onClose}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.keyboardView}
+          behavior="padding"
+          style={[styles.keyboardView, { maxHeight: '100%', paddingTop: insets.top }]}
         >
-          <Pressable style={styles.content} onPress={(e) => e.stopPropagation()}>
+          <Pressable style={[styles.content, { paddingBottom: keyboardVisible ? 0 : insets.bottom }]} onPress={(e) => e.stopPropagation()}>
             {/* Handle bar */}
             <View style={styles.handleContainer}>
               <View style={styles.handle} />

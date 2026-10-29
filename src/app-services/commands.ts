@@ -20,7 +20,8 @@ import type {
 } from '../domain/services/RecurringService';
 import type { NotificationsInput, ThemePreference } from '../domain/services/SettingsService';
 import type { DomainEffects, OperationResult } from '../domain/services/shared';
-import type { CreateTransactionInput } from '../domain/services/TransactionService';
+import type { CreateTransactionInput, UpdateTransactionInput } from '../domain/services/TransactionService';
+import type { CreateTransferInput, UpdateTransferInput } from '../domain/services/TransferService';
 import type { LocalDate } from '../domain/dates';
 import type { WidgetKey } from '../database/repositories/settingsRepository';
 
@@ -42,7 +43,15 @@ export function createCommands(getDomain: () => Domain, applyEffects: (effects: 
     },
     transactions: {
       create: (input: CreateTransactionInput) => run((d) => d.transactions.create(input)),
+      /** Contrato: DEBT_PAYMENT no se edita (`TransactionNotEditableError`); la de una recurrente no cambia de fecha. */
+      update: (id: string, input: UpdateTransactionInput) => run((d) => d.transactions.update(id, input)),
       remove: (id: string) => run((d) => d.transactions.remove(id)),
+    },
+    /** Transferencias entre cuentas: no son ingreso ni gasto. Origen sin fondos -> `InsufficientFundsError`. */
+    transfers: {
+      create: (input: CreateTransferInput) => run((d) => d.transfers.create(input)),
+      update: (id: string, input: UpdateTransferInput) => run((d) => d.transfers.update(id, input)),
+      remove: (id: string) => run((d) => d.transfers.remove(id)),
     },
     debts: {
       create: (input: CreateDebtInput) => run((d) => d.debts.create(input)),

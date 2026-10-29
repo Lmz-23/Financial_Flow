@@ -1,4 +1,4 @@
-// Triggers de propietario (src/database/migrations/0001_owner_triggers.sql): la BD rechaza que una fila
+// Triggers de propietario (0001_owner_triggers.sql y, para account_transfers, 0002_account_transfers.sql): la BD rechaza que una fila
 // referencie una fila de OTRO usuario (OWNER_MISMATCH) y que un UPDATE cambie `user_id` (OWNER_IMMUTABLE).
 // Sustituyen a las FK compuestas (id, user_id): no reconstruyen tablas ni cambian ningun ON DELETE.
 // Tambien se prueba la ACTUALIZACION de una BD con datos que solo tenia la migracion 0000 (usuarios reales).
@@ -18,10 +18,11 @@ import { mkAccount, secondUserDomain, setup, snapshot, type TestEnv } from '../d
 const USER_B = 'otro-usuario';
 
 const OWNED_TABLES = [
-  'accounts', 'categories', 'debts', 'goals', 'recurring_items', 'transactions', 'goal_contributions', 'balance_adjustments',
+  'accounts', 'categories', 'debts', 'goals', 'recurring_items', 'transactions', 'goal_contributions', 'account_transfers',
+  'balance_adjustments',
 ] as const;
 
-/** Las 12 referencias entre tablas con dueno: [tabla hija, columna, tabla padre]. */
+/** Las 14 referencias entre tablas con dueno: [tabla hija, columna, tabla padre]. */
 const REFERENCES = [
   ['recurring_items', 'debt_id', 'debts'],
   ['recurring_items', 'category_id', 'categories'],
@@ -32,6 +33,8 @@ const REFERENCES = [
   ['transactions', 'recurring_item_id', 'recurring_items'],
   ['goal_contributions', 'goal_id', 'goals'],
   ['goal_contributions', 'account_id', 'accounts'],
+  ['account_transfers', 'from_account_id', 'accounts'],
+  ['account_transfers', 'to_account_id', 'accounts'],
   ['balance_adjustments', 'account_id', 'accounts'],
   ['balance_adjustments', 'debt_id', 'debts'],
   ['balance_adjustments', 'goal_id', 'goals'],
@@ -39,7 +42,7 @@ const REFERENCES = [
 
 type Parent = (typeof REFERENCES)[number][2];
 
-/** Datos de un usuario con filas en las 8 tablas y en las 12 referencias. Devuelve un id propio por tabla padre. */
+/** Datos de un usuario con filas en las 9 tablas con dueno y en las 14 referencias. Devuelve un id propio por tabla padre. */
 function populate(d: Domain, tag: string): Record<Parent, string> {
   const acc = mkAccount(d, `Cuenta ${tag}`, 1_000_000);
   d.transactions.create({ type: 'EXPENSE', accountId: acc, amountMinor: 100, newCategoryName: `Cat ${tag}` });
@@ -56,6 +59,8 @@ function populate(d: Domain, tag: string): Record<Parent, string> {
     categoryId: cat, defaultAccountId: acc,
   }).result.id;
   d.recurring.confirmOccurrence({ recurringId: rec, occurrenceDate: '2026-02-15', accountId: acc });
+  const acc2 = mkAccount(d, `Destino ${tag}`, 0);
+  d.transfers.create({ fromAccountId: acc, toAccountId: acc2, amountMinor: 1_000 });
   return { accounts: acc, categories: cat, debts: debt.id, goals: goal, recurring_items: rec };
 }
 
@@ -89,13 +94,13 @@ function insertCopy(w: World, table: string, id: string, col: string, value: str
 }
 
 describe('triggers de propietario: instalados', () => {
-  it('existen los 24 triggers (8 de user_id inmutable, 8 anti-REPLACE, 4 tablas hijas x INSERT/UPDATE)', () => {
+  it('existen los 28 triggers (9 de user_id inmutable, 9 anti-REPLACE, 5 tablas hijas x INSERT/UPDATE)', () => {
     const env = setup();
     const names = (env.sqlite.prepare("select name from sqlite_master where type = 'trigger' order by name").pluck().all() as string[]);
     const expected = [
       ...OWNED_TABLES.map((t) => `trg_${t}_user_id_immutable`),
       ...OWNED_TABLES.map((t) => `trg_${t}_owner_replace`),
-      ...['recurring_items', 'transactions', 'goal_contributions', 'balance_adjustments'].flatMap((t) => [
+      ...['recurring_items', 'transactions', 'goal_contributions', 'account_transfers', 'balance_adjustments'].flatMap((t) => [
         `trg_${t}_owner_ins`, `trg_${t}_owner_upd`,
       ]),
     ].sort();
@@ -243,36 +248,78 @@ afterEach(() => {
   for (const d of tmpDirs.splice(0)) fs.rmSync(d, { recursive: true, force: true });
 });
 
-describe('migracion 0001 sobre una BD con datos (usuario que actualiza la app)', () => {
-  it('no cambia ningun dato, no deja violaciones de FK y activa los triggers', () => {
-    const old = migrationsUpTo(1);
-    tmpDirs.push(old);
-    const sqlite = new Database(':memory:');
-    sqlite.pragma('foreign_keys = ON');
-    const db = drizzle(sqlite, { schema });
-    migrate(db, { migrationsFolder: old });
-    expect(sqlite.prepare("select count(*) from sqlite_master where type = 'trigger'").pluck().get()).toBe(0);
+/** Foto de las 9 tablas que existen desde 0000 (la BD vieja no tiene `account_transfers`). */
+function legacySnapshot(sqlite: Database.Database): string {
+  const tables = [
+    'users', 'accounts', 'categories', 'debts', 'goals', 'recurring_items', 'transactions', 'goal_contributions',
+    'balance_adjustments',
+  ];
+  return JSON.stringify(tables.map((t) => [t, sqlite.prepare(`select * from ${t} order by rowid`).all()]));
+}
 
-    seedDatabase(db);
-    const clock = { now: new Date(2026, 2, 10, 12).getTime() };
-    const env: TestEnv = { d: createDomain(db, { now: () => clock.now }), db, sqlite, clock };
-    populate(env.d, 'A');
-    const before = snapshot(env);
-    expect(sqlite.prepare('select count(*) from transactions').pluck().get()).toBeGreaterThan(0);
+/** BD con las primeras `n` migraciones y datos de un usuario; despues aplica TODAS las migraciones. */
+function upgradeFrom(n: number): { sqlite: Database.Database; env: TestEnv; before: string } {
+  const old = migrationsUpTo(n);
+  tmpDirs.push(old);
+  const sqlite = new Database(':memory:');
+  sqlite.pragma('foreign_keys = ON');
+  const db = drizzle(sqlite, { schema });
+  migrate(db, { migrationsFolder: old });
+  seedDatabase(db);
+  const clock = { now: new Date(2026, 2, 10, 12).getTime() };
+  const env: TestEnv = { d: createDomain(db, { now: () => clock.now }), db, sqlite, clock };
+  // El dominio actual consulta `account_transfers` (aun inexistente): los datos viejos se escriben por SQL.
+  const t = 1_770_000_000_000;
+  sqlite
+    .prepare(`insert into accounts (id, user_id, name, type, "order", created_at, updated_at) values ('acc-v', ?, 'Vieja', 'CASH', 0, ?, ?)`)
+    .run(DEFAULT_USER_ID, t, t);
+  sqlite
+    .prepare(`insert into balance_adjustments (id, user_id, target_type, account_id, previous_minor, new_minor, delta_minor, reason, created_at) values ('adj-v', ?, 'ACCOUNT', 'acc-v', 0, 50000, 50000, 'OPENING', ?)`)
+    .run(DEFAULT_USER_ID, t);
+  sqlite
+    .prepare(`insert into transactions (id, user_id, account_id, type, kind, amount_minor, description, date, is_passive, created_at, updated_at) values ('tx-v', ?, 'acc-v', 'EXPENSE', 'STANDARD', 1000, '', ?, 0, ?, ?)`)
+    .run(DEFAULT_USER_ID, t, t, t);
+  sqlite
+    .prepare(`insert into goals (id, user_id, name, target_minor, status, created_at, updated_at) values ('goal-v', ?, 'Meta vieja', 9000, 'ACTIVE', ?, ?)`)
+    .run(DEFAULT_USER_ID, t, t);
+  sqlite
+    .prepare(`insert into goal_contributions (id, user_id, goal_id, account_id, amount_minor, date, created_at) values ('gc-v', ?, 'goal-v', 'acc-v', 2000, ?, ?)`)
+    .run(DEFAULT_USER_ID, t, t);
+  const before = legacySnapshot(sqlite);
+  expect(sqlite.prepare('select count(*) from transactions').pluck().get()).toBeGreaterThan(0);
+  migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
+  return { sqlite, env, before };
+}
 
-    migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
-
-    expect(snapshot(env)).toBe(before);
-    expect(sqlite.prepare('select count(*) from __drizzle_migrations').pluck().get()).toBe(2);
-    expect(sqlite.prepare("select count(*) from sqlite_master where type = 'trigger'").pluck().get()).toBe(24);
+describe('migraciones 0001 y 0002 sobre una BD con datos (usuario que actualiza la app)', () => {
+  it('0000 -> ultima: no cambia ningun dato, no deja violaciones de FK y activa los triggers', () => {
+    const { sqlite, env, before } = upgradeFrom(1);
+    expect(legacySnapshot(sqlite)).toBe(before);
+    expect(sqlite.prepare('select count(*) from __drizzle_migrations').pluck().get()).toBe(3);
+    expect(sqlite.prepare("select count(*) from sqlite_master where type = 'trigger'").pluck().get()).toBe(28);
+    expect(sqlite.prepare('select count(*) from account_transfers').pluck().get()).toBe(0);
     expect(sqlite.prepare('pragma foreign_key_check').all()).toEqual([]);
     expect(sqlite.pragma('integrity_check', { simple: true })).toBe('ok');
 
     // Tras actualizar, la app sigue operando y los triggers ya protegen los datos viejos.
-    const acc = sqlite.prepare('select id from accounts limit 1').pluck().get() as string;
+    const acc = 'acc-v';
+    expect(env.d.accounts.get(acc)?.availableMinor).toBe(47_000);
     expect(() => env.d.transactions.create({ type: 'INCOME', accountId: acc, amountMinor: 1 })).not.toThrow();
     sqlite.prepare('insert into users (id, created_at, updated_at) values (?, 0, 0)').run(USER_B);
     expect(() => sqlite.prepare('update accounts set user_id = ? where id = ?').run(USER_B, acc)).toThrow('OWNER_IMMUTABLE');
+    sqlite.close();
+  });
+
+  it('0001 -> 0002 (solo la tabla nueva y sus 4 triggers): datos intactos y las transferencias ya funcionan', () => {
+    const { sqlite, env, before } = upgradeFrom(2);
+    expect(legacySnapshot(sqlite)).toBe(before);
+    expect(sqlite.prepare('select count(*) from __drizzle_migrations').pluck().get()).toBe(3);
+    expect(sqlite.prepare("select count(*) from sqlite_master where type = 'trigger'").pluck().get()).toBe(28);
+    expect(sqlite.prepare('pragma foreign_key_check').all()).toEqual([]);
+    const from = 'acc-v';
+    const to = mkAccount(env.d, 'Nueva', 0);
+    env.d.transfers.create({ fromAccountId: from, toAccountId: to, amountMinor: 100 });
+    expect(env.d.accounts.get(to)?.availableMinor).toBe(100);
     sqlite.close();
   });
 });

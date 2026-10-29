@@ -20,17 +20,31 @@ export const routes = {
   transactions: () => href('/transactions'),
   transaction: (id: string) => href(`/transactions/${id}`),
   transactionNew: () => href('/transactions/new'),
+  transactionEdit: (id: string) => href(`/transactions/${id}/edit`),
+  /** Nueva transferencia: el mismo formulario de Nueva transaccion con la pestana Transferencia. */
+  transferNew: () => href('/transactions/new?type=TRANSFER'),
+  transfer: (id: string) => href(`/transfers/${id}`),
+  transferEdit: (id: string) => href(`/transfers/${id}/edit`),
+  /** Nuevo ingreso con la marca de pasivo ya puesta (atajo del detalle de Cashflow). */
+  transactionNewPassive: () => href('/transactions/new?type=INCOME&passive=1'),
+  /** Lista de recurrentes (pagos e ingresos; edicion del proximo pago, decision 39). */
+  recurring: () => href('/recurring'),
   recurringNew: () => href('/recurring/new'),
+  recurringEdit: (id: string) => href(`/recurring/${id}`),
   /** Hoja "Ya pague" (siempre pide cuenta; D8). */
   recurringConfirm: (id: string, occurrence: LocalDate) => href(`/recurring/${id}/confirm?occurrence=${occurrence}`),
   /** Cuota de deuda: va al flujo de pago de deuda, no al generico (I4). */
   debtInstallmentPay: (debtId: string, occurrence: LocalDate) =>
     href(`/debts/${debtId}/pay?type=INSTALLMENT&occurrence=${occurrence}`),
   cashflow: () => href('/cashflow'),
+  /** Detalle del flujo ("Ver detalles" en Flujo del mes): gráfico por periodo y desglose por categoría. */
+  flow: () => href('/flow'),
   debts: () => href('/debts'),
   debtNew: () => href('/debts/new'),
   goals: () => href('/goals'),
   goalNew: () => href('/goals/new'),
+  /** Agregar a meta (transferencia interna cuenta -> meta; §6 fila 10). */
+  goalContribute: (id: string) => href(`/goals/${id}/contribute`),
   /** Pasos del onboarding (F5b-1; decisión 46, A1). */
   onboardingAccounts: () => href('/onboarding/accounts'),
   onboardingFlow: () => href('/onboarding/flow'),

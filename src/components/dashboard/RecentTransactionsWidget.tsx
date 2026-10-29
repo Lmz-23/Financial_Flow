@@ -1,30 +1,23 @@
 import { useRouter } from 'expo-router';
 
-import type { TransactionView } from '../../database/repositories/transactionRepository';
-import { transactionLabel } from '../../lib/dashboardFormat';
-import { relativeDateLabel } from '../../lib/dateLabels';
+import type { ActivityItem } from '../../domain/services/ActivityService';
+import { activityRow } from '../../lib/activityView';
 import { routes } from '../../navigation/routes';
-import { Amount, ListRow, Widget } from '../ui/ds';
+import { ActivityListRow } from '../transactions/ActivityListRow';
+import { Widget } from '../ui/ds';
 import { LinkButton, WidgetHeader } from './parts';
 
-/** "Ultimos movimientos": los mas recientes y el enlace a la lista completa. */
-export function RecentTransactionsWidget({ transactions, now }: { transactions: TransactionView[]; now: number }) {
+/** "Ultimos movimientos": transacciones y transferencias mas recientes y el enlace a la lista completa. */
+export function RecentTransactionsWidget({ items, now }: { items: ActivityItem[]; now: number }) {
   const router = useRouter();
   return (
     <Widget gap={14}>
       <WidgetHeader title="Últimos movimientos" />
       <>
-        {transactions.map((tx) => (
-          <ListRow
-            key={tx.id}
-            title={transactionLabel(tx)}
-            subtitle={relativeDateLabel(tx.date, now)}
-            trailing={
-              <Amount value={tx.type === 'INCOME' ? tx.amountMinor : -tx.amountMinor} variant="amountSm" tone="auto" />
-            }
-            onPress={() => router.push(routes.transaction(tx.id))}
-          />
-        ))}
+        {items.map((item) => {
+          const row = activityRow(item, now);
+          return <ActivityListRow key={row.key} row={row} />;
+        })}
       </>
       <LinkButton label="Ver todas" onPress={() => router.push(routes.transactions())} />
     </Widget>

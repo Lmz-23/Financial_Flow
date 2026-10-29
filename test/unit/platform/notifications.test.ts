@@ -5,11 +5,13 @@ import {
   ACTION_PAID,
   ACTION_SNOOZE,
   ACTIONS_CATEGORY_ID,
+  INCOME_ACTIONS_CATEGORY_ID,
   ANDROID_CHANNEL_ID,
   __resetForTests,
   ensureNotificationPermission,
   hrefOf,
   interpretResponse,
+  readNotificationPermission,
   reconcile,
   setupNotifications,
   subscribeToNotificationResponses,
@@ -89,7 +91,7 @@ beforeEach(() => {
 });
 
 describe('setupNotifications', () => {
-  it('registra canal de Android y categoría con las dos acciones', async () => {
+  it('registra canal de Android y las categorías de pagos e ingresos', async () => {
     await setupNotifications();
     expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith(
       ANDROID_CHANNEL_ID,
@@ -100,6 +102,13 @@ describe('setupNotifications', () => {
     expect(id).not.toMatch(/[:-]/);
     expect(actions.map((a) => [a.identifier, a.buttonTitle])).toEqual([
       [ACTION_PAID, 'Ya pagué'],
+      [ACTION_SNOOZE, 'Todavía no'],
+    ]);
+    const [incomeId, incomeActions] = vi.mocked(Notifications.setNotificationCategoryAsync).mock.calls[1]!;
+    expect(incomeId).toBe(INCOME_ACTIONS_CATEGORY_ID);
+    expect(incomeId).not.toMatch(/[:-]/);
+    expect(incomeActions.map((a) => [a.identifier, a.buttonTitle])).toEqual([
+      [ACTION_PAID, 'Recibido'],
       [ACTION_SNOOZE, 'Todavía no'],
     ]);
   });
@@ -119,6 +128,14 @@ describe('ensureNotificationPermission', () => {
     state.granted = false;
     state.canAskAgain = false;
     expect(await ensureNotificationPermission()).toBe(false);
+    expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
+  });
+});
+
+describe('readNotificationPermission', () => {
+  it('lee el estado sin pedir el permiso', async () => {
+    state.granted = false;
+    expect(await readNotificationPermission()).toEqual({ granted: false, canAskAgain: true });
     expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
   });
 });
@@ -144,6 +161,8 @@ describe('reconcile', () => {
   it('un ingreso solo programa due (decisión 34)', async () => {
     await reconcile(input([occ({ direction: 'INCOME', name: 'Salario' })], { ...settings, notifyWeeklySummary: false }));
     expect(ids()).toEqual(['rec:r1:2026-10-20:due']);
+    const [due] = vi.mocked(Notifications.scheduleNotificationAsync).mock.calls.map(([req]) => req);
+    expect(due!.content).toMatchObject({ title: '¿Ya recibiste Salario?', categoryIdentifier: INCOME_ACTIONS_CATEGORY_ID });
   });
 
   it('es idempotente: la segunda pasada no programa ni cancela', async () => {

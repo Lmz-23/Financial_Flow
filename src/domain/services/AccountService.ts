@@ -171,6 +171,17 @@ export function createAccountService(ctx: DomainContext) {
       return { accounts, totalMinor: accounts.reduce((sum, a) => sum + a.availableMinor, 0) };
     },
 
+    /**
+     * Lo que haria `remove` sin ejecutarlo: 'ARCHIVED' si tiene movimientos, 'DELETED' si no. Para
+     * confirmar antes de actuar. Mismos errores que `remove` (`NotFoundError`, `ValidationError`).
+     */
+    removalOutcome(id: string): RemoveAccountOutcome {
+      const account = accountRepository.getById(ctx.db, ctx.userId, id);
+      if (!account) throw new NotFoundError('Cuenta', id);
+      if (account.archivedAt !== null) throw new ValidationError('La cuenta ya esta archivada');
+      return accountRepository.hasMovements(ctx.db, ctx.userId, id) ? 'ARCHIVED' : 'DELETED';
+    },
+
     get(id: string): AccountView | undefined {
       const account = accountRepository.getById(ctx.db, ctx.userId, id);
       return account ? { ...account, availableMinor: accountRepository.availableOf(ctx.db, ctx.userId, id) } : undefined;

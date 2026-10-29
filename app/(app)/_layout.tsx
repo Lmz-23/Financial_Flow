@@ -13,5 +13,19 @@ export { RouteErrorBoundary as ErrorBoundary };
  */
 export default function AppLayout() {
   const { colors } = useTheme();
-  return <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surfacePage } }} />;
+  return (
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surfacePage } }}>
+      {/* Hoja «Ya pagué» (§6): la presentación debe conocerse al empujar la pantalla, por eso se declara aquí. */}
+      <Stack.Screen
+        name="recurring/[id]/confirm"
+        options={{
+          presentation: 'formSheet',
+          sheetAllowedDetents: [0.7, 1],
+          sheetGrabberVisible: true,
+          sheetCornerRadius: 22,
+          contentStyle: { backgroundColor: colors.surfaceCard },
+        }}
+      />
+    </Stack>
+  );
 }

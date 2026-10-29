@@ -31,6 +31,6 @@ export function subscribeToNotifications(onNavigate: (href: string) => void): ()
 
 export { getDomain } from './domain';
 export { initializeApp, refreshSettings, subscribeToForeground } from './startup';
+export { ensureNotificationPermission, readNotificationPermission } from './permissions';
 export { registerNotificationReconciler, reconcileNotifications } from './notificationsPort';
-export { ensureNotificationPermission } from '../platform/notifications';
 export type { Commands } from './commands';

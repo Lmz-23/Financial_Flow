@@ -20,6 +20,7 @@ export type DomainErrorCode =
   | 'REFUND_ACCOUNT_REQUIRED'
   | 'USE_DEBT_PAYMENT_FLOW'
   | 'ONBOARDING_ALREADY_COMPLETED'
+  | 'TRANSACTION_NOT_EDITABLE'
   | 'NOT_SUPPORTED';
 
 export class DomainError extends Error {
@@ -67,7 +68,10 @@ export class AccountRequiredError extends DomainError {
   }
 }
 
-/** Aporte a meta mayor al disponible de la cuenta (D12). */
+/**
+ * Salida de dinero mayor al disponible de la cuenta: aporte a meta (D12) o transferencia entre cuentas.
+ * `availableMinor` es lo que la operacion podia usar (al editar, ya con el monto original devuelto).
+ */
 export class InsufficientFundsError extends DomainError {
   readonly accountId: string;
   readonly availableMinor: number;
@@ -202,6 +206,25 @@ export class UseDebtPaymentFlow extends DomainError {
 export class OnboardingAlreadyCompletedError extends DomainError {
   constructor() {
     super('ONBOARDING_ALREADY_COMPLETED', 'El onboarding ya se completo');
+  }
+}
+
+/**
+ * La transaccion no admite esta edicion. `reason`: 'DEBT_PAYMENT' (un pago de deuda no se edita: la UI dice
+ * "borralo y registralo de nuevo") o 'RECURRING_DATE' (la que confirma una ocurrencia no cambia de fecha).
+ */
+export class TransactionNotEditableError extends DomainError {
+  readonly transactionId: string;
+  readonly reason: 'DEBT_PAYMENT' | 'RECURRING_DATE';
+  constructor(transactionId: string, reason: 'DEBT_PAYMENT' | 'RECURRING_DATE') {
+    super(
+      'TRANSACTION_NOT_EDITABLE',
+      reason === 'DEBT_PAYMENT'
+        ? 'Un pago de deuda no se puede editar: borralo y registralo de nuevo'
+        : 'La transaccion que confirma una ocurrencia recurrente no cambia de fecha',
+    );
+    this.transactionId = transactionId;
+    this.reason = reason;
   }
 }
 

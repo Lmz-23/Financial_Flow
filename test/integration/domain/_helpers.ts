@@ -73,10 +73,10 @@ export function thrown(fn: () => unknown): unknown {
 
 const SNAPSHOT_TABLES = [
   'users', 'accounts', 'categories', 'debts', 'goals', 'recurring_items',
-  'transactions', 'goal_contributions', 'balance_adjustments',
+  'transactions', 'goal_contributions', 'account_transfers', 'balance_adjustments',
 ];
 
-/** Foto completa del contenido de la BD (las 9 tablas, todas las columnas): para probar "sin efectos". */
+/** Foto completa del contenido de la BD (las 10 tablas, todas las columnas): para probar "sin efectos". */
 export function snapshot(env: TestEnv): string {
   return JSON.stringify(
     SNAPSHOT_TABLES.map((t) => [t, env.sqlite.prepare(`select * from ${t} order by rowid`).all()]),

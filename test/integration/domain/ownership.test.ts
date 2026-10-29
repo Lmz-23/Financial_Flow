@@ -18,6 +18,9 @@ interface World {
   accA: string;
   accArchA: string;
   txA: string;
+  /** Transferencia de A (accA -> accA2). */
+  xferA: string;
+  accA2: string;
   catA: string;
   debtA: string;
   recDebtA: string;
@@ -45,6 +48,8 @@ function world(): World {
   const txA = a.transactions.create({
     type: 'EXPENSE', accountId: accA, amountMinor: 100, newCategoryName: 'CatA',
   }).result.id;
+  const accA2 = mkAccount(a, 'Cuenta A2', 0);
+  const xferA = a.transfers.create({ fromAccountId: accA, toAccountId: accA2, amountMinor: 5_000 }).result.id;
   const catA = a.transactions.categories('EXPENSE').find((c) => c.userId !== null)!.id;
 
   const debt = a.debts.create({
@@ -75,7 +80,7 @@ function world(): World {
   }).result.id;
 
   return {
-    env, a, b, accA, accArchA, txA, catA,
+    env, a, b, accA, accArchA, txA, xferA, accA2, catA,
     debtA: debt.id, recDebtA: debt.recurringId!, debtOccurrence: '2026-04-01',
     goalA, goalReadyA, recA, recAOccurrence: '2026-03-15',
     accB, debtB, goalB, recB, recBOccurrence: '2026-03-20',
@@ -113,6 +118,7 @@ describe('propiedad: cuentas', () => {
     ['update (saldo)', (w: World, id: string) => w.b.accounts.update(id, { balanceMinor: 1 })],
     ['remove', (w: World, id: string) => w.b.accounts.remove(id)],
     ['unarchive', (w: World, id: string) => w.b.accounts.unarchive(id)],
+    ['removalOutcome', (w: World, id: string) => w.b.accounts.removalOutcome(id)],
   ])('%s con una cuenta ajena activa: NotFoundError sin efectos', (_n, op) => {
     const w = world();
     expectNotFound(w.env, (id) => op(w, id), w.accA, 'Cuenta');
@@ -122,6 +128,7 @@ describe('propiedad: cuentas', () => {
     ['update', (w: World, id: string) => w.b.accounts.update(id, { name: 'X' })],
     ['remove', (w: World, id: string) => w.b.accounts.remove(id)],
     ['unarchive', (w: World, id: string) => w.b.accounts.unarchive(id)],
+    ['removalOutcome', (w: World, id: string) => w.b.accounts.removalOutcome(id)],
   ])('%s con una cuenta ajena ARCHIVADA no revela que existe ni que esta archivada', (_n, op) => {
     const w = world();
     expectNotFound(w.env, (id) => op(w, id), w.accArchA, 'Cuenta');
@@ -181,6 +188,81 @@ describe('propiedad: transacciones', () => {
     expect(w.b.transactions.list({ accountId: w.accA })).toEqual([]);
     expect(w.b.transactions.categories().some((c) => c.id === w.catA)).toBe(false);
     expect(w.a.transactions.categories().some((c) => c.id === w.catA)).toBe(true);
+  });
+});
+
+describe('propiedad: edicion de transacciones', () => {
+  it('update de una transaccion ajena: NotFoundError sin efectos', () => {
+    const w = world();
+    expectNotFound(w.env, (id) => w.b.transactions.update(id, { amountMinor: 1 }), w.txA, 'Transaccion');
+  });
+
+  it('update propio con accountId o categoryId ajenos: NotFoundError sin efectos', () => {
+    const w = world();
+    const own = w.b.transactions.create({ type: 'EXPENSE', accountId: w.accB, amountMinor: 10 }).result.id;
+    for (const acc of [w.accA, w.accArchA]) {
+      expectNotFound(w.env, (id) => w.b.transactions.update(own, { accountId: id }), acc, 'Cuenta');
+    }
+    expectNotFound(w.env, (id) => w.b.transactions.update(own, { categoryId: id }), w.catA, 'Categoria');
+  });
+});
+
+describe('propiedad: transferencias', () => {
+  it('get de una transferencia ajena es undefined, igual que una inexistente; B no la ve en list ni en activity', () => {
+    const w = world();
+    expect(w.b.transfers.get(w.xferA)).toBeUndefined();
+    expect(w.b.transfers.get(MISSING)).toBeUndefined();
+    expect(w.a.transfers.get(w.xferA)).toBeDefined();
+    expect(w.b.transfers.list()).toEqual([]);
+    expect(w.b.transfers.list({ accountId: w.accA })).toEqual([]);
+    expect(w.b.activity.list({ accountId: w.accA })).toEqual([]);
+    expect(w.a.activity.list().some((i) => i.kind === 'TRANSFER' && i.id === w.xferA)).toBe(true);
+  });
+
+  it.each([
+    ['update (monto)', (w: World, id: string) => w.b.transfers.update(id, { amountMinor: 1 })],
+    ['update (cuentas propias)', (w: World, id: string) => w.b.transfers.update(id, { fromAccountId: w.accB })],
+    ['remove', (w: World, id: string) => w.b.transfers.remove(id)],
+  ])('%s con una transferencia ajena: NotFoundError sin efectos', (_n, op) => {
+    const w = world();
+    expectNotFound(w.env, (id) => op(w, id), w.xferA, 'Transferencia');
+  });
+
+  it('create con origen o destino ajeno (activa o archivada): NotFoundError sin efectos', () => {
+    const w = world();
+    const accB2 = mkAccount(w.b, 'Cuenta B2', 0);
+    for (const acc of [w.accA, w.accArchA]) {
+      expectNotFound(
+        w.env,
+        (id) => w.b.transfers.create({ fromAccountId: id, toAccountId: accB2, amountMinor: 10 }),
+        acc,
+        'Cuenta',
+      );
+      expectNotFound(
+        w.env,
+        (id) => w.b.transfers.create({ fromAccountId: w.accB, toAccountId: id, amountMinor: 10 }),
+        acc,
+        'Cuenta',
+      );
+    }
+  });
+
+  it('update propio con cuenta ajena: NotFoundError sin efectos', () => {
+    const w = world();
+    const accB2 = mkAccount(w.b, 'Cuenta B2', 0);
+    const own = w.b.transfers.create({ fromAccountId: w.accB, toAccountId: accB2, amountMinor: 10 }).result.id;
+    expectNotFound(w.env, (id) => w.b.transfers.update(own, { toAccountId: id }), w.accA, 'Cuenta');
+    expectNotFound(w.env, (id) => w.b.transfers.update(own, { fromAccountId: id }), w.accA, 'Cuenta');
+  });
+
+  it('las transferencias de B no cambian los saldos ni las vistas de A', () => {
+    const w = world();
+    const before = JSON.stringify([w.a.accounts.summary(), w.a.activity.list(), w.a.reports.netWorth()]);
+    const accB2 = mkAccount(w.b, 'Cuenta B2', 0);
+    w.b.transfers.create({ fromAccountId: w.accB, toAccountId: accB2, amountMinor: 1_000 });
+    expect(JSON.stringify([w.a.accounts.summary(), w.a.activity.list(), w.a.reports.netWorth()])).toBe(before);
+    expectIntegrity(w.a);
+    expectIntegrity(w.b);
   });
 });
 
@@ -395,6 +477,10 @@ describe('propiedad: listados, reportes e integridad no se mezclan', () => {
       gastoTotal: 0, netCashflow: 0, index: { kind: 'NONE' },
     });
     expect(empty.reports.monthStatementOf(localMs(2026, 3, 10))).toEqual(zero);
+    expect(empty.reports.firstActivityDate()).toBeNull();
+    const year = empty.reports.periodReport({ kind: 'YEAR', year: 2026, index: 1 });
+    expect(year.statement).toEqual(zero);
+    expect([year.incomeByCategory, year.expenseByCategory]).toEqual([[], []]);
     expectIntegrity(empty);
   });
 
@@ -405,9 +491,10 @@ describe('propiedad: listados, reportes e integridad no se mezclan', () => {
         w.a.accounts.summary(), w.a.transactions.list(), w.a.debts.list(), w.a.goals.list(), w.a.goals.list('ACTIVE'),
         w.a.recurring.list(), w.a.recurring.upcoming(), w.a.recurring.pendingOccurrences(),
         w.a.reports.monthStatement(2026, 3), w.a.reports.netWorth(),
+        w.a.reports.periodReport({ kind: 'QUARTER', year: 2026, index: 1 }), w.a.reports.firstActivityDate(),
       ]);
     const before = viewsOfA();
-    expect(w.a.accounts.summary().accounts.map((x) => x.id)).toEqual([w.accA]);
+    expect(w.a.accounts.summary().accounts.map((x) => x.id)).toEqual([w.accA, w.accA2]);
     expect(w.b.accounts.summary().accounts.map((x) => x.id)).toEqual([w.accB]);
     expect(w.b.accounts.summary().totalMinor).toBe(500_000);
     expect(w.b.transactions.list()).toEqual([]);
@@ -431,6 +518,9 @@ describe('propiedad: listados, reportes e integridad no se mezclan', () => {
     expect(viewsOfA()).toBe(before);
     expect(w.b.reports.monthStatement(2026, 3).ingresoTotal).toBe(123_456);
     expect(w.a.reports.monthStatement(2026, 3).ingresoTotal).toBe(0);
+    const reportB = w.b.reports.periodReport({ kind: 'MONTH', year: 2026, index: 3 });
+    expect(reportB.incomeByCategory.map((l) => l.totalMinor)).toEqual([123_456]);
+    expect(reportB.expenseByCategory.find((l) => l.group === 'CATEGORY')).toMatchObject({ name: 'CatA', totalMinor: 1_000 });
     expectIntegrity(w.a);
     expectIntegrity(w.b);
   });
@@ -456,9 +546,11 @@ describe('propiedad: listados, reportes e integridad no se mezclan', () => {
 /** NOT_FOUND: tiene caso(s) con `expectNotFound` (id ajeno = inexistente). READ: lectura por id, ajeno -> undefined/vacio. NO_ID: no recibe ids de entidades. */
 const SERVICE_METHODS: Record<string, 'NOT_FOUND' | 'READ' | 'NO_ID'> = {
   'accounts.create': 'NO_ID', 'accounts.update': 'NOT_FOUND', 'accounts.remove': 'NOT_FOUND',
-  'accounts.unarchive': 'NOT_FOUND', 'accounts.summary': 'NO_ID', 'accounts.get': 'READ',
-  'transactions.create': 'NOT_FOUND', 'transactions.remove': 'NOT_FOUND', 'transactions.list': 'READ',
-  'transactions.get': 'READ', 'transactions.categories': 'NO_ID',
+  'accounts.unarchive': 'NOT_FOUND', 'accounts.removalOutcome': 'NOT_FOUND', 'accounts.summary': 'NO_ID', 'accounts.get': 'READ',
+  'transactions.create': 'NOT_FOUND', 'transactions.update': 'NOT_FOUND', 'transactions.remove': 'NOT_FOUND',
+  'transactions.list': 'READ', 'transactions.get': 'READ', 'transactions.categories': 'NO_ID',
+  'transfers.create': 'NOT_FOUND', 'transfers.update': 'NOT_FOUND', 'transfers.remove': 'NOT_FOUND',
+  'transfers.list': 'READ', 'transfers.get': 'READ', 'activity.list': 'READ',
   'debts.create': 'NO_ID', 'debts.update': 'NOT_FOUND', 'debts.registerPayment': 'NOT_FOUND', 'debts.remove': 'NOT_FOUND',
   'debts.list': 'NO_ID', 'debts.get': 'READ', 'debts.payments': 'READ',
   'goals.create': 'NOT_FOUND', 'goals.contribute': 'NOT_FOUND', 'goals.update': 'NOT_FOUND', 'goals.close': 'NOT_FOUND',
@@ -468,7 +560,7 @@ const SERVICE_METHODS: Record<string, 'NOT_FOUND' | 'READ' | 'NO_ID'> = {
   'recurring.confirmOccurrence': 'NOT_FOUND', 'recurring.unconfirm': 'NOT_FOUND', 'recurring.snooze': 'NOT_FOUND',
   'recurring.list': 'NO_ID', 'recurring.upcoming': 'NO_ID', 'recurring.pendingOccurrences': 'NO_ID',
   'onboarding.complete': 'NOT_FOUND',
-  'reports.monthStatement': 'NO_ID', 'reports.monthStatementOf': 'NO_ID', 'reports.netWorth': 'NO_ID',
+  'reports.monthStatement': 'NO_ID', 'reports.monthStatementOf': 'NO_ID', 'reports.periodReport': 'NO_ID', 'reports.firstActivityDate': 'NO_ID', 'reports.netWorth': 'NO_ID',
   'integrity.check': 'NO_ID',
 };
 
