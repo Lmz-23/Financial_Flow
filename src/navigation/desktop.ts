@@ -17,6 +17,7 @@ export interface RailItem {
 export const RAIL_ITEMS: readonly RailItem[] = [
   { key: 'home', label: 'Inicio', short: 'In', href: routes.dashboard(), match: '/' },
   { key: 'transactions', label: 'Movimientos', short: 'Mo', href: routes.transactions(), match: '/transactions' },
+  { key: 'accounts', label: 'Cuentas', short: 'Cu', href: routes.accounts(), match: '/accounts' },
   { key: 'debts', label: 'Deudas', short: 'De', href: routes.debts(), match: '/debts' },
   { key: 'goals', label: 'Metas', short: 'Me', href: routes.goals(), match: '/goals' },
   { key: 'recurring', label: 'Recurrentes', short: 'Re', href: routes.recurring(), match: '/recurring' },

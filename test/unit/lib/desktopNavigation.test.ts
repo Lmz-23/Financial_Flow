@@ -9,7 +9,8 @@ describe('activeRailKey', () => {
     ['/transactions/abc', 'transactions'],
     ['/debts/d1/pay', 'debts'],
     ['/settings', 'settings'],
-    ['/accounts/a1', null],
+    ['/accounts/a1', 'accounts'],
+    ['/reports', null],
     ['/transactionsx', null],
   ] as const)('%s -> %s', (pathname, key) => {
     expect(activeRailKey(pathname)).toBe(key);
