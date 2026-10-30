@@ -7,7 +7,9 @@ import { ScreenHeader } from '../../../src/components/screens/ScreenHeader';
 import { ActivityListRow } from '../../../src/components/transactions/ActivityListRow';
 import { SCREEN_MARGIN } from '../../../src/components/ui/ds/constants';
 import { Text } from '../../../src/components/ui/ds/Text';
+import { MovementsDesktop } from '../../../src/components/transactions/MovementsDesktop';
 import { useActivity } from '../../../src/hooks/useActivity';
+import { useIsDesktop } from '../../../src/hooks/useLayoutSize';
 import { activityRow, groupActivityByDay } from '../../../src/lib/activityView';
 import { useTheme } from '../../../src/theme';
 
@@ -15,6 +17,11 @@ const MSG_EMPTY = 'Todavía no hay transacciones.';
 
 /** Movimientos (Dashboard.dc.html, onTransacciones): transacciones y transferencias, agrupadas por dia, de la mas reciente a la mas antigua. */
 export default function TransactionsScreen() {
+  const desktop = useIsDesktop();
+  return desktop ? <MovementsDesktop /> : <TransactionsMobile />;
+}
+
+function TransactionsMobile() {
   const { colors, space } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
