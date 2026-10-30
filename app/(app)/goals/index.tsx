@@ -4,22 +4,23 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { commands, getDomain } from '../../../src/app-services';
+import { GoalsDesktop } from '../../../src/components/goals/desktop/GoalsDesktop';
+import { RemoveGoalSheet } from '../../../src/components/goals/RemoveGoalSheet';
 import { DashedAddButton } from '../../../src/components/dashboard/parts';
 import { ScreenHeader } from '../../../src/components/screens/ScreenHeader';
-import { AccountPicker } from '../../../src/components/ui/ds/AccountPicker';
 import { Amount } from '../../../src/components/ui/ds/Amount';
 import { Button } from '../../../src/components/ui/ds/Button';
 import { SCREEN_MARGIN } from '../../../src/components/ui/ds/constants';
 import { Input } from '../../../src/components/ui/ds/Input';
 import { MoneyInput } from '../../../src/components/ui/ds/MoneyInput';
 import { ProgressBar } from '../../../src/components/ui/ds/ProgressBar';
-import { Sheet } from '../../../src/components/ui/ds/Sheet';
 import { Text } from '../../../src/components/ui/ds/Text';
 import { Widget } from '../../../src/components/ui/ds/Widget';
 import { formatCOP } from '../../../src/domain/money';
 import { RefundAccountRequiredError } from '../../../src/domain/services/errors';
 import type { GoalView, RefundPreview } from '../../../src/domain/services/GoalService';
-import { useAccounts, useGoals } from '../../../src/hooks';
+import { useGoals } from '../../../src/hooks';
+import { useIsDesktop } from '../../../src/hooks/useLayoutSize';
 import { goalPercent, goalProgressLabel, isGoalComplete } from '../../../src/lib/goalFormat';
 import { errorMessage } from '../../../src/lib/screenErrors';
 import { routes } from '../../../src/navigation/routes';
@@ -32,16 +33,17 @@ const MSG_COMPLETE =
 /** Inferidos (no están en el diseño ni en docs). */
 const MSG_DELETE_CONFIRM = '¿Eliminar esta meta? Lo que apartaste vuelve a tus cuentas. Esta acción no se puede deshacer.';
 const MSG_CLOSE_CONFIRM = '¿Cerrar esta meta? Ya no podrás agregarle dinero. Esta acción no se puede deshacer.';
-const MSG_REFUND_INTRO = 'Esto es lo que se devolverá al eliminar la meta:';
-const MSG_REFUND_ARCHIVED = 'archivada';
-const MSG_REFUND_PICK = 'Algunas cuentas están archivadas. Elige una cuenta activa que reciba su dinero.';
-const MSG_REFUND_REQUIRED = 'Elige una cuenta activa para recibir el dinero.';
-const MSG_NO_ACTIVE_ACCOUNTS = 'Primero agrega una cuenta activa.';
 const MSG_TARGET_REQUIRED = 'Escribe el monto objetivo.';
 const MSG_SAVED_REQUIRED = 'Escribe el monto ahorrado.';
 
-/** Metas de ahorro (Dashboard.dc.html, onMetas): progreso y ETA, agregar dinero, cerrar, editar y eliminar. */
+/** Metas de ahorro: en escritorio (web ≥ 600 px) cuadrícula de tarjetas; en el celular, la lista. */
 export default function GoalsScreen() {
+  const desktop = useIsDesktop();
+  return desktop ? <GoalsDesktop /> : <GoalsMobile />;
+}
+
+/** Metas de ahorro (Dashboard.dc.html, onMetas): progreso y ETA, agregar dinero, cerrar, editar y eliminar. */
+function GoalsMobile() {
   const { space } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -293,96 +295,5 @@ function GoalCard({
         />
       </View>
     </Widget>
-  );
-}
-
-/**
- * Contrato «Eliminar una meta» (ARCHITECTURE §6): con aportes de cuentas archivadas muestra el desglose y
- * pide una cuenta ACTIVA de destino; ante `RefundAccountRequiredError` vuelve a pedirla.
- */
-function RemoveGoalSheet({
-  target,
-  onClose,
-  onRefresh,
-}: {
-  target: { goal: GoalView; preview: RefundPreview } | null;
-  onClose: () => void;
-  onRefresh: (goal: GoalView) => void;
-}) {
-  const { space } = useTheme();
-  const { accounts } = useAccounts();
-  const [accountId, setAccountId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  function close() {
-    setAccountId(null);
-    setError(null);
-    onClose();
-  }
-
-  function confirm() {
-    if (!target) return;
-    if (!accountId) {
-      setError(MSG_REFUND_REQUIRED);
-      return;
-    }
-    try {
-      commands.goals.remove(target.goal.id, { refundAccountId: accountId });
-      close();
-    } catch (e) {
-      if (e instanceof RefundAccountRequiredError) {
-        // La cuenta no sirvió (o cambió el desglose): se vuelve a pedir con la vista previa al día.
-        setAccountId(null);
-        setError(MSG_REFUND_REQUIRED);
-        onRefresh(target.goal);
-      } else {
-        setError(errorMessage(e));
-      }
-    }
-  }
-
-  return (
-    <Sheet visible={target !== null} onClose={close} accessibilityLabel="Eliminar meta">
-      {target ? (
-        <View style={{ gap: space[3] }}>
-          <Text variant="h3" accessibilityRole="header">
-            Eliminar meta
-          </Text>
-          <Text variant="bodySm" tone="secondary">
-            {MSG_REFUND_INTRO}
-          </Text>
-          <View style={{ gap: space[1] }}>
-            {target.preview.refunds.map((r) => (
-              <View key={r.accountId} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: space[3] }}>
-                <Text variant="bodySm" style={{ flex: 1 }}>
-                  {r.accountArchived ? `${r.accountName} (${MSG_REFUND_ARCHIVED})` : r.accountName}
-                </Text>
-                <Amount value={r.amountMinor} variant="amountSm" />
-              </View>
-            ))}
-          </View>
-          <Text variant="bodySm" tone="secondary">
-            {MSG_REFUND_PICK}
-          </Text>
-          <AccountPicker
-            label={`Cuenta que recibe ${formatCOP(target.preview.requiresDestinationMinor)}`}
-            accounts={accounts.map((a) => ({ id: a.id, name: a.name, balance: a.availableMinor }))}
-            selectedId={accountId}
-            onSelect={(id) => {
-              setAccountId(id);
-              setError(null);
-            }}
-            emptyText={MSG_NO_ACTIVE_ACCOUNTS}
-          />
-          {error ? (
-            <Text variant="bodySm" tone="debt" accessibilityLiveRegion="polite" accessibilityRole="alert">
-              {error}
-            </Text>
-          ) : null}
-          <Button label="Eliminar meta" variant="danger" size="md" onPress={confirm} />
-          <Button label="Cancelar" variant="ghost" size="md" onPress={close} />
-        </View>
-      ) : null}
-    </Sheet>
   );
 }
