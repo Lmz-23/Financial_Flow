@@ -64,6 +64,11 @@ function writeReloads(count: number): void {
   }
 }
 
+function isFileBusy(error: unknown): boolean {
+  const text = error instanceof Error ? `${error.name} ${error.message}` : String(error);
+  return /NoModificationAllowedError|Access Handle/i.test(text);
+}
+
 async function openOrReload(): Promise<Database> {
   try {
     // Arranca el worker y carga el WASM sin bloquear el hilo principal; la VFS de OPFS toma el
@@ -75,10 +80,9 @@ async function openOrReload(): Promise<Database> {
     return connection;
   } catch (error) {
     const reloads = readReloads();
-    if (typeof window === 'undefined' || reloads >= MAX_RELOADS) {
-      writeReloads(0);
-      throw error;
-    }
+    // Solo se recarga si el archivo está ocupado; cualquier otro fallo sale como error. El contador
+    // no se reinicia al fallar, para que «Reintentar» no vuelva a encadenar recargas.
+    if (typeof window === 'undefined' || !isFileBusy(error) || reloads >= MAX_RELOADS) throw error;
     writeReloads(reloads + 1);
     setTimeout(() => window.location.reload(), RELOAD_DELAY_MS);
     // La pantalla de carga se queda hasta que la página recarga.

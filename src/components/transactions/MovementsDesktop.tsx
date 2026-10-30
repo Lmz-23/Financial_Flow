@@ -71,7 +71,8 @@ export function MovementsDesktop() {
 
   const totals = useMemo(() => activityTotals(items), [items]);
   const rows = useMemo(() => filterActivity(items, filter), [items, filter]);
-  const selected = selectedKey === null ? undefined : items.find((item) => movementKey(item) === selectedKey);
+  // Se busca entre las filas visibles: si el filtro oculta el movimiento abierto, el panel se cierra.
+  const selected = selectedKey === null ? undefined : rows.find((item) => movementKey(item) === selectedKey);
 
   const columns: DataColumn<ActivityItem>[] = [
     {

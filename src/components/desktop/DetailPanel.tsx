@@ -21,11 +21,15 @@ export function DetailPanel({
 }) {
   const { space } = useTheme();
 
-  // Esc cierra el panel (una ventana abierta encima se lo queda antes: ver DesktopDialog).
+  // Esc cierra el panel (una ventana abierta encima se lo queda antes: ver DesktopDialog). Con el
+  // foco en un campo no hace nada, para no perder lo que se está escribiendo en el panel.
   useEffect(() => {
     if (typeof document === 'undefined') return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key !== 'Escape') return;
+      const tag = (document.activeElement?.tagName ?? '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+      onClose();
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
