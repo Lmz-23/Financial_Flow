@@ -30,5 +30,10 @@ if (!fk || fk.foreign_keys !== 1) {
 export const db = drizzle(sqlite, { schema });
 
 export type Database = typeof db;
+
+/** En nativo la conexion ya esta abierta. La variante web (`client.web.ts`) si necesita prepararla. */
+export function prepareDatabase(): Promise<void> {
+  return Promise.resolve();
+}
 export { schema };
 export type { AppDatabase, DbOrTx } from './types';

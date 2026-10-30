@@ -1,5 +1,5 @@
 import { migrate } from 'drizzle-orm/expo-sqlite/migrator';
-import { db } from './client';
+import { db, prepareDatabase } from './client';
 import migrations from './migrations/migrations';
 import { seedDatabase } from './seed';
 
@@ -24,6 +24,7 @@ export function initializeDatabase(): Promise<void> {
 }
 
 async function run(): Promise<void> {
+  await prepareDatabase();
   await migrate(db, migrations);
   seedDatabase(db);
 }

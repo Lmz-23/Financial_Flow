@@ -15,6 +15,9 @@ export default function AppLayout() {
   const { colors } = useTheme();
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surfacePage } }}>
+      {/* El Dashboard va primero: al completar el onboarding, el guard de la raíz redirige a la primera
+          pantalla declarada (en web era la hoja «Ya pagué» sin id: /recurring/undefined/confirm). */}
+      <Stack.Screen name="index" />
       {/* Hoja «Ya pagué» (§6): la presentación debe conocerse al empujar la pantalla, por eso se declara aquí. */}
       <Stack.Screen
         name="recurring/[id]/confirm"
