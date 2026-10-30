@@ -3,6 +3,7 @@ import { ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { RecurringDesktop } from '../../../src/components/recurring/desktop/RecurringDesktop';
 import { ScreenHeader } from '../../../src/components/screens/ScreenHeader';
 import { Amount } from '../../../src/components/ui/ds/Amount';
 import { Button } from '../../../src/components/ui/ds/Button';
@@ -12,6 +13,7 @@ import { PeriodStepper } from '../../../src/components/ui/ds/PeriodStepper';
 import { Pill } from '../../../src/components/ui/ds/Pill';
 import { Text } from '../../../src/components/ui/ds/Text';
 import { addMonthsToYearMonth, parseLocalDate, toLocalDate } from '../../../src/domain/dates';
+import { useIsDesktop } from '../../../src/hooks/useLayoutSize';
 import { useRecurringList } from '../../../src/hooks/useRecurring';
 import { monthYearLabel, shortDateLabel } from '../../../src/lib/dateLabels';
 import { frequencyLabel } from '../../../src/lib/recurringForm';
@@ -62,6 +64,11 @@ function RecurringItemRow({ item, date }: { item: Row; date: string | null }) {
  * Se ve por mes, dividido en 4 semanas (1-7, 8-14, 15-21, 22-fin); los que no tienen fecha van al final.
  */
 export default function RecurringListScreen() {
+  const desktop = useIsDesktop();
+  return desktop ? <RecurringDesktop /> : <RecurringListMobile />;
+}
+
+function RecurringListMobile() {
   const { space } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
