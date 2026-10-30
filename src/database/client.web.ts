@@ -23,6 +23,10 @@ function connect() {
     throw new Error('PRAGMA foreign_keys no quedo activo en la conexion de expo-sqlite.');
   }
 
+  // Lee el archivo ya: abrirlo no lo toca, y si otra pestaña o la página anterior aún lo tiene, el
+  // fallo debe salir aquí (donde `connectOrReload` lo atiende) y no en las migraciones.
+  sqlite.getFirstSync('SELECT count(*) AS n FROM sqlite_master');
+
   return drizzle(sqlite, { schema });
 }
 
@@ -33,12 +37,58 @@ export let db: Database;
 
 let preparing: Promise<void> | undefined;
 
-export function prepareDatabase(): Promise<void> {
-  preparing ??= (async () => {
-    // Arranca el worker y carga el WASM sin bloquear el hilo principal.
+/**
+ * Al recargar o cambiar de dirección, la página anterior puede tener el archivo aún abierto unos
+ * milisegundos y el navegador rechaza la apertura (OPFS: «Access Handles cannot be created if there
+ * is another open Access Handle»). Tras ese fallo, wa-sqlite queda inservible hasta recargar, así
+ * que se recarga la página una vez (dos como máximo seguidas) en vez de mostrar el error.
+ */
+const RELOAD_KEY = 'ff-db-open-reloads';
+const MAX_RELOADS = 2;
+const RELOAD_DELAY_MS = 400;
+
+function readReloads(): number {
+  try {
+    return Number(window.sessionStorage.getItem(RELOAD_KEY) ?? '0');
+  } catch {
+    return MAX_RELOADS; // sin sessionStorage no se puede evitar un bucle: no recargar
+  }
+}
+
+function writeReloads(count: number): void {
+  try {
+    if (count === 0) window.sessionStorage.removeItem(RELOAD_KEY);
+    else window.sessionStorage.setItem(RELOAD_KEY, String(count));
+  } catch {
+    // sin sessionStorage: nada que guardar
+  }
+}
+
+async function openOrReload(): Promise<Database> {
+  try {
+    // Arranca el worker y carga el WASM sin bloquear el hilo principal; la VFS de OPFS toma el
+    // archivo aquí mismo, así que este paso también puede fallar si el archivo está ocupado.
     const warmup = await openDatabaseAsync(':memory:');
     await warmup.closeAsync();
-    db = connect();
+    const connection = connect();
+    writeReloads(0);
+    return connection;
+  } catch (error) {
+    const reloads = readReloads();
+    if (typeof window === 'undefined' || reloads >= MAX_RELOADS) {
+      writeReloads(0);
+      throw error;
+    }
+    writeReloads(reloads + 1);
+    setTimeout(() => window.location.reload(), RELOAD_DELAY_MS);
+    // La pantalla de carga se queda hasta que la página recarga.
+    return new Promise<Database>(() => {});
+  }
+}
+
+export function prepareDatabase(): Promise<void> {
+  preparing ??= (async () => {
+    db = await openOrReload();
   })().catch((error: unknown) => {
     preparing = undefined; // permite reintentar tras un fallo
     throw error;
