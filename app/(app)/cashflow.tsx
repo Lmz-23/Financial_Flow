@@ -3,12 +3,14 @@ import { ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { CashflowDesktop } from '../../src/components/cashflow/CashflowDesktop';
 import { PassiveIncomeHelpSheet, PassiveIncomeInfoButton } from '../../src/components/help/PassiveIncomeHelp';
 import { ScreenHeader } from '../../src/components/screens/ScreenHeader';
 import { Amount, Button, ProgressBar, Text, Widget } from '../../src/components/ui/ds';
 import { SCREEN_MARGIN } from '../../src/components/ui/ds/constants';
 import { describeCashflowIndex, formatCashflowIndex } from '../../src/domain/rules/statement';
 import { useMonthStatement } from '../../src/hooks';
+import { useIsDesktop } from '../../src/hooks/useLayoutSize';
 import {
   LABEL_PASSIVE_INCOME,
   LABEL_TOTAL_EXPENSE,
@@ -31,6 +33,11 @@ export default function CashflowScreen() {
   const statement = useMonthStatement();
   const [helpOpen, setHelpOpen] = useState(false);
   const rows = expenseBreakdownRows(statement);
+  const desktop = useIsDesktop();
+
+  if (desktop) {
+    return <CashflowDesktop statement={statement} onMarkPassive={() => router.push(routes.transactionNewPassive())} />;
+  }
 
   return (
     <View style={{ flex: 1 }}>
