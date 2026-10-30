@@ -2,10 +2,12 @@ import type { ReactNode } from 'react';
 import { KeyboardAvoidingView, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useIsDesktop } from '../../hooks/useLayoutSize';
 import { stepLabel, ONBOARDING_TOTAL_STEPS } from '../../lib/onboardingDraft';
-import { useTheme } from '../../theme';
+import { fontFamilyFor, useTheme } from '../../theme';
 import { useKeyboardVisible } from '../screens/KeyboardScreen';
 import { MIN_TOUCH, SCREEN_MARGIN } from '../ui/ds/constants';
+import { Text } from '../ui/ds/Text';
 import { ChevronLeftIcon } from './icons';
 
 export interface OnboardingScaffoldProps {
@@ -38,6 +40,15 @@ export function OnboardingScaffold({
   const { colors, radius, space } = useTheme();
   const insets = useSafeAreaInsets();
   const keyboardVisible = useKeyboardVisible();
+  const desktop = useIsDesktop();
+
+  if (desktop) {
+    return (
+      <DesktopOnboarding step={step} onBack={onBack} backDisabled={backDisabled} scroll={scroll} footer={footer}>
+        {children}
+      </DesktopOnboarding>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -131,6 +142,132 @@ export function OnboardingScaffold({
         {footer}
       </View>
     </KeyboardAvoidingView>
+  );
+}
+
+/** Nombres de los 4 pasos para la columna izquierda de escritorio. */
+const DESKTOP_STEPS = ['Cuentas', 'Flujo esencial', 'Más opciones', 'Todo listo'] as const;
+
+const DESKTOP_SIDE_WIDTH = 420;
+const DESKTOP_CONTENT_MAX_WIDTH = 720;
+
+/**
+ * Armazón de escritorio (Design/escritorio 2p-2s): columna izquierda de 420 px con la marca y los 4
+ * pasos (el actual resaltado, los anteriores con ✓) y el contenido a la derecha, centrado en vertical
+ * con ancho máximo de 720 px.
+ */
+function DesktopOnboarding({ step, onBack, backDisabled = false, scroll = true, footer, children }: OnboardingScaffoldProps) {
+  const { colors, radius, space } = useTheme();
+  return (
+    <View style={{ flex: 1, flexDirection: 'row', backgroundColor: colors.surfacePage }}>
+      <View
+        style={{
+          width: DESKTOP_SIDE_WIDTH,
+          paddingVertical: space[6],
+          paddingHorizontal: space[6] + 8,
+          gap: 48,
+          backgroundColor: colors.surfaceCard,
+          borderRightWidth: 1,
+          borderRightColor: colors.borderSubtle,
+        }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[3] }}>
+          <View
+            accessibilityElementsHidden
+            importantForAccessibility="no"
+            style={{ width: 28, height: 28, borderRadius: radius.sm, backgroundColor: colors.brandPrimary }}
+          />
+          <Text variant="h3">Financial Flow</Text>
+        </View>
+        <View
+          accessible
+          accessibilityRole="progressbar"
+          accessibilityLabel={stepLabel(step)}
+          accessibilityValue={{ min: 1, max: ONBOARDING_TOTAL_STEPS, now: step, text: stepLabel(step) }}
+          style={{ gap: space[4] }}
+        >
+          {DESKTOP_STEPS.map((label, i) => {
+            const n = i + 1;
+            const current = n === step;
+            const done = n < step;
+            return (
+              <View
+                key={label}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: space[3],
+                  paddingVertical: space[2],
+                  paddingHorizontal: space[3],
+                  borderRadius: radius.sm,
+                  backgroundColor: current ? colors.surfaceRaised : 'transparent',
+                }}
+              >
+                <View
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: radius.full,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderWidth: 1,
+                    borderColor: current || done ? colors.brandPrimary : colors.borderSubtle,
+                    backgroundColor: current ? colors.brandPrimary : 'transparent',
+                  }}
+                >
+                  <Text
+                    variant="label"
+                    style={{
+                      color: current ? colors.inkOnBrand : done ? colors.brandPrimary : colors.inkSecondary,
+                      fontFamily: fontFamilyFor('sans', 600),
+                    }}
+                  >
+                    {done ? '✓' : String(n)}
+                  </Text>
+                </View>
+                <Text
+                  variant="body"
+                  tone={current || done ? 'primary' : 'secondary'}
+                  style={current ? { fontFamily: fontFamilyFor('sans', 600) } : undefined}
+                >
+                  {label}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      </View>
+
+      <ScrollView
+        style={{ flex: 1 }}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: space[6] + 8 }}
+      >
+        <View style={{ width: '100%', maxWidth: DESKTOP_CONTENT_MAX_WIDTH, gap: 28 }}>
+          {onBack ? (
+            <Pressable
+              onPress={onBack}
+              disabled={backDisabled}
+              accessibilityRole="button"
+              accessibilityLabel="Volver"
+              accessibilityState={{ disabled: backDisabled }}
+              style={{
+                width: MIN_TOUCH,
+                height: MIN_TOUCH,
+                marginLeft: -space[3],
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: backDisabled ? 0.4 : 1,
+              }}
+            >
+              <ChevronLeftIcon color={colors.inkPrimary} />
+            </Pressable>
+          ) : null}
+          {scroll ? children : <View style={{ alignItems: 'center', gap: SCREEN_MARGIN }}>{children}</View>}
+          <View style={{ gap: space[3], alignItems: scroll ? 'flex-start' : 'center' }}>{footer}</View>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 

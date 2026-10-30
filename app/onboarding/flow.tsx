@@ -8,10 +8,14 @@ import { Button } from '../../src/components/ui/ds/Button';
 import { Input } from '../../src/components/ui/ds/Input';
 import { MoneyInput } from '../../src/components/ui/ds/MoneyInput';
 import { Text } from '../../src/components/ui/ds/Text';
+import { useIsDesktop } from '../../src/hooks/useLayoutSize';
 import { validateFlowStep, type RecurringErrors, type RecurringKind } from '../../src/lib/onboardingDraft';
 import { routes } from '../../src/navigation/routes';
 import { useOnboardingDraft } from '../../src/store/useOnboardingDraft';
 import { useTheme } from '../../src/theme';
+
+/** Botón principal en escritorio: ~220 px, no a todo el ancho. */
+const DESKTOP_BUTTON = { width: 220 } as const;
 
 interface SectionCopy {
   title: string;
@@ -35,7 +39,16 @@ const SECTIONS: Record<RecurringKind, SectionCopy> = {
   },
 };
 
-function RecurringSection({ kind, errors }: { kind: RecurringKind; errors: RecurringErrors | null }) {
+function RecurringSection({
+  kind,
+  errors,
+  card = false,
+}: {
+  kind: RecurringKind;
+  errors: RecurringErrors | null;
+  /** Escritorio: cada sección es una tarjeta (ingreso y gasto lado a lado). */
+  card?: boolean;
+}) {
   const { colors, radius, space } = useTheme();
   const copy = SECTIONS[kind];
   const entry = useOnboardingDraft((s) => s[kind]);
@@ -43,7 +56,21 @@ function RecurringSection({ kind, errors }: { kind: RecurringKind; errors: Recur
   const dot = copy.tone === 'growth' ? colors.signalGrowth : colors.signalDebt;
 
   return (
-    <View style={{ gap: 14 }}>
+    <View
+      style={[
+        { gap: 14 },
+        card && {
+          flex: 1,
+          minWidth: 0,
+          gap: 16,
+          padding: space[5] + 4,
+          borderRadius: radius.md,
+          borderWidth: 1,
+          borderColor: colors.borderSubtle,
+          backgroundColor: colors.surfaceCard,
+        },
+      ]}
+    >
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[2] }}>
         <View
           accessibilityElementsHidden
@@ -82,6 +109,7 @@ function RecurringSection({ kind, errors }: { kind: RecurringKind; errors: Recur
 export default function OnboardingFlowScreen() {
   const { colors, space } = useTheme();
   const router = useRouter();
+  const desktop = useIsDesktop();
   const income = useOnboardingDraft((s) => s.income);
   const expense = useOnboardingDraft((s) => s.expense);
   const [submitted, setSubmitted] = useState(false);
@@ -96,7 +124,7 @@ export default function OnboardingFlowScreen() {
     <OnboardingScaffold
       step={2}
       onBack={() => router.back()}
-      footer={<Button label="Continuar" onPress={next} />}
+      footer={<Button label="Continuar" onPress={next} fullWidth={!desktop} style={desktop ? DESKTOP_BUTTON : undefined} />}
     >
       <View style={{ gap: space[2] }}>
         <Text variant="h1" accessibilityRole="header">
@@ -106,9 +134,18 @@ export default function OnboardingFlowScreen() {
           Esto es lo mínimo para armar tu panorama. Ajusta los detalles cuando quieras.
         </Text>
       </View>
-      <RecurringSection kind="income" errors={submitted ? result.income : null} />
-      <View style={{ height: 1, backgroundColor: colors.borderSubtle }} />
-      <RecurringSection kind="expense" errors={submitted ? result.expense : null} />
+      {desktop ? (
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: space[5] + 4 }}>
+          <RecurringSection card kind="income" errors={submitted ? result.income : null} />
+          <RecurringSection card kind="expense" errors={submitted ? result.expense : null} />
+        </View>
+      ) : (
+        <>
+          <RecurringSection kind="income" errors={submitted ? result.income : null} />
+          <View style={{ height: 1, backgroundColor: colors.borderSubtle }} />
+          <RecurringSection kind="expense" errors={submitted ? result.expense : null} />
+        </>
+      )}
     </OnboardingScaffold>
   );
 }

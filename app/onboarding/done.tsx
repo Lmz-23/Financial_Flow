@@ -7,6 +7,7 @@ import { BigCheckIcon } from '../../src/components/onboarding/icons';
 import { OnboardingScaffold } from '../../src/components/onboarding/OnboardingScaffold';
 import { Button } from '../../src/components/ui/ds/Button';
 import { Text } from '../../src/components/ui/ds/Text';
+import { useIsDesktop } from '../../src/hooks/useLayoutSize';
 import { createExclusiveRunner, safeErrorLogArgs } from '../../src/lib/errorScreen';
 import {
   classifyCompleteError,
@@ -26,6 +27,7 @@ import { useTheme } from '../../src/theme';
 export default function OnboardingDoneScreen() {
   const { colors, radius, space } = useTheme();
   const router = useRouter();
+  const desktop = useIsDesktop();
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const runner = useMemo(() => createExclusiveRunner(), []);
@@ -83,7 +85,13 @@ export default function OnboardingDoneScreen() {
               {errorMessage}
             </Text>
           ) : null}
-          <Button label="Ir a mi panel" loading={saving} onPress={submit} />
+          <Button
+            label="Ir a mi panel"
+            loading={saving}
+            onPress={submit}
+            fullWidth={!desktop}
+            style={desktop ? { width: 220 } : undefined}
+          />
         </>
       }
     >
