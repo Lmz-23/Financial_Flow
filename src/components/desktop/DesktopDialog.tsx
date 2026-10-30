@@ -19,11 +19,14 @@ export function DesktopDialog({ children, onClose }: { children: ReactNode; onCl
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
+    // En captura y sin propagar: si la ventana está sobre un panel de detalle, Esc cierra solo la ventana.
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key !== 'Escape') return;
+      event.stopPropagation();
+      onClose();
     };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
   }, [onClose]);
 
   return (

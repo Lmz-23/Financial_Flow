@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 
 import { useTheme } from '../../theme';
@@ -20,6 +20,17 @@ export function DetailPanel({
   children: ReactNode;
 }) {
   const { space } = useTheme();
+
+  // Esc cierra el panel (una ventana abierta encima se lo queda antes: ver DesktopDialog).
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   return (
     <View style={{ flex: 1 }}>
       <View
