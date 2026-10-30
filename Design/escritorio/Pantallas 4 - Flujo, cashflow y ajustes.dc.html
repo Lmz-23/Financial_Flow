@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+  <head>
+
+
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <meta name="design_doc_mode" content="canvas" />
+        <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet" />
+        <link rel="stylesheet" href="./escritorio.css" />
+        <style>
+          .chart{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:12px;align-items:end;height:250px;padding-top:12px;border-bottom:1px solid var(--border)}
+          .grp{display:flex;align-items:flex-end;justify-content:center;gap:4px;height:100%;border-radius:8px;position:relative;cursor:pointer}
+          .grp:hover{background:var(--raised)}
+          .grp.on{background:var(--raised);box-shadow:inset 0 0 0 1px var(--border)}
+          .grp.fut{opacity:.35}
+          .b{width:22px;border-radius:4px 4px 0 0}
+          .b.i{background:var(--growth)}
+          .b.o{background:var(--debt)}
+          .xlab{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:12px;font-size:12px;color:var(--ink2);text-align:center;padding-top:8px}
+          .tip{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:var(--ink);color:var(--page);border-radius:8px;padding:8px 12px;font-size:12px;white-space:nowrap;display:flex;flex-direction:column;gap:2px}
+          .cat{display:grid;grid-template-columns:150px minmax(0,1fr) 120px;gap:14px;align-items:center;min-height:36px;font-size:14px}
+          .cbar{height:8px;border-radius:999px;background:var(--debt)}
+          .cbar.g{background:var(--growth)}
+          .cbar.m{background:var(--ink2)}
+          .scale{display:flex;justify-content:space-between;font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink2)}
+          .mini{display:flex;align-items:flex-end;gap:10px;height:90px}
+          .mini div{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11px;color:var(--ink2)}
+          .mini i{display:block;width:100%;border-radius:4px 4px 0 0;background:var(--border)}
+          .mini .now i{background:var(--brand)}
+          .set{width:760px;margin:0 auto;display:flex;flex-direction:column;gap:28px;padding:0 0 40px}
+          .srow{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:16px 0;border-top:1px solid var(--border)}
+          .srow.first{border-top:0}
+          .step{display:flex;align-items:center;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+          .step span{display:flex;align-items:center;justify-content:center;height:36px;min-width:36px;padding:0 10px;font-size:14px}
+          .step .v{font-family:"IBM Plex Mono",monospace;border-left:1px solid var(--border);border-right:1px solid var(--border);min-width:96px}
+          .keys{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px 18px;align-items:center;font-size:14px}
+        </style>
+      </helmet>
+
+      <section class="dv-turn" id="t2" data-screen-label="Flujo, cashflow y ajustes">
+        <div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">Flujo, cashflow y ajustes</span></div>
+        <p class="dv-intro">En escritorio los gráficos usan todo el ancho: el año completo cabe sin desplazarse. El desglose por categoría queda debajo, ingresos y gastos lado a lado.</p>
+        <div class="dv-opts">
+
+          <div class="dv-opt" id="2m">
+            <div class="dv-olabel"><a class="dv-oid" href="#2m">2m</a><b>Detalle del flujo</b> Barras agrupadas por mes, trimestre, semestre o año. Pasar el mouse muestra el tramo; tocarlo filtra el desglose. Los meses futuros salen apagados.</div>
+            <div class="dv-card">
+              <div class="app" data-screen-label="2m Detalle del flujo">
+                <aside class="side"><span class="logo"></span><sc-for list="{{ rFl }}" as="n" hint-placeholder-count="8"><div class="{{ n.cls }}"><b>{{ n.short }}</b><span>{{ n.label }}</span></div></sc-for><span class="grow"></span><div class="ricon"><b>Aj</b><span>Ajustes</span></div></aside>
+                <main class="main">
+                  <div class="top">
+                    <div><div class="hello">Ingresos y gastos</div><h1 class="title">Detalle del flujo</h1></div>
+                    <div class="tools"><div class="seg"><span>Mes</span><span>Trimestre</span><span>Semestre</span><span class="on">Año</span></div><span class="pill">‹</span><span class="pill on">2026</span><span class="pill" style="opacity:.4">›</span></div>
+                  </div>
+                  <div class="pad stack" style="gap:20px">
+                    <div class="w" style="padding:20px 24px">
+                      <div class="fx ac gap40">
+                        <div><div class="lab pos">Ingresos 2026</div><div class="amt-md">$ 61.420.000</div></div>
+                        <div><div class="lab neg">Gastos 2026</div><div class="amt-md">$ 43.875.600</div></div>
+                        <span style="flex:1"></span>
+                        <span class="sm">Seleccionado: octubre</span>
+                      </div>
+                      <div class="chart">
+                        <sc-for list="{{ months }}" as="m" hint-placeholder-count="12">
+                          <div class="{{ m.cls }}"><span class="b i" style="{{ m.hi }}"></span><span class="b o" style="{{ m.ho }}"></span><sc-if value="{{ m.on }}" hint-placeholder-val="{{ false }}"><div class="tip"><b>Octubre 2026</b><span class="mono">+ $ 6.850.000</span><span class="mono">− $ 4.120.300</span></div></sc-if></div>
+                        </sc-for>
+                      </div>
+                      <div class="xlab"><sc-for list="{{ months }}" as="m" hint-placeholder-count="12"><span>{{ m.label }}</span></sc-for></div>
+                    </div>
+                    <div class="fx gap24">
+                      <div class="w" style="flex:1">
+                        <div class="wh">Gastos de octubre<span class="amt-sm neg">$ 4.120.300</span></div>
+                        <div><sc-for list="{{ outCats }}" as="c" hint-placeholder-count="5"><div class="cat"><span>{{ c.name }}</span><div class="{{ c.barCls }}" style="{{ c.w }}"></div><span class="amt-sm r">{{ c.amt }}</span></div></sc-for></div>
+                      </div>
+                      <div class="w" style="flex:1">
+                        <div class="wh">Ingresos de octubre<span class="amt-sm pos">$ 6.850.000</span></div>
+                        <div><sc-for list="{{ inCats }}" as="c" hint-placeholder-count="4"><div class="cat"><span>{{ c.name }}</span><div class="cbar g" style="{{ c.w }}"></div><span class="amt-sm r">{{ c.amt }}</span></div></sc-for></div>
+                      </div>
+                    </div>
+                  </div>
+                </main>
+              </div>
+            </div>
+          </div>
+
+          <div class="dv-opt" id="2n">
+            <div class="dv-olabel"><a class="dv-oid" href="#2n">2n</a><b>Índice de Flujo de Caja</b> El índice grande, el camino al 100 % (libertad financiera), de dónde sale y cómo se calcula.</div>
+            <div class="dv-card">
+              <div class="app" data-screen-label="2n Cashflow">
+                <aside class="side"><span class="logo"></span><sc-for list="{{ rCa }}" as="n" hint-placeholder-count="8"><div class="{{ n.cls }}"><b>{{ n.short }}</b><span>{{ n.label }}</span></div></sc-for><span class="grow"></span><div class="ricon"><b>Aj</b><span>Ajustes</span></div></aside>
+                <main class="main">
+                  <div class="top">
+                    <div><div class="hello">Octubre 2026</div><h1 class="title">Índice de Flujo de Caja</h1></div>
+                    <div class="tools"><button class="btn ghost">Marcar otro ingreso como pasivo</button></div>
+                  </div>
+                  <div class="grid3" style="grid-template-columns:minmax(0,1.5fr) minmax(0,1fr)">
+                    <div class="stack">
+                      <div class="w hero" style="padding:28px;gap:18px">
+                        <div class="fx jb ac"><span class="wh">Cobertura</span><span class="sm">Tu ingreso pasivo cubre el 20 % de tus gastos.</span></div>
+                        <div class="amt-xl" style="font-size:72px;line-height:76px">20 %</div>
+                        <div class="fx col gap8">
+                          <div class="prog" style="height:12px;background:rgba(11,21,18,.25)"><i style="width:20%;background:#0B1512"></i></div>
+                          <div class="scale" style="color:#0B1512"><span>0 %</span><span>25 %</span><span>50 %</span><span>75 %</span><span>100 % · libertad financiera</span></div>
+                        </div>
+                      </div>
+                      <div class="fx gap24">
+                        <div class="w" style="flex:1"><span class="lab pos">Ingreso pasivo del mes</span><div class="amt-lg">$ 842.300</div></div>
+                        <div class="w" style="flex:1"><span class="lab neg">Gasto total del mes</span><div class="amt-lg">$ 4.120.300</div></div>
+                      </div>
+                      <div class="w">
+                        <div class="wh">Últimos 6 meses</div>
+                        <div class="mini"><sc-for list="{{ trend }}" as="t" hint-placeholder-count="6"><div class="{{ t.cls }}"><span class="mono">{{ t.v }}</span><i style="{{ t.h }}"></i><span>{{ t.m }}</span></div></sc-for></div>
+                      </div>
+                    </div>
+                    <div class="stack">
+                      <div class="w">
+                        <div class="wh">Ingresos pasivos de octubre</div>
+                        <div>
+                          <div class="row first"><div><div>Arriendo local</div><div class="sub">27 oct · Arriendos</div></div><span class="amt-sm pos">$ 750.000</span></div>
+                          <div class="row"><div><div>Dividendos CDT</div><div class="sub">24 oct · Inversiones</div></div><span class="amt-sm pos">$ 92.300</span></div>
+                        </div>
+                      </div>
+                      <div class="w flat">
+                        <div class="wh">Cómo se calcula</div>
+                        <div class="mono" style="font-size:14px">ingreso pasivo ÷ gasto total</div>
+                        <div class="sm">Ingreso pasivo es el que llega sin que trabajes por él: arriendos, intereses, dividendos. Cuando llegas al 100 %, ese ingreso paga todos tus gastos del mes.</div>
+                      </div>
+                    </div>
+                  </div>
+                </main>
+              </div>
+            </div>
+          </div>
+
+          <div class="dv-opt" id="2o">
+            <div class="dv-olabel"><a class="dv-oid" href="#2o">2o</a><b>Ajustes</b> Columna centrada; un formulario de pantalla completa sería incómodo. Se suma la lista de atajos de teclado.</div>
+            <div class="dv-card">
+              <div class="app" data-screen-label="2o Ajustes">
+                <aside class="side"><span class="logo"></span><sc-for list="{{ rNone }}" as="n" hint-placeholder-count="8"><div class="{{ n.cls }}"><b>{{ n.short }}</b><span>{{ n.label }}</span></div></sc-for><span class="grow"></span><div class="ricon on"><b>Aj</b><span>Ajustes</span></div></aside>
+                <main class="main" style="overflow:hidden">
+                  <div class="top" style="width:760px;margin:0 auto;padding-left:0;padding-right:0"><h1 class="title">Ajustes</h1></div>
+                  <div class="set">
+                    <div class="w">
+                      <div class="wh">Apariencia</div>
+                      <div class="srow first"><span class="body">Tema</span><div class="seg" style="width:320px"><span>Sistema</span><span>Claro</span><span class="on">Oscuro</span></div></div>
+                    </div>
+                    <div class="w">
+                      <div class="wh">Notificaciones</div>
+                      <div class="srow first"><div><div class="body">Recordatorios de pagos y cobros</div><div class="sm">Dos días antes y el día del vencimiento, como notificación de Windows.</div></div><span class="tg on"></span></div>
+                      <div class="srow"><span class="body">Hora del recordatorio</span><div class="step"><span>−</span><span class="v">8:00 a. m.</span><span>+</span></div></div>
+                      <div class="srow"><div><div class="body">Resumen semanal</div><div class="sm">Cómo te fue con tu flujo cada domingo</div></div><span class="tg"></span></div>
+                    </div>
+                    <div class="w">
+                      <div class="wh">Atajos de teclado</div>
+                      <div class="keys"><span class="kbd">Ctrl N</span><span>Nueva transacción</span><span class="kbd">Ctrl K</span><span>Buscar movimientos</span><span class="kbd">Ctrl Enter</span><span>Guardar la ventana abierta</span><span class="kbd">Esc</span><span>Cerrar ventana o panel</span><span class="kbd">F11</span><span>Pantalla completa</span></div>
+                    </div>
+                  </div>
+                </main>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script data-props='{}'>
+      class Component extends DCLogic {
+        renderVals() {
+          const NAV = [['In', 'Inicio'], ['Mo', 'Movimientos'], ['Cu', 'Cuentas'], ['De', 'Deudas'], ['Me', 'Metas'], ['Re', 'Recurrentes'], ['Fl', 'Flujo'], ['Ca', 'Cashflow']];
+          const rail = (on) => NAV.map(([short, label], i) => ({ short, label, cls: i === on ? 'ricon on' : 'ricon' }));
+          const data = [[5.9, 4.6], [6.1, 3.9], [5.4, 4.8], [6.3, 4.1], [5.8, 4.4], [7.2, 5.1], [5.6, 4.0], [6.0, 4.3], [6.2, 4.5], [6.85, 4.12], [0, 0], [0, 0]];
+          const labels = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+          const px = (v) => 'height:' + Math.round((v / 7.5) * 230) + 'px';
+          const months = data.map(([i, o], k) => ({
+            label: labels[k], hi: px(i), ho: px(o), on: k === 9,
+            cls: k === 9 ? 'grp on' : k > 9 ? 'grp fut' : 'grp',
+          }));
+          const cat = (name, amt, p, barCls) => ({ name, amt, w: 'width:' + p + '%', barCls: barCls || 'cbar' });
+          const outCats = [
+            cat('Vivienda', '$ 1.450.000', 100), cat('Mercado', '$ 742.600', 51), cat('Pagos de deuda', '$ 480.000', 33),
+            cat('Transporte', '$ 403.900', 28), cat('Servicios', '$ 312.200', 22), cat('Metas cumplidas', '$ 0', 0, 'cbar m'),
+            cat('Otros', '$ 589.900', 41), cat('Sin categoría', '$ 141.700', 10, 'cbar m'),
+          ];
+          const inCats = [cat('Trabajo', '$ 4.600.000', 100), cat('Ventas', '$ 1.407.700', 31), cat('Arriendos', '$ 750.000', 16), cat('Inversiones', '$ 92.300', 2)];
+          const trend = [['May', 9], ['Jun', 11], ['Jul', 12], ['Ago', 15], ['Sep', 17], ['Oct', 20]]
+            .map(([m, v], i) => ({ m, v: v + ' %', h: 'height:' + v * 3 + 'px', cls: i === 5 ? 'now' : '' }));
+          return { rFl: rail(6), rCa: rail(7), rNone: rail(-1), months, outCats, inCats, trend };
+        }
+      }
+    </script>
+  </body>
+</html>

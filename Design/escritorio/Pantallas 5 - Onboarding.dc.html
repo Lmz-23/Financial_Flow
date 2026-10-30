@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+  <head>
+
+
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <meta name="design_doc_mode" content="canvas" />
+        <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet" />
+        <link rel="stylesheet" href="./escritorio.css" />
+        <style>
+          .ob{grid-template-columns:420px minmax(0,1fr)}
+          .obside{display:flex;flex-direction:column;gap:28px;padding:56px 48px;background:var(--card);border-right:1px solid var(--border)}
+          .obbrand{display:flex;align-items:center;gap:12px;font-size:18px;font-weight:600}
+          .obbrand .logo{margin:0}
+          .steps{display:flex;flex-direction:column;gap:6px}
+          .st{display:flex;align-items:center;gap:14px;padding:12px 14px;border-radius:10px;font-size:15px;color:var(--ink2)}
+          .st i{width:28px;height:28px;border-radius:999px;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-style:normal;font-family:"IBM Plex Mono",monospace;font-size:13px;flex:none;box-sizing:border-box}
+          .st.on{background:var(--raised);color:var(--ink);font-weight:600}
+          .st.on i{border-color:var(--brand);background:var(--brand);color:var(--onbrand)}
+          .st.ok i{border-color:var(--brand);color:var(--brand)}
+          .obmain{display:flex;flex-direction:column;justify-content:center;padding:56px 96px;gap:28px;min-width:0}
+          .display{font-size:40px;line-height:44px;font-weight:600;margin:0;text-wrap:balance}
+          .lead{font-size:15px;line-height:22px;color:var(--ink2);max-width:560px;margin:10px 0 0;text-wrap:pretty}
+          .acc{display:flex;align-items:center;gap:16px;padding:16px 18px;border:1px solid var(--border);border-radius:14px;background:var(--card)}
+          .opt3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+          .optc{display:flex;flex-direction:column;gap:12px;padding:22px;border:1px solid var(--border);border-radius:14px;background:var(--card)}
+          .optc.on{border-color:var(--brand)}
+          .sw{width:12px;height:12px;border-radius:3px}
+          .actions{display:flex;align-items:center;gap:16px}
+        </style>
+      </helmet>
+
+      <section class="dv-turn" id="t2" data-screen-label="Onboarding">
+        <div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">Onboarding</span></div>
+        <p class="dv-intro">Los mismos 4 pasos del celular. En escritorio los pasos quedan visibles a la izquierda y el contenido usa el ancho para poner lado a lado lo que en el celular va apilado.</p>
+        <div class="dv-opts">
+
+          <div class="dv-opt" id="2p">
+            <div class="dv-olabel"><a class="dv-oid" href="#2p">2p</a><b>Paso 1 · Cuentas</b></div>
+            <div class="dv-card">
+              <div class="app ob" data-screen-label="2p Onboarding cuentas">
+                <aside class="obside"><div class="obbrand"><span class="logo"></span>Financial Flow</div><div class="steps"><sc-for list="{{ s1 }}" as="s" hint-placeholder-count="4"><div class="{{ s.cls }}"><i>{{ s.n }}</i>{{ s.label }}</div></sc-for></div></aside>
+                <div class="obmain">
+                  <div><h1 class="display">¿Dónde tienes tu dinero?</h1><p class="lead">Agrega al menos una cuenta o tu efectivo para empezar a ver tu panorama.</p></div>
+                  <div class="fx col gap12" style="max-width:640px">
+                    <div class="acc"><span class="sw" style="background:var(--brand)"></span><div style="flex:1"><div class="body">Efectivo</div><div class="sm">Cuenta en mano</div></div><span class="amt-sm">$ 185.000</span><span class="x">⋯</span></div>
+                    <div class="acc"><span class="sw" style="background:var(--brand)"></span><div style="flex:1"><div class="body">Bancolombia</div><div class="sm">Cuenta de ahorros</div></div><span class="amt-sm">$ 3.420.000</span><span class="x">⋯</span></div>
+                    <div class="dashed">+ Agregar otra cuenta</div>
+                  </div>
+                  <div class="fx col gap8"><span class="lab">Accesos rápidos</span><div class="chips"><span class="chip">+ Cuenta de ahorros</span><span class="chip">+ Cuenta corriente</span><span class="chip">+ Billetera digital</span></div></div>
+                  <div class="actions"><button class="btn lg" style="width:220px">Continuar</button></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="dv-opt" id="2q">
+            <div class="dv-olabel"><a class="dv-oid" href="#2q">2q</a><b>Paso 2 · Flujo esencial</b> Ingreso y gasto principales, lado a lado.</div>
+            <div class="dv-card">
+              <div class="app ob" data-screen-label="2q Onboarding flujo">
+                <aside class="obside"><div class="obbrand"><span class="logo"></span>Financial Flow</div><div class="steps"><sc-for list="{{ s2 }}" as="s" hint-placeholder-count="4"><div class="{{ s.cls }}"><i>{{ s.n }}</i>{{ s.label }}</div></sc-for></div></aside>
+                <div class="obmain">
+                  <div><h1 class="display">¿Cómo se mueve tu dinero?</h1><p class="lead">Esto es lo mínimo para armar tu panorama. Ajusta los detalles cuando quieras.</p></div>
+                  <div class="two" style="gap:24px">
+                    <div class="w" style="gap:16px;padding:24px">
+                      <div class="fx ac gap8"><span class="sw" style="background:var(--growth)"></span><span class="lab pos">Ingreso recurrente</span></div>
+                      <div class="field"><span class="body">¿Cómo entra tu dinero?</span><div class="inp focus">Sueldo</div></div>
+                      <div class="field"><span class="lab">Monto aproximado</span><div class="inp mono">$ 4.600.000</div></div>
+                      <div class="seg"><span class="on">Mensual</span><span>Quincenal</span><span>Semanal</span></div>
+                    </div>
+                    <div class="w" style="gap:16px;padding:24px">
+                      <div class="fx ac gap8"><span class="sw" style="background:var(--debt)"></span><span class="lab neg">Gasto recurrente</span></div>
+                      <div class="field"><span class="body">¿En qué se te va la mayor parte?</span><div class="inp ph">Ej. Arriendo, servicios</div></div>
+                      <div class="field"><span class="lab">Monto aproximado</span><div class="inp mono ph">$ 0</div></div>
+                      <div class="seg"><span class="on">Mensual</span><span>Quincenal</span><span>Semanal</span></div>
+                    </div>
+                  </div>
+                  <div class="actions"><button class="btn lg" style="width:220px">Continuar</button><button class="btn text">‹ Volver</button></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="dv-opt" id="2r">
+            <div class="dv-olabel"><a class="dv-oid" href="#2r">2r</a><b>Paso 3 · Más opciones</b> Los tres widgets opcionales en una fila; activar es instantáneo.</div>
+            <div class="dv-card">
+              <div class="app ob" data-screen-label="2r Onboarding opciones">
+                <aside class="obside"><div class="obbrand"><span class="logo"></span>Financial Flow</div><div class="steps"><sc-for list="{{ s3 }}" as="s" hint-placeholder-count="4"><div class="{{ s.cls }}"><i>{{ s.n }}</i>{{ s.label }}</div></sc-for></div></aside>
+                <div class="obmain">
+                  <div><h1 class="display">¿Quieres ir más allá?</h1><p class="lead">Actívalo si te sirve ahora. Si no, lo encuentras después en tu panel; nunca se pierde nada de lo que ya cargaste.</p></div>
+                  <div class="opt3">
+                    <div class="optc on"><div class="fx jb ac"><span class="sw" style="background:var(--brand)"></span><span class="tg on"></span></div><div class="h2">Índice de Flujo de Caja</div><div class="sm">Mide qué tanto de tus gastos ya cubre tu ingreso pasivo.</div></div>
+                    <div class="optc"><div class="fx jb ac"><span class="sw" style="background:var(--debt)"></span><span class="tg"></span></div><div class="h2">Deudas</div><div class="sm">Tarjetas y préstamos, con proyección de pago automática.</div></div>
+                    <div class="optc on"><div class="fx jb ac"><span class="sw" style="background:var(--goal)"></span><span class="tg on"></span></div><div class="h2">Metas de ahorro</div><div class="sm">Ponle número y fecha a lo que estás ahorrando.</div></div>
+                  </div>
+                  <div class="actions"><button class="btn lg" style="width:220px">Continuar</button><button class="btn text">Prefiero explorarlo yo mismo</button></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="dv-opt" id="2s">
+            <div class="dv-olabel"><a class="dv-oid" href="#2s">2s</a><b>Paso 4 · Todo listo</b></div>
+            <div class="dv-card">
+              <div class="app ob" data-screen-label="2s Onboarding listo">
+                <aside class="obside"><div class="obbrand"><span class="logo"></span>Financial Flow</div><div class="steps"><sc-for list="{{ s4 }}" as="s" hint-placeholder-count="4"><div class="{{ s.cls }}"><i>{{ s.n }}</i>{{ s.label }}</div></sc-for></div></aside>
+                <div class="obmain">
+                  <div><h1 class="display">Todo listo</h1><p class="lead">Ya puedes empezar a registrar tus movimientos. Actívate cuando quieras más; nunca pierdes lo que ya armaste.</p></div>
+                  <div class="fx gap16" style="max-width:720px">
+                    <div class="w" style="flex:1"><span class="lab">Cuentas</span><div class="amt-md">$ 3.605.000</div><span class="sm">2 cuentas</span></div>
+                    <div class="w" style="flex:1"><span class="lab pos">Ingreso del mes</span><div class="amt-md">$ 4.600.000</div><span class="sm">Sueldo, mensual</span></div>
+                    <div class="w" style="flex:1"><span class="lab">Widgets activos</span><div class="body" style="font-weight:600">Índice y Metas</div><span class="sm">Deudas, cuando quieras</span></div>
+                  </div>
+                  <div class="actions"><button class="btn lg" style="width:220px">Ir a mi panel</button></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script data-props='{}'>
+      class Component extends DCLogic {
+        renderVals() {
+          const STEPS = ['Cuentas', 'Flujo esencial', 'Más opciones', 'Todo listo'];
+          const at = (cur) => STEPS.map((label, i) => ({ label, n: i < cur ? '✓' : String(i + 1), cls: i === cur ? 'st on' : i < cur ? 'st ok' : 'st' }));
+          return { s1: at(0), s2: at(1), s3: at(2), s4: at(3) };
+        }
+      }
+    </script>
+  </body>
+</html>

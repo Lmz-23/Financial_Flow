@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html>
+  <head>
+
+
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <meta name="design_doc_mode" content="canvas" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet" />
+        <style>
+          body{margin:0;background:#E6E9E7;font-family:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif;color:#0E211C}
+          a{color:#0B3B36}
+          a:hover{color:#1E8F5D}
+          .dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(0,0,0,.08)}
+          .dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 8px}
+          .dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px;text-decoration:none}
+          .dv-tname{font:600 15px/1.2 "IBM Plex Sans",sans-serif;color:#1a1a1a}
+          .dv-intro{max-width:880px;margin:0 0 24px;font:14px/1.55 "IBM Plex Sans",sans-serif;color:rgba(0,0,0,.62);text-wrap:pretty}
+          .dv-group{font:600 12px/1 "IBM Plex Sans",sans-serif;color:rgba(0,0,0,.5);margin:8px 0 14px}
+          .dv-opts{display:flex;flex-wrap:wrap;gap:36px;align-items:flex-start;margin-bottom:40px}
+          .dv-opt{flex:none;display:flex;flex-direction:column;gap:9px}
+          .dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1a1a1a;border-radius:5px;text-decoration:none}
+          .dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 12px/1.3 "IBM Plex Sans",sans-serif;color:rgba(0,0,0,.6);max-width:1440px}
+          .dv-card{background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);overflow:hidden}
+          .dv-opt:target .dv-oid{background:#2a78d6;color:#fff}
+          .dv-next{margin:0;font:13px/1.5 "IBM Plex Sans",sans-serif;color:rgba(0,0,0,.55)}
+
+          .app{--page:#F3F6F4;--card:#FFFFFF;--raised:#E9EFEC;--border:#D7E0DB;--ink:#0E211C;--ink2:#51645D;--onbrand:#F3FBF8;--brand:#0B3B36;--growth:#1E8F5D;--debt:#B5472E;--goal:#A97723;width:1440px;height:900px;display:grid;grid-template-columns:232px minmax(0,1fr);background:var(--page);color:var(--ink);font-family:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif;overflow:hidden}
+          .app.dark{--page:#0B1512;--card:#121F1A;--raised:#182A23;--border:#27392F;--ink:#EAF2EE;--ink2:#9EB3AB;--onbrand:#0B1512;--brand:#4FC9A8;--growth:#4FD399;--debt:#E08465;--goal:#D9A94E}
+          .app.rail{grid-template-columns:72px minmax(0,1fr)}
+          .side{display:flex;flex-direction:column;gap:4px;padding:24px 16px;background:var(--card);border-right:1px solid var(--border)}
+          .brandmark{display:flex;align-items:center;gap:10px;padding:0 8px 24px;font-weight:600;font-size:16px}
+          .logo{width:28px;height:28px;border-radius:8px;background:var(--brand);flex:none}
+          .nav{display:flex;align-items:center;gap:12px;height:40px;padding:0 12px;border-radius:8px;font-size:14px;color:var(--ink2);cursor:pointer}
+          .nav:hover{background:var(--raised);color:var(--ink)}
+          .nav.on{background:var(--brand);color:var(--onbrand);font-weight:600}
+          .nav .dot{width:8px;height:8px;border-radius:2px;background:currentColor;opacity:.55;flex:none}
+          .nav.on .dot{opacity:1}
+          .navsep{height:1px;background:var(--border);margin:12px 8px}
+          .navlab{font-size:12px;font-weight:500;color:var(--ink2);padding:8px 12px 4px}
+          .side .grow{flex:1}
+          .rail .side{padding:24px 12px;align-items:center}
+          .rail .brandmark{padding:0 0 24px}
+          .ricon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:var(--ink2);cursor:pointer}
+          .ricon:hover{background:var(--raised)}
+          .ricon.on{background:var(--brand);color:var(--onbrand)}
+
+          .main{display:flex;flex-direction:column;min-width:0;overflow:hidden}
+          .top{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding:32px 40px 24px}
+          .hello{font-size:13px;line-height:18px;color:var(--ink2)}
+          .title{font-size:28px;line-height:34px;font-weight:600;margin:2px 0 0}
+          .tools{display:flex;align-items:center;gap:12px}
+          .search{display:flex;align-items:center;gap:8px;width:260px;height:40px;padding:0 12px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--ink2);font-size:14px}
+          .kbd{font-family:"IBM Plex Mono",monospace;font-size:11px;padding:2px 6px;border-radius:4px;border:1px solid var(--border);color:var(--ink2)}
+          .btn{display:flex;align-items:center;gap:10px;height:40px;padding:0 16px;border-radius:8px;background:var(--brand);color:var(--onbrand);font-size:14px;font-weight:600;border:0;cursor:pointer}
+          .btn .kbd{border-color:rgba(255,255,255,.3);color:inherit;opacity:.8}
+          .dark .btn .kbd{border-color:rgba(0,0,0,.3)}
+          .btn.ghost{background:var(--card);color:var(--ink);border:1px solid var(--border)}
+          .btn.danger{background:transparent;color:var(--debt);border:1px solid var(--border)}
+          .pill{display:flex;align-items:center;height:32px;padding:0 14px;border-radius:999px;font-size:13px;color:var(--ink2);border:1px solid var(--border);background:var(--card);cursor:pointer}
+          .pill.on{background:var(--ink);color:var(--page);border-color:var(--ink)}
+
+          .w{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:14px;min-width:0}
+          .w.hero{background:var(--brand);border-color:var(--brand);color:var(--onbrand);border-radius:22px}
+          .w.hero .wh,.w.hero .sm{color:var(--onbrand)}
+          .wh{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:16px;line-height:22px;font-weight:600}
+          .wh .acts{display:flex;gap:8px;align-items:center}
+          .circ{width:26px;height:26px;border-radius:999px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--ink2);font-size:15px;font-weight:400}
+          .x{color:var(--ink2);font-size:16px;font-weight:400;opacity:.7}
+          .hero .x{color:var(--onbrand)}
+          .sm{font-size:13px;line-height:18px;color:var(--ink2);text-wrap:pretty}
+          .lab{font-size:12px;line-height:16px;font-weight:500;color:var(--ink2)}
+          .link{font-size:13px;font-weight:600;color:var(--brand);cursor:pointer;align-self:flex-start}
+          .hero .link{color:var(--onbrand);text-decoration:underline;text-underline-offset:3px}
+          .mono{font-family:"IBM Plex Mono","SFMono-Regular",Consolas,monospace;font-variant-numeric:tabular-nums}
+          .amt-lg{font-family:"IBM Plex Mono",monospace;font-size:28px;line-height:32px;font-weight:500}
+          .amt-xl{font-family:"IBM Plex Mono",monospace;font-size:40px;line-height:44px;font-weight:500}
+          .amt-md{font-family:"IBM Plex Mono",monospace;font-size:18px;line-height:24px;font-weight:500}
+          .amt-sm{font-family:"IBM Plex Mono",monospace;font-size:14px;line-height:20px}
+          .pos{color:var(--growth)}
+          .neg{color:var(--debt)}
+          .g-growth{color:var(--growth)}
+          .g-debt{color:var(--debt)}
+          .row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;border-top:1px solid var(--border);font-size:15px}
+          .row:first-of-type{border-top:0}
+          .row .sub{font-size:13px;color:var(--ink2)}
+          .bar{display:flex;gap:4px;height:8px;border-radius:999px;overflow:hidden}
+          .bar .i{background:var(--growth)}
+          .bar .o{background:var(--debt)}
+          .tag{font-size:12px;font-weight:500;padding:2px 8px;border-radius:999px;background:var(--raised);color:var(--ink2)}
+          .tag.late{background:color-mix(in oklch,var(--debt) 14%,var(--card));color:var(--debt)}
+          .tag.pas{background:color-mix(in oklch,var(--growth) 14%,var(--card));color:var(--growth)}
+          .invite{display:flex;align-items:center;gap:12px;padding:14px 16px;border:1.5px dashed var(--border);border-radius:8px;font-size:14px;color:var(--ink2)}
+          .invite .sw{width:10px;height:10px;border-radius:3px;flex:none}
+
+          .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;padding:0 40px 40px;align-items:start}
+          .span2{grid-column:span 2}
+          .stack{display:flex;flex-direction:column;gap:24px;min-width:0}
+
+          .withrail{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px;padding:0 40px 40px;min-height:0;flex:1}
+          .agenda{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:12px}
+          .wk{display:flex;gap:4px}
+          .wk span{flex:1;text-align:center;font-size:12px;padding:6px 0;border-radius:6px;color:var(--ink2);background:var(--raised)}
+          .wk span.on{background:var(--brand);color:var(--onbrand);font-weight:600}
+          .ag{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--border)}
+          .ag .d{font-family:"IBM Plex Mono",monospace;font-size:13px;color:var(--ink2);text-align:center;line-height:16px}
+          .ag .d b{display:block;font-size:18px;line-height:22px;color:var(--ink);font-weight:500}
+          .band{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:24px}
+          .kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}
+
+          .split{display:grid;grid-template-columns:420px minmax(0,1fr);flex:1;min-height:0;border-top:1px solid var(--border)}
+          .list{border-right:1px solid var(--border);overflow:hidden;background:var(--card);display:flex;flex-direction:column}
+          .filters{display:flex;gap:8px;padding:16px 20px;border-bottom:1px solid var(--border);align-items:center}
+          .day{font-size:12px;font-weight:500;color:var(--ink2);padding:14px 20px 6px;background:var(--page);border-bottom:1px solid var(--border)}
+          .tx{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;padding:12px 20px;border-bottom:1px solid var(--border);cursor:pointer}
+          .tx:hover{background:var(--raised)}
+          .tx.on{background:var(--raised);box-shadow:inset 3px 0 0 var(--brand)}
+          .tx .n{font-size:15px;line-height:20px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+          .tx .m{font-size:13px;color:var(--ink2)}
+          .detail{padding:40px 56px;display:flex;flex-direction:column;gap:28px;overflow:hidden}
+          .dl{display:grid;grid-template-columns:180px minmax(0,1fr);border:1px solid var(--border);border-radius:14px;background:var(--card);overflow:hidden}
+          .dl div{padding:14px 20px;border-top:1px solid var(--border);font-size:15px}
+          .dl div:nth-child(-n+2){border-top:0}
+          .dl .k{color:var(--ink2);font-size:13px;display:flex;align-items:center}
+
+          .ledger{margin:0 40px;border:1px solid var(--border);border-radius:14px;background:var(--card);overflow:hidden}
+          .lrow{display:grid;grid-template-columns:96px minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr) 160px;gap:16px;align-items:center;padding:0 20px;height:48px;border-top:1px solid var(--border);font-size:14px;cursor:pointer}
+          .lrow:hover{background:var(--raised)}
+          .lrow.head{height:40px;border-top:0;background:var(--raised);font-size:12px;font-weight:500;color:var(--ink2);cursor:default}
+          .lrow.on{background:color-mix(in oklch,var(--brand) 8%,var(--card))}
+          .r{text-align:right}
+          .strip{display:flex;gap:40px;padding:0 40px 20px;align-items:flex-end}
+          .drawer{position:absolute;top:0;right:0;bottom:0;width:400px;background:var(--card);border-left:1px solid var(--border);box-shadow:-8px 0 24px rgba(14,33,28,.12);padding:32px;display:flex;flex-direction:column;gap:20px}
+        </style>
+      </helmet>
+
+      <section class="dv-turn" id="t1" data-screen-label="Ronda 1">
+        <div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Financial Flow en escritorio (Windows, 1440 × 900)</span></div>
+        <p class="dv-intro">Mismo sistema de diseño de la app: IBM Plex Sans y Plex Mono para montos, verde de marca, terracota para gasto y deuda, widgets sin sombra. Lo nuevo es la estructura: menú lateral fijo, contenido en columnas y formularios en ventana centrada. El celular no cambia. Datos de ejemplo.</p>
+
+        <div class="dv-group">Dashboard</div>
+        <div class="dv-opts">
+          <div class="dv-opt" id="1a">
+            <div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>Cuadrícula de 3 columnas. Los mismos widgets del celular, acomodados por ancho.</div>
+            <div class="dv-card">
+              <div class="app" data-screen-label="1a Dashboard cuadrícula">
+                <aside class="side">
+                  <div class="brandmark"><span class="logo"></span>Financial Flow</div>
+                  <sc-for list="{{ nav }}" as="n" hint-placeholder-count="7">
+                    <div class="{{ n.cls }}"><span class="dot"></span>{{ n.label }}</div>
+                  </sc-for>
+                  <div class="grow"></div>
+                  <div class="nav"><span class="dot"></span>Ajustes</div>
+                </aside>
+                <main class="main">
+                  <div class="top">
+                    <div><div class="hello">Hola</div><h1 class="title">Tu panorama</h1></div>
+                    <div class="tools"><div class="search">Buscar movimientos<span style="flex:1"></span><span class="kbd">Ctrl K</span></div><button class="btn">+ Nueva transacción<span class="kbd">Ctrl N</span></button></div>
+                  </div>
+                  <div class="grid3">
+                    <div class="stack">
+                      <div class="w">
+                        <div class="wh">Resumen de cuentas<span class="circ">+</span></div>
+                        <div class="amt-lg">$ 4.217.500</div>
+                        <div>
+                          <sc-for list="{{ accounts }}" as="a" hint-placeholder-count="3">
+                            <div class="row"><span>{{ a.name }}</span><span class="amt-sm">{{ a.amt }}</span></div>
+                          </sc-for>
+                        </div>
+                      </div>
+                      <div class="w hero">
+                        <div class="wh">Índice de Flujo de Caja<span class="x">×</span></div>
+                        <div class="amt-xl">18 %</div>
+                        <div class="sm">Tu ingreso pasivo cubre el 18 % de tus gastos del mes.</div>
+                        <span class="link">Ver detalle</span>
+                      </div>
+                    </div>
+                    <div class="stack">
+                      <div class="w">
+                        <div class="wh">Flujo del mes</div>
+                        <div class="bar"><span class="i" style="width:62%"></span><span class="o" style="width:38%"></span></div>
+                        <div class="fx jb ac"><div><div class="lab g-growth">Ingresos</div><div class="amt-md">$ 6.850.000</div></div><div style="text-align:right"><div class="lab g-debt">Gastos</div><div class="amt-md">$ 4.120.300</div></div></div>
+                        <span class="link">Ver detalles</span>
+                      </div>
+                      <div class="w">
+                        <div class="wh">Movimientos recientes</div>
+                        <div>
+                          <sc-for list="{{ recent }}" as="t" hint-placeholder-count="4">
+                            <div class="row"><div><div>{{ t.name }}</div><div class="sub">{{ t.meta }}</div></div><span class="{{ t.cls }}">{{ t.amt }}</span></div>
+                          </sc-for>
+                        </div>
+                        <span class="link">Ver todas</span>
+                      </div>
+                    </div>
+                    <div class="stack">
+                      <div class="w">
+                        <div class="wh">Próximos pagos<span class="circ">+</span></div>
+                        <div>
+                          <sc-for list="{{ upcoming }}" as="u" hint-placeholder-count="3">
+                            <div class="row"><div><div>{{ u.name }}</div><div class="sub"><span class="{{ u.tagCls }}">{{ u.when }}</span></div></div><span class="amt-sm">{{ u.amt }}</span></div>
+                          </sc-for>
+                        </div>
+                        <span class="link">Ver todos</span>
+                      </div>
+                      <div class="w">
+                        <div class="wh">Deudas<span class="x">×</span></div>
+                        <div class="amt-md">$ 8.940.000</div>
+                        <span class="link">Ver todas</span>
+                      </div>
+                      <div class="w">
+                        <div class="wh">Metas de ahorro<span class="x">×</span></div>
+                        <div class="sm">2 metas activas</div>
+                        <span class="link">Ver todas</span>
+                      </div>
+                    </div>
+                  </div>
+                </main>
+              </div>
+            </div>
+          </div>
+
+          <div class="dv-opt" id="1b">
+            <div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>Cifras clave arriba y «Próximos pagos» como agenda fija a la derecha, con la semana actual marcada (1-7, 8-14, 15-21, 22-fin).</div>
+            <div class="dv-card">
+              <div class="app" data-screen-label="1b Dashboard con agenda">
+                <aside class="side">
+                  <div class="brandmark"><span class="logo"></span>Financial Flow</div>
+                  <sc-for list="{{ nav }}" as="n" hint-placeholder-count="7">
+                    <div class="{{ n.cls }}"><span class="dot"></span>{{ n.label }}</div>
+                  </sc-for>
+                  <div class="grow"></div>
+                  <div class="nav"><span class="dot"></span>Ajustes</div>
+                </aside>
+                <main class="main">
+                  <div class="top">
+                    <div><div class="hello">Octubre 2026</div><h1 class="title">Tu panorama</h1></div>
+                    <div class="tools"><button class="btn">+ Nueva transacción<span class="kbd">Ctrl N</span></button></div>
+                  </div>
+                  <div class="withrail">
+                    <div class="stack">
+                      <div class="band">
+                        <div class="w">
+                          <div class="wh">Disponible en cuentas<span class="circ">+</span></div>
+                          <div class="amt-xl">$ 4.217.500</div>
+                          <div class="kpis">
+                            <sc-for list="{{ accounts }}" as="a" hint-placeholder-count="3">
+                              <div><div class="lab">{{ a.name }}</div><div class="amt-sm">{{ a.amt }}</div></div>
+                            </sc-for>
+                          </div>
+                        </div>
+                        <div class="w hero">
+                          <div class="wh">Índice de Flujo de Caja<span class="x">×</span></div>
+                          <div class="amt-xl">18 %</div>
+                          <div class="sm">Tu ingreso pasivo cubre el 18 % de tus gastos del mes.</div>
+                          <span class="link">Ver detalle</span>
+                        </div>
+                      </div>
+                      <div class="w">
+                        <div class="wh">Flujo del mes<span class="link">Ver detalles</span></div>
+                        <div class="fx ac gap24">
+                          <div style="min-width:180px"><div class="lab g-growth">Ingresos</div><div class="amt-md">$ 6.850.000</div></div>
+                          <div class="bar" style="flex:1"><span class="i" style="width:62%"></span><span class="o" style="width:38%"></span></div>
+                          <div style="min-width:180px;text-align:right"><div class="lab g-debt">Gastos</div><div class="amt-md">$ 4.120.300</div></div>
+                        </div>
+                      </div>
+                      <div class="band" style="grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)">
+                        <div class="w">
+                          <div class="wh">Movimientos recientes<span class="link">Ver todas</span></div>
+                          <div>
+                            <sc-for list="{{ recent }}" as="t" hint-placeholder-count="4">
+                              <div class="row"><div><div>{{ t.name }}</div><div class="sub">{{ t.meta }}</div></div><span class="{{ t.cls }}">{{ t.amt }}</span></div>
+                            </sc-for>
+                          </div>
+                        </div>
+                        <div class="stack">
+                          <div class="w"><div class="wh">Deudas<span class="x">×</span></div><div class="amt-md">$ 8.940.000</div><span class="link">Ver todas</span></div>
+                          <div class="w"><div class="wh">Metas de ahorro<span class="x">×</span></div><div class="sm">2 metas activas</div><span class="link">Ver todas</span></div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="agenda">
+                      <div class="wh">Próximos pagos<span class="circ">+</span></div>
+                      <div class="wk"><span>1-7</span><span>8-14</span><span>15-21</span><span class="on">22-31</span></div>
+                      <div>
+                        <sc-for list="{{ upcoming }}" as="u" hint-placeholder-count="3">
+                          <div class="ag"><div class="d"><b>{{ u.day }}</b>{{ u.mon }}</div><div><div style="font-size:15px">{{ u.name }}</div><span class="{{ u.tagCls }}">{{ u.state }}</span></div><span class="amt-sm">{{ u.amt }}</span></div>
+                        </sc-for>
+                      </div>
+                      <div class="grow"></div>
+                      <div class="sm">Los vencidos de semanas pasadas siguen aquí hasta que los marques como pagados.</div>
+                      <span class="link">Ver todos</span>
+                    </div>
+                  </div>
+                </main>
+              </div>
+            </div>
+          </div>
+
+          <div class="dv-opt" id="1c">
+            <div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>Modo oscuro con menú compacto de íconos. Más espacio para los datos; los movimientos recientes se leen como estado de cuenta.</div>
+            <div class="dv-card">
+              <div class="app dark rail" data-screen-label="1c Dashboard oscuro compacto">
+                <aside class="side">
+                  <div class="brandmark"><span class="logo"></span></div>
+                  <sc-for list="{{ rail }}" as="n" hint-placeholder-count="7">
+                    <div class="{{ n.cls }}" title="{{ n.label }}">{{ n.short }}</div>
+                  </sc-for>
+                  <div class="grow"></div>
+                  <div class="ricon" title="Ajustes">Aj</div>
+                </aside>
+                <main class="main">
+                  <div class="top">
+                    <div><div class="hello">Hola</div><h1 class="title">Tu panorama</h1></div>
+                    <div class="tools"><div class="search">Buscar movimientos<span style="flex:1"></span><span class="kbd">Ctrl K</span></div><button class="btn">+ Nueva transacción<span class="kbd">Ctrl N</span></button></div>
+                  </div>
+                  <div class="grid3" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.15fr)">
+                    <div class="w hero">
+                      <div class="wh">Índice de Flujo de Caja<span class="x">×</span></div>
+                      <div class="amt-xl">18 %</div>
+                      <div class="sm">Tu ingreso pasivo cubre el 18 % de tus gastos del mes.</div>
+                      <span class="link">Ver detalle</span>
+                    </div>
+                    <div class="w">
+                      <div class="wh">Flujo del mes</div>
+                      <div class="bar"><span class="i" style="width:62%"></span><span class="o" style="width:38%"></span></div>
+                      <div class="fx jb ac"><div><div class="lab g-growth">Ingresos</div><div class="amt-md">$ 6.850.000</div></div><div style="text-align:right"><div class="lab g-debt">Gastos</div><div class="amt-md">$ 4.120.300</div></div></div>
+                      <span class="link">Ver detalles</span>
+                    </div>
+                    <div class="w">
+                      <div class="wh">Resumen de cuentas<span class="circ">+</span></div>
+                      <div class="amt-lg">$ 4.217.500</div>
+                      <div>
+                        <sc-for list="{{ accounts }}" as="a" hint-placeholder-count="3">
+                          <div class="row"><span>{{ a.name }}</span><span class="amt-sm">{{ a.amt }}</span></div>
+                        </sc-for>
+                      </div>
+                    </div>
+                    <div class="w span2">
+                      <div class="wh">Movimientos recientes<span class="link">Ver todas</span></div>
+                      <div>
+                        <sc-for list="{{ recentLong }}" as="t" hint-placeholder-count="6">
+                          <div class="row"><span class="mono sub" style="width:72px">{{ t.date }}</span><span style="flex:1">{{ t.name }}</span><span class="sub" style="width:160px">{{ t.cat }}</span><span class="sub" style="width:120px">{{ t.acc }}</span><span class="{{ t.cls }}" style="width:140px;text-align:right">{{ t.amt }}</span></div>
+                        </sc-for>
+                      </div>
+                    </div>
+                    <div class="stack">
+                      <div class="w">
+                        <div class="wh">Próximos pagos<span class="circ">+</span></div>
+                        <div>
+                          <sc-for list="{{ upcoming }}" as="u" hint-placeholder-count="3">
+                            <div class="row"><div><div>{{ u.name }}</div><div class="sub"><span class="{{ u.tagCls }}">{{ u.when }}</span></div></div><span class="amt-sm">{{ u.amt }}</span></div>
+                          </sc-for>
+                        </div>
+                      </div>
+                      <div class="fx gap24">
+                        <div class="w" style="flex:1"><div class="wh">Deudas</div><div class="amt-md">$ 8.940.000</div><span class="link">Ver todas</span></div>
+                        <div class="w" style="flex:1"><div class="wh">Metas</div><div class="sm">2 activas</div><span class="link">Ver todas</span></div>
+                      </div>
+                    </div>
+                  </div>
+                </main>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="dv-group">Movimientos</div>
+        <div class="dv-opts">
+          <div class="dv-opt" id="1d">
+            <div class="dv-olabel"><a class="dv-oid" href="#1d">1d</a>Lista a la izquierda y detalle a la derecha, como Outlook. Toca otra fila para ver su detalle.</div>
+            <div class="dv-card">
+              <div class="app" data-screen-label="1d Movimientos lista y detalle">
+                <aside class="side">
+                  <div class="brandmark"><span class="logo"></span>Financial Flow</div>
+                  <sc-for list="{{ navTx }}" as="n" hint-placeholder-count="7">
+                    <div class="{{ n.cls }}"><span class="dot"></span>{{ n.label }}</div>
+                  </sc-for>
+                  <div class="grow"></div>
+                  <div class="nav"><span class="dot"></span>Ajustes</div>
+                </aside>
+                <main class="main">
+                  <div class="top">
+                    <div><div class="hello">Octubre 2026</div><h1 class="title">Movimientos</h1></div>
+                    <div class="tools"><div class="search">Buscar movimientos<span style="flex:1"></span><span class="kbd">Ctrl K</span></div><button class="btn">+ Nueva transacción<span class="kbd">Ctrl N</span></button></div>
+                  </div>
+                  <div class="split">
+                    <div class="list">
+                      <div class="filters"><span class="pill on">Todos</span><span class="pill">Ingresos</span><span class="pill">Gastos</span><span style="flex:1"></span><span class="pill">Todas las cuentas</span></div>
+                      <sc-for list="{{ txGroups }}" as="g" hint-placeholder-count="3">
+                        <div class="day">{{ g.label }}</div>
+                        <sc-for list="{{ g.items }}" as="t" hint-placeholder-count="3">
+                          <div class="{{ t.rowCls }}" onClick="{{ t.select }}"><span class="n">{{ t.name }}</span><span class="{{ t.cls }}">{{ t.amt }}</span><span class="m">{{ t.cat }} · {{ t.acc }}</span></div>
+                        </sc-for>
+                      </sc-for>
+                    </div>
+                    <div class="detail">
+                      <div class="fx col gap8">
+                        <div class="fx ac gap8"><span class="tag">{{ sel.kind }}</span><sc-if value="{{ sel.passive }}" hint-placeholder-val="{{ false }}"><span class="tag pas">Ingreso pasivo</span></sc-if></div>
+                        <div style="font-size:22px;line-height:28px;font-weight:600">{{ sel.name }}</div>
+                        <div class="{{ sel.bigCls }}">{{ sel.amt }}</div>
+                      </div>
+                      <div class="dl">
+                        <div class="k">Categoría</div><div>{{ sel.cat }}</div>
+                        <div class="k">Cuenta</div><div>{{ sel.acc }}</div>
+                        <div class="k">Fecha</div><div>{{ sel.date }}</div>
+                        <div class="k">Descripción</div><div>{{ sel.desc }}</div>
+                      </div>
+                      <div class="fx gap12"><button class="btn ghost">Editar</button><button class="btn danger">Eliminar transacción</button></div>
+                    </div>
+                  </div>
+                </main>
+              </div>
+            </div>
+          </div>
+
+          <div class="dv-opt" id="1e">
+            <div class="dv-olabel"><a class="dv-oid" href="#1e">1e</a>Tabla tipo estado de cuenta con totales del mes arriba; el detalle se abre en un panel lateral sobre la tabla.</div>
+            <div class="dv-card">
+              <div class="app" data-screen-label="1e Movimientos tabla" style="position:relative">
+                <aside class="side">
+                  <div class="brandmark"><span class="logo"></span>Financial Flow</div>
+                  <sc-for list="{{ navTx }}" as="n" hint-placeholder-count="7">
+                    <div class="{{ n.cls }}"><span class="dot"></span>{{ n.label }}</div>
+                  </sc-for>
+                  <div class="grow"></div>
+                  <div class="nav"><span class="dot"></span>Ajustes</div>
+                </aside>
+                <main class="main">
+                  <div class="top">
+                    <div><div class="hello">Octubre 2026</div><h1 class="title">Movimientos</h1></div>
+                    <div class="tools"><span class="pill">‹ Sep</span><span class="pill on">Octubre</span><button class="btn">+ Nueva transacción<span class="kbd">Ctrl N</span></button></div>
+                  </div>
+                  <div class="strip">
+                    <div><div class="lab g-growth">Ingresos</div><div class="amt-md">$ 6.850.000</div></div>
+                    <div><div class="lab g-debt">Gastos</div><div class="amt-md">$ 4.120.300</div></div>
+                    <div><div class="lab">Balance</div><div class="amt-md">$ 2.729.700</div></div>
+                    <span style="flex:1"></span>
+                    <div class="fx gap8"><span class="pill on">Todos</span><span class="pill">Ingresos</span><span class="pill">Gastos</span></div>
+                  </div>
+                  <div class="ledger">
+                    <div class="lrow head"><span>Fecha</span><span>Descripción</span><span>Categoría</span><span>Cuenta</span><span class="r">Monto</span></div>
+                    <sc-for list="{{ txFlat }}" as="t" hint-placeholder-count="10">
+                      <div class="{{ t.lrowCls }}"><span class="mono sub">{{ t.date }}</span><span>{{ t.name }}</span><span class="sub">{{ t.cat }}</span><span class="sub">{{ t.acc }}</span><span class="{{ t.rcls }}">{{ t.amt }}</span></div>
+                    </sc-for>
+                  </div>
+                </main>
+                <div class="drawer">
+                  <div class="fx jb ac"><span class="tag">Gasto</span><span class="x">×</span></div>
+                  <div style="font-size:22px;line-height:28px;font-weight:600">Mercado Éxito</div>
+                  <div class="amt-lg neg">− $ 186.400</div>
+                  <div class="dl" style="grid-template-columns:120px minmax(0,1fr)">
+                    <div class="k">Categoría</div><div>Mercado</div>
+                    <div class="k">Cuenta</div><div>Bancolombia</div>
+                    <div class="k">Fecha</div><div>30 oct 2026</div>
+                    <div class="k">Descripción</div><div>Mercado de la quincena</div>
+                  </div>
+                  <div class="grow"></div>
+                  <div class="fx gap12"><button class="btn ghost" style="flex:1;justify-content:center">Editar</button><button class="btn danger" style="flex:1;justify-content:center">Eliminar</button></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="dv-next">Prueba: «el dashboard de <a class="dv-oid" href="#1b">1b</a> con el menú compacto de <a class="dv-oid" href="#1c">1c</a>» · «<a class="dv-oid" href="#1d">1d</a> pero con los totales del mes de <a class="dv-oid" href="#1e">1e</a>» · «muestra la ventana de Nueva transacción».</p>
+      </section>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script data-props='{}'>
+      class Component extends DCLogic {
+        constructor(props) { super(props); this.state = { sel: 0 }; }
+        renderVals() {
+          const navItems = ['Inicio', 'Movimientos', 'Cuentas', 'Deudas', 'Metas', 'Recurrentes', 'Flujo', 'Cashflow'];
+          const mkNav = (active) => navItems.map((label) => ({ label, cls: label === active ? 'nav on' : 'nav' }));
+          const shorts = ['In', 'Mo', 'Cu', 'De', 'Me', 'Re', 'Fl', 'Ca'];
+          const rail = navItems.map((label, i) => ({ label, short: shorts[i], cls: i === 0 ? 'ricon on' : 'ricon' }));
+          const accounts = [
+            { name: 'Bancolombia', amt: '$ 3.420.000' },
+            { name: 'Nequi', amt: '$ 612.500' },
+            { name: 'Efectivo', amt: '$ 185.000' },
+          ];
+          const upcoming = [
+            { name: 'Gimnasio', amt: '$ 120.000', when: 'Vencido', state: 'Vencido', tagCls: 'tag late', day: '10', mon: 'oct' },
+            { name: 'Arriendo', amt: '$ 1.450.000', when: '30 oct', state: 'Pendiente', tagCls: 'tag', day: '30', mon: 'oct' },
+            { name: 'Internet', amt: '$ 95.000', when: '31 oct', state: 'Pendiente', tagCls: 'tag', day: '31', mon: 'oct' },
+          ];
+          const tx = [
+            { day: 'Hoy · 30 oct', name: 'Mercado Éxito', amt: '− $ 186.400', out: true, cat: 'Mercado', acc: 'Bancolombia', date: '30 oct 2026', short: '30 oct', desc: 'Mercado de la quincena', kind: 'Gasto' },
+            { day: 'Hoy · 30 oct', name: 'Uber', amt: '− $ 18.900', out: true, cat: 'Transporte', acc: 'Nequi', date: '30 oct 2026', short: '30 oct', desc: 'Sin descripción', kind: 'Gasto' },
+            { day: 'Ayer · 29 oct', name: 'Pago cliente Andes', amt: '+ $ 2.300.000', out: false, cat: 'Trabajo', acc: 'Bancolombia', date: '29 oct 2026', short: '29 oct', desc: 'Proyecto web, segunda cuota', kind: 'Ingreso' },
+            { day: 'Ayer · 29 oct', name: 'Spotify', amt: '− $ 16.900', out: true, cat: 'Suscripciones', acc: 'Nequi', date: '29 oct 2026', short: '29 oct', desc: 'Sin descripción', kind: 'Gasto' },
+            { day: '27 oct', name: 'Arriendo local', amt: '+ $ 750.000', out: false, passive: true, cat: 'Arriendos', acc: 'Bancolombia', date: '27 oct 2026', short: '27 oct', desc: 'Local de la calle 45', kind: 'Ingreso' },
+            { day: '27 oct', name: 'Almuerzo', amt: '− $ 24.000', out: true, cat: 'Comida', acc: 'Efectivo', date: '27 oct 2026', short: '27 oct', desc: 'Sin descripción', kind: 'Gasto' },
+            { day: '25 oct', name: 'Pago tarjeta Visa', amt: '− $ 480.000', out: true, cat: 'Pagos de deuda', acc: 'Bancolombia', date: '25 oct 2026', short: '25 oct', desc: 'Cuota 7 de 24', kind: 'Gasto' },
+            { day: '25 oct', name: 'Gasolina', amt: '− $ 85.000', out: true, cat: 'Transporte', acc: 'Bancolombia', date: '25 oct 2026', short: '25 oct', desc: 'Sin descripción', kind: 'Gasto' },
+            { day: '24 oct', name: 'Dividendos CDT', amt: '+ $ 92.300', out: false, passive: true, cat: 'Inversiones', acc: 'Bancolombia', date: '24 oct 2026', short: '24 oct', desc: 'Intereses del mes', kind: 'Ingreso' },
+            { day: '24 oct', name: 'Farmacia', amt: '− $ 42.700', out: true, cat: 'Salud', acc: 'Nequi', date: '24 oct 2026', short: '24 oct', desc: 'Sin descripción', kind: 'Gasto' },
+          ];
+          const sel = this.state.sel;
+          const items = tx.map((t, i) => ({
+            ...t,
+            passive: !!t.passive,
+            cls: t.out ? 'amt-sm' : 'amt-sm pos',
+            rcls: t.out ? 'amt-sm r' : 'amt-sm r pos',
+            rowCls: i === sel ? 'tx on' : 'tx',
+            lrowCls: i === 0 ? 'lrow on' : 'lrow',
+            select: () => this.setState({ sel: i }),
+          }));
+          const groups = [];
+          items.slice(0, 7).forEach((t) => {
+            const last = groups[groups.length - 1];
+            if (last && last.label === t.day) last.items.push(t);
+            else groups.push({ label: t.day, items: [t] });
+          });
+          const s = items[sel];
+          return {
+            nav: mkNav('Inicio'),
+            navTx: mkNav('Movimientos'),
+            rail,
+            accounts,
+            upcoming,
+            recent: items.slice(0, 4).map((t) => ({ ...t, meta: t.cat + ' · ' + t.short })),
+            recentLong: items.slice(0, 6).map((t) => ({ ...t, date: t.short, cls: t.rcls })),
+            txGroups: groups,
+            txFlat: items.map((t) => ({ ...t, date: t.short })),
+            sel: { ...s, bigCls: s.out ? 'amt-xl' : 'amt-xl pos' },
+          };
+        }
+      }
+    </script>
+  </body>
+</html>
