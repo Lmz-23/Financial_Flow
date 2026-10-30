@@ -47,7 +47,6 @@ const DESKTOP_THEME_OPTIONS: readonly SegmentedOption<ThemePreference>[] = [
 const SECTION_SHORTCUTS = 'Atajos de teclado';
 const SHORTCUTS: readonly { keys: string; action: string }[] = [
   { keys: 'Ctrl N', action: 'Nueva transacción' },
-  { keys: 'Ctrl Enter', action: 'Guardar la ventana abierta' },
   { keys: 'Esc', action: 'Cerrar ventana o panel' },
   { keys: 'F11', action: 'Pantalla completa' },
 ];

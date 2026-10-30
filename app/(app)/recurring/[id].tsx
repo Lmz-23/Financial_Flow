@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, View } from 'react-native';
+import { View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { commands, ensureNotificationPermission } from '../../../src/app-services';
@@ -11,6 +11,7 @@ import { Text } from '../../../src/components/ui/ds/Text';
 import type { LocalDate } from '../../../src/domain/dates';
 import { useRecurringItem } from '../../../src/hooks/useRecurring';
 import { errorMessage } from '../../../src/lib/screenErrors';
+import { confirmAction } from '../../../src/lib/confirmAction';
 import { useTheme } from '../../../src/theme';
 
 const MSG_NOT_FOUND = 'No encontramos este recurrente.';
@@ -81,21 +82,19 @@ function DeleteButton({ id, onDone }: { id: string; onDone: () => void }) {
   const [error, setError] = useState<string | null>(null);
 
   function confirmRemoval() {
-    Alert.alert('Eliminar recurrente', MSG_DELETE_CONFIRM, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Eliminar',
-        style: 'destructive',
-        onPress: () => {
-          try {
-            commands.recurring.remove(id);
-            onDone();
-          } catch (e) {
-            setError(errorMessage(e));
-          }
-        },
+    confirmAction({
+      title: 'Eliminar recurrente',
+      message: MSG_DELETE_CONFIRM,
+      confirmLabel: 'Eliminar',
+      onConfirm: () => {
+        try {
+          commands.recurring.remove(id);
+          onDone();
+        } catch (e) {
+          setError(errorMessage(e));
+        }
       },
-    ]);
+    });
   }
 
   return (
