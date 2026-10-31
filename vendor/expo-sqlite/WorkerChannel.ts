@@ -1,9 +1,10 @@
-// Copia de expo-sqlite@56.0.5 web/WorkerChannel.ts (MIT, (c) 650 Industries, Inc. / Expo) con dos
+// Copia de expo-sqlite@56.0.5 web/WorkerChannel.ts (MIT, (c) 650 Industries, Inc. / Expo) con tres
 // cambios marcados como PARCHE (sendWorkerResult e invokeWorkerSync); siguen sin corregir en 58.0.14.
 // metro.config.js la usa en lugar del original solo en web. Al actualizar expo-sqlite, revisar si el
 // original ya lo corrige y borrar esta copia.
 
 const SYNC_TIMEOUT_MS = 30_000;
+let syncBuffers: { lockBuffer: SharedArrayBuffer; resultBuffer: SharedArrayBuffer } | null = null;
 
 // Copyright 2015-present 650 Industries. All rights reserved.
 
@@ -112,9 +113,12 @@ export function invokeWorkerSync<T extends SQLiteWorkerMessageType & keyof Resul
   }
 
   const id = messageId++;
-  const lockBuffer = new SharedArrayBuffer(4);
+  // PARCHE: el original creaba un SharedArrayBuffer de 1 MB por llamada. El navegador tarda en
+  // liberarlos (los comparte con el worker) y tras ~550 operaciones fallaba con «Array buffer
+  // allocation failed». Las llamadas síncronas van de a una, así que se reutiliza un solo par.
+  syncBuffers ??= { lockBuffer: new SharedArrayBuffer(4), resultBuffer: new SharedArrayBuffer(1024 * 1024) };
+  const { lockBuffer, resultBuffer } = syncBuffers;
   const lock = new Int32Array(lockBuffer);
-  const resultBuffer = new SharedArrayBuffer(1024 * 1024);
   const resultArray = new Uint8Array(resultBuffer);
 
   Atomics.store(lock, 0, PENDING);
