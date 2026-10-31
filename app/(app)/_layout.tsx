@@ -1,12 +1,13 @@
 import { Stack } from 'expo-router';
 import { View } from 'react-native';
 
+import { DeferredScreen } from '../../src/components/desktop/DeferredScreen';
 import { DesktopDialog } from '../../src/components/desktop/DesktopDialog';
 import { DesktopRail } from '../../src/components/desktop/DesktopRail';
 import { useDesktopShortcuts } from '../../src/components/desktop/useDesktopShortcuts';
 import { RouteErrorBoundary } from '../../src/components/feedback/RouteErrorBoundary';
 import { useIsDesktop } from '../../src/hooks/useLayoutSize';
-import { isDialogRoute } from '../../src/navigation/desktop';
+import { isDialogRoute, skeletonFor } from '../../src/navigation/desktop';
 import { useTheme } from '../../src/theme';
 
 /** Excepciones de render en la zona (app): pantalla de error compartida con reintento. */
@@ -18,7 +19,8 @@ export { RouteErrorBoundary as ErrorBoundary };
  * `presentation: 'formSheet'` (con `sheetAllowedDetents`) o `'modal'` en sus propias opciones.
  *
  * En escritorio (web con 600 px o más) el stack va al lado del menú lateral y los formularios
- * (`DIALOG_ROUTES`) se abren como ventana centrada sobre la pantalla anterior.
+ * (`DIALOG_ROUTES`) se abren como ventana centrada sobre la pantalla anterior. Las demás pantallas
+ * muestran su esqueleto un cuadro antes de montarse (`DeferredScreen`).
  */
 export default function AppLayout() {
   const { colors } = useTheme();
@@ -35,10 +37,12 @@ export default function AppLayout() {
           : null),
       })}
       screenLayout={({ route, navigation, children }) =>
-        desktop && isDialogRoute(route.name) ? (
+        !desktop ? (
+          children
+        ) : isDialogRoute(route.name) ? (
           <DesktopDialog onClose={() => navigation.goBack()}>{children}</DesktopDialog>
         ) : (
-          children
+          <DeferredScreen variant={skeletonFor(route.name)}>{children}</DeferredScreen>
         )
       }
     >

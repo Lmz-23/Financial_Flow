@@ -10,6 +10,8 @@ import { initializeApp, subscribeToForeground, subscribeToNotifications } from '
 import { useSettingsStore, useThemePreference } from '../src/store/useSettingsStore';
 import { ThemeProvider, useTheme } from '../src/theme';
 import { fontAssets } from '../src/theme/fontAssets';
+import { StartupSkeleton } from '../src/components/desktop/ScreenSkeleton';
+import { useIsDesktop } from '../src/hooks/useLayoutSize';
 
 // Retiene la pantalla de inicio hasta que las fuentes IBM Plex estén cargadas.
 SplashScreen.preventAutoHideAsync();
@@ -23,6 +25,7 @@ function SettingsThemeProvider({ children }: { children: ReactNode }) {
 /** Migraciones, semilla y carga de ajustes. No renderiza rutas hasta que todo está listo. */
 function Initializer({ children }: { children: ReactNode }) {
   const { colors } = useTheme();
+  const desktop = useIsDesktop();
   const [status, setStatus] = useState<'loading' | 'error' | 'ready'>('loading');
   const [failureCount, setFailureCount] = useState(0);
 
@@ -62,6 +65,8 @@ function Initializer({ children }: { children: ReactNode }) {
 
   if (status === 'error') return <ErrorScreen onRetry={retry} failureCount={failureCount} />;
   if (status === 'loading') {
+    // Escritorio: la estructura de la app con bloques que brillan, en vez de un círculo de carga.
+    if (desktop) return <StartupSkeleton />;
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.surfacePage }}>
         <ActivityIndicator size="large" color={colors.brandPrimary} />

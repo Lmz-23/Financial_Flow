@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { activeRailKey, isDialogRoute } from '../../../src/navigation/desktop';
+import { activeRailKey, isDialogRoute, skeletonFor } from '../../../src/navigation/desktop';
 
 describe('activeRailKey', () => {
   it.each([
@@ -24,5 +24,14 @@ describe('isDialogRoute', () => {
     expect(isDialogRoute('transactions/index')).toBe(false);
     expect(isDialogRoute('transactions/[id]')).toBe(false);
     expect(isDialogRoute('index')).toBe(false);
+  });
+});
+
+describe('skeletonFor', () => {
+  it('cada pantalla tiene el esqueleto de su estructura; el resto, tabla', () => {
+    expect(skeletonFor('index')).toBe('dashboard');
+    expect(skeletonFor('recurring/index')).toBe('weeks');
+    expect(skeletonFor('transactions/index')).toBe('table');
+    expect(skeletonFor('accounts/[id]')).toBe('table');
   });
 });

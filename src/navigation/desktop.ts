@@ -64,3 +64,20 @@ export const DIALOG_ROUTES: ReadonlySet<string> = new Set([
 export function isDialogRoute(routeName: string): boolean {
   return DIALOG_ROUTES.has(routeName);
 }
+
+/** Esqueleto que se muestra mientras carga cada pantalla de escritorio (ver `ScreenSkeleton`). */
+export type SkeletonKind = 'dashboard' | 'table' | 'cards' | 'weeks' | 'chart' | 'cashflow' | 'settings';
+
+const SKELETONS: Readonly<Record<string, SkeletonKind>> = {
+  index: 'dashboard',
+  'goals/index': 'cards',
+  'recurring/index': 'weeks',
+  flow: 'chart',
+  cashflow: 'cashflow',
+  settings: 'settings',
+};
+
+/** Listas, detalles y lo demás usan la tabla. */
+export function skeletonFor(routeName: string): SkeletonKind {
+  return SKELETONS[routeName] ?? 'table';
+}
