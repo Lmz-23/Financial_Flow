@@ -14,7 +14,7 @@ const staticColorsPattern = {
 module.exports = defineConfig([
   expoConfig,
   {
-    ignores: ["dist/*", "_parked/*"],
+    ignores: ["dist/*", "_parked/*", "vendor/*", "Design/*", "desktop/*"],
   },
   {
     // Scripts y configuración raíz corren en Node (CommonJS).

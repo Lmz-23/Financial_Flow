@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+  <head>
+
+
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <meta name="design_doc_mode" content="canvas" />
+        <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet" />
+        <link rel="stylesheet" href="./escritorio.css" />
+      </helmet>
+
+      <section class="dv-turn" id="t2" data-screen-label="Cuentas y deudas">
+        <div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">Cuentas y deudas</span></div>
+        <p class="dv-intro">Mismo patrón que Movimientos: tabla a lo ancho y detalle en panel lateral. Crear y registrar pagos se hace en ventana centrada.</p>
+        <div class="dv-opts">
+
+          <div class="dv-opt" id="2e">
+            <div class="dv-olabel"><a class="dv-oid" href="#2e">2e</a><b>Cuentas</b> Todas las cuentas con su tipo y saldo. El panel permite editar nombre y saldo, ver sus movimientos, archivar o eliminar.</div>
+            <div class="dv-card">
+              <div class="app" data-screen-label="2e Cuentas">
+                <aside class="side"><span class="logo"></span><sc-for list="{{ rCu }}" as="n" hint-placeholder-count="8"><div class="{{ n.cls }}"><b>{{ n.short }}</b><span>{{ n.label }}</span></div></sc-for><span class="grow"></span><div class="ricon"><b>Aj</b><span>Ajustes</span></div></aside>
+                <main class="main" style="padding-right:420px">
+                  <div class="top">
+                    <div><div class="hello">Disponible en total</div><div class="amt-lg" style="margin-top:4px">$ 4.217.500</div></div>
+                    <div class="tools"><button class="btn">+ Agregar cuenta</button></div>
+                  </div>
+                  <div class="ledger" style="--cols:minmax(0,1.4fr) minmax(0,1fr) 150px">
+                    <div class="lrow head"><span>Cuenta</span><span>Tipo</span><span class="r">Saldo</span></div>
+                    <sc-for list="{{ accounts }}" as="a" hint-placeholder-count="4"><div class="{{ a.cls }}"><span>{{ a.name }}</span><span class="sub">{{ a.type }}</span><span class="amt-sm r">{{ a.amt }}</span></div></sc-for>
+                  </div>
+                  <div class="pad" style="padding-top:28px">
+                    <div class="lab" style="margin-bottom:10px">Archivadas</div>
+                    <div class="ledger" style="margin:0;--cols:minmax(0,1.4fr) minmax(0,1fr) 150px"><div class="lrow"><span class="mut">Davivienda vieja</span><span class="sub">Cuenta de ahorros</span><span class="amt-sm r mut">$ 0</span></div></div>
+                  </div>
+                </main>
+                <div class="drawer">
+                  <div class="fx jb ac"><span class="tag">Cuenta de ahorros</span><span class="x">×</span></div>
+                  <div class="field"><span class="lab">Nombre</span><div class="inp">Bancolombia</div></div>
+                  <div class="field"><span class="lab">Saldo</span><div class="inp mono">$ 3.420.000</div></div>
+                  <button class="btn" style="align-self:flex-start">Guardar cambios</button>
+                  <div>
+                    <div class="wh" style="margin-bottom:4px">Movimientos de esta cuenta<span class="link">Ver todos</span></div>
+                    <sc-for list="{{ accTx }}" as="t" hint-placeholder-count="5"><div class="{{ t.rowCls }}"><div><div style="font-size:14px">{{ t.name }}</div><div class="sub">{{ t.date }}</div></div><span class="{{ t.cls }}">{{ t.amt }}</span></div></sc-for>
+                  </div>
+                  <span style="flex:1"></span>
+                  <div class="fx gap12"><button class="btn ghost" style="flex:1">Archivar</button><button class="btn danger" style="flex:1">Eliminar cuenta</button></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="dv-opt" id="2f">
+            <div class="dv-olabel"><a class="dv-oid" href="#2f">2f</a><b>Agregar cuenta</b> y <a class="dv-oid" href="#2f">2f</a> <b>Pago de deuda</b>. Ventanas pequeñas; se abren sobre la pantalla en la que estés.</div>
+            <div class="fx gap24" style="align-items:stretch">
+              <div class="dv-card" style="width:540px;background:#0B1512;padding:24px 0;display:flex;justify-content:center">
+                <div class="app" style="width:auto;height:auto;display:block;background:transparent" data-screen-label="2f Agregar cuenta">
+                  <div class="modal sm">
+                    <div class="mh"><h2 class="h1">Agregar cuenta</h2><span class="x">×</span></div>
+                    <div class="mb">
+                      <div class="field"><span class="lab">Tipo</span><div class="chips"><span class="chip on">Cuenta de ahorros</span><span class="chip">Cuenta corriente</span><span class="chip">Billetera digital</span><span class="chip">Efectivo</span></div></div>
+                      <div class="field"><span class="lab">Nombre de la cuenta</span><div class="inp ph focus">Ej. Bancolombia ahorros</div></div>
+                      <div class="field"><span class="lab">Saldo inicial</span><div class="inp big">$ 0</div></div>
+                    </div>
+                    <div class="mf"><button class="btn ghost">Cancelar</button><button class="btn">Guardar cuenta</button></div>
+                  </div>
+                </div>
+              </div>
+              <div class="dv-card" style="width:540px;background:#0B1512;padding:24px 0;display:flex;justify-content:center">
+                <div class="app" style="width:auto;height:auto;display:block;background:transparent" data-screen-label="2f Pago de deuda">
+                  <div class="modal sm">
+                    <div class="mh"><div><div class="sm">Tarjeta Visa</div><h2 class="h1">Pago de deuda</h2></div><span class="x">×</span></div>
+                    <div class="mb">
+                      <div class="radio on"><span class="dotr"></span><div><div class="body">Cuota</div><div class="sm">Tu cuota regular del mes. Cuenta como uno de tus pagos programados.</div></div></div>
+                      <div class="radio"><span class="dotr"></span><div><div class="body">Abono extra</div><div class="sm">Un pago extra, además o en vez de la cuota, para reducir el saldo más rápido.</div></div></div>
+                      <div class="field"><span class="lab">Monto</span><div class="inp big">$ 480.000</div></div>
+                      <div class="field"><span class="lab">¿De qué cuenta sale?</span><div class="inp">Bancolombia · $ 3.420.000<span class="mut">▾</span></div></div>
+                    </div>
+                    <div class="mf"><button class="btn ghost">Cancelar</button><button class="btn">Registrar pago</button></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="dv-opt" id="2g">
+            <div class="dv-olabel"><a class="dv-oid" href="#2g">2g</a><b>Deudas</b> Tabla con saldo, tasa, cuota y avance. El panel muestra la proyección y los pagos hechos.</div>
+            <div class="dv-card">
+              <div class="app" data-screen-label="2g Deudas">
+                <aside class="side"><span class="logo"></span><sc-for list="{{ rDe }}" as="n" hint-placeholder-count="8"><div class="{{ n.cls }}"><b>{{ n.short }}</b><span>{{ n.label }}</span></div></sc-for><span class="grow"></span><div class="ricon"><b>Aj</b><span>Ajustes</span></div></aside>
+                <main class="main" style="padding-right:420px">
+                  <div class="top">
+                    <div><div class="hello">Saldo pendiente total</div><div class="amt-lg neg" style="margin-top:4px">$ 8.940.000</div></div>
+                    <div class="tools"><button class="btn">+ Agregar deuda</button></div>
+                  </div>
+                  <div class="ledger" style="--cols:minmax(0,1.3fr) 130px 90px 110px minmax(0,1fr)">
+                    <div class="lrow head"><span>Deuda</span><span class="r">Saldo</span><span class="r">Tasa</span><span class="r">Cuota</span><span>Avance</span></div>
+                    <sc-for list="{{ debts }}" as="d" hint-placeholder-count="3"><div class="{{ d.cls }}" style="min-height:64px"><div><div>{{ d.name }}</div><div class="sub" style="font-size:12px">Próximo pago: {{ d.due }}</div></div><span class="amt-sm r">{{ d.bal }}</span><span class="amt-sm r mut">{{ d.rate }}</span><span class="amt-sm r">{{ d.fee }}</span><div class="fx col gap4"><div class="prog"><i style="{{ d.w }}"></i></div><span class="sub" style="font-size:12px">{{ d.count }}</span></div></div></sc-for>
+                  </div>
+                </main>
+                <div class="drawer">
+                  <div class="fx jb ac"><span class="tag">Tarjeta de crédito</span><span class="x">×</span></div>
+                  <div><div class="h1">Tarjeta Visa</div><div class="amt-lg neg" style="margin-top:8px">$ 3.360.000</div><div class="sm">saldo pendiente</div></div>
+                  <div class="fx col gap8"><div class="prog"><i style="width:29%"></i></div><div class="fx jb"><span class="sm">7 de 24 pagos</span><span class="sm">Terminas en oct 2028</span></div></div>
+                  <div class="dl">
+                    <div class="k">Tasa mensual</div><div class="mono">2,1 %</div>
+                    <div class="k">Cuota</div><div class="mono">$ 480.000</div>
+                    <div class="k">Vence</div><div>Cada día 25</div>
+                  </div>
+                  <div>
+                    <div class="wh" style="margin-bottom:4px">Pagos</div>
+                    <div class="row first"><div><div style="font-size:14px">Cuota</div><div class="sub">25 oct</div></div><span class="amt-sm">$ 480.000</span></div>
+                    <div class="row"><div><div style="font-size:14px">Abono extra</div><div class="sub">2 oct</div></div><span class="amt-sm">$ 200.000</span></div>
+                    <div class="row"><div><div style="font-size:14px">Cuota</div><div class="sub">25 sep</div></div><span class="amt-sm">$ 480.000</span></div>
+                  </div>
+                  <span style="flex:1"></span>
+                  <button class="btn lg wide">Registrar un pago</button>
+                  <div class="fx gap12"><button class="btn ghost" style="flex:1">Editar</button><button class="btn danger" style="flex:1">Eliminar</button></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="dv-opt" id="2h">
+            <div class="dv-olabel"><a class="dv-oid" href="#2h">2h</a><b>Agregar deuda</b> Si no sabes la tasa, la calcula en vivo con el saldo, la cuota y los meses que faltan.</div>
+            <div class="dv-card">
+              <div class="app" data-screen-label="2h Agregar deuda">
+                <aside class="side"><span class="logo"></span><sc-for list="{{ rDe }}" as="n" hint-placeholder-count="8"><div class="{{ n.cls }}"><b>{{ n.short }}</b><span>{{ n.label }}</span></div></sc-for><span class="grow"></span><div class="ricon"><b>Aj</b><span>Ajustes</span></div></aside>
+                <main class="main">
+                  <div class="top"><div><div class="hello">Saldo pendiente total</div><div class="amt-lg neg" style="margin-top:4px">$ 8.940.000</div></div></div>
+                  <div class="ledger" style="--cols:minmax(0,1.3fr) 130px 90px 110px minmax(0,1fr)">
+                    <sc-for list="{{ debts }}" as="d" hint-placeholder-count="3"><div class="lrow" style="min-height:64px"><span>{{ d.name }}</span><span class="amt-sm r">{{ d.bal }}</span><span class="amt-sm r mut">{{ d.rate }}</span><span class="amt-sm r">{{ d.fee }}</span><div class="prog"><i style="{{ d.w }}"></i></div></div></sc-for>
+                  </div>
+                </main>
+                <div class="scrim">
+                  <div class="modal">
+                    <div class="mh"><h2 class="h1">Agregar deuda</h2><span class="x">×</span></div>
+                    <div class="mb">
+                      <div class="field"><span class="lab">Nombre</span><div class="inp">Préstamo moto</div></div>
+                      <div class="two">
+                        <div class="field"><span class="lab">Saldo actual</span><div class="inp mono">$ 4.200.000</div></div>
+                        <div class="field"><span class="lab">Cuota mensual</span><div class="inp mono">$ 310.000</div></div>
+                      </div>
+                      <div class="two">
+                        <div class="field"><span class="lab">Día de vencimiento</span><div class="inp">15<span class="mut">▾</span></div></div>
+                        <div class="field"><span class="lab">Meses que te faltan</span><div class="inp mono focus">16</div></div>
+                      </div>
+                      <div class="field"><span class="lab">¿Sabes la tasa de interés?</span><div class="seg"><span>Conozco la tasa</span><span class="on">No sé la tasa</span></div></div>
+                      <div class="w flat" style="gap:6px;padding:16px"><span class="lab">Tasa estimada</span><div class="amt-md">1,9 % mensual</div><div class="sm">Calculada con el saldo, la cuota y los meses que faltan.</div></div>
+                    </div>
+                    <div class="mf"><button class="btn ghost">Cancelar</button><button class="btn">Guardar deuda</button></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script data-props='{}'>
+      class Component extends DCLogic {
+        renderVals() {
+          const NAV = [['In', 'Inicio'], ['Mo', 'Movimientos'], ['Cu', 'Cuentas'], ['De', 'Deudas'], ['Me', 'Metas'], ['Re', 'Recurrentes'], ['Fl', 'Flujo'], ['Ca', 'Cashflow']];
+          const rail = (on) => NAV.map(([short, label], i) => ({ short, label, cls: i === on ? 'ricon on' : 'ricon' }));
+          const accounts = [
+            ['Bancolombia', 'Cuenta de ahorros', '$ 3.420.000'],
+            ['Nequi', 'Billetera digital', '$ 612.500'],
+            ['Efectivo', 'Efectivo', '$ 185.000'],
+          ].map(([name, type, amt], i) => ({ name, type, amt, cls: i === 0 ? 'lrow on' : 'lrow' }));
+          const accTx = [
+            ['Mercado Éxito', '30 oct', '− $ 186.400', 0],
+            ['Pago cliente Andes', '29 oct', '+ $ 2.300.000', 1],
+            ['Desde Nequi', '28 oct', '+ $ 300.000', 1],
+            ['Arriendo local', '27 oct', '+ $ 750.000', 1],
+            ['Pago tarjeta Visa', '25 oct', '− $ 480.000', 0],
+          ].map(([name, date, amt, pos], i) => ({ name, date, amt, cls: pos ? 'amt-sm pos' : 'amt-sm', rowCls: i ? 'row' : 'row first' }));
+          const debts = [
+            ['Tarjeta Visa', '25 nov', '$ 3.360.000', '2,1 %', '$ 480.000', 29, '7 de 24 pagos'],
+            ['Crédito estudio', '5 nov', '$ 4.980.000', '1,2 %', '$ 415.000', 58, '21 de 36 pagos'],
+            ['Préstamo hermano', 'sin fecha', '$ 600.000', '0 %', '$ 100.000', 40, 'Plazo sin definir'],
+          ].map(([name, due, bal, rate, fee, p, count], i) => ({ name, due, bal, rate, fee, count, w: 'width:' + p + '%', cls: i === 0 ? 'lrow on' : 'lrow' }));
+          return { rCu: rail(2), rDe: rail(3), accounts, accTx, debts };
+        }
+      }
+    </script>
+  </body>
+</html>

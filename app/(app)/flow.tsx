@@ -4,12 +4,14 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FlowBarChart } from '../../src/components/cashflow/FlowBarChart';
+import { FlowDetailDesktop } from '../../src/components/charts/desktop/FlowDetailDesktop';
 import { ScreenHeader } from '../../src/components/screens/ScreenHeader';
 import { Amount, PeriodStepper, ProgressBar, SegmentedControl, Text, Widget } from '../../src/components/ui/ds';
 import { SCREEN_MARGIN } from '../../src/components/ui/ds/constants';
 import { toLocalDate } from '../../src/domain/dates';
 import { comparePeriods, periodOf, shiftPeriod, type Period, type PeriodKind } from '../../src/domain/rules/periods';
 import type { CategoryLine } from '../../src/domain/services/ReportService';
+import { useIsDesktop } from '../../src/hooks/useLayoutSize';
 import { useFirstActivityDate, usePeriodReport } from '../../src/hooks/usePeriodReport';
 import {
   PERIOD_OPTIONS,
@@ -91,6 +93,7 @@ export default function FlowDetailScreen() {
   const { colors, space } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const desktop = useIsDesktop();
   const [today] = useState(() => toLocalDate(Date.now()));
   const [period, setPeriod] = useState<Period>(() => periodOf('MONTH', today));
   const [selected, setSelected] = useState<number | null>(null);
@@ -115,6 +118,23 @@ export default function FlowDetailScreen() {
     incomeMinor: b.ingresoTotal,
     expenseMinor: b.gastoTotal,
   }));
+
+  if (desktop) {
+    return (
+      <FlowDetailDesktop
+        period={period}
+        report={report}
+        today={today}
+        selected={selected}
+        onSelect={setSelected}
+        onKindChange={(kind) => goTo(periodOf(kind, today))}
+        onPrevious={() => goTo(shiftPeriod(period, -1))}
+        onNext={() => goTo(shiftPeriod(period, 1))}
+        canPrevious={canPrevious}
+        canNext={canNext}
+      />
+    );
+  }
 
   return (
     <View style={{ flex: 1 }}>

@@ -15,6 +15,8 @@ function href(path: string): Href {
 export const routes = {
   dashboard: () => href('/'),
   settings: () => href('/settings'),
+  /** Lista de cuentas (escritorio, Design/escritorio 2e). */
+  accounts: () => href('/accounts'),
   accountNew: () => href('/accounts/new'),
   account: (id: string) => href(`/accounts/${id}`),
   transactions: () => href('/transactions'),

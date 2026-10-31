@@ -5,10 +5,14 @@ import { OnboardingScaffold, TextLink } from '../../src/components/onboarding/On
 import { Button } from '../../src/components/ui/ds/Button';
 import { InviteCard } from '../../src/components/ui/ds/InviteCard';
 import { Text } from '../../src/components/ui/ds/Text';
+import { useIsDesktop } from '../../src/hooks/useLayoutSize';
 import type { WidgetKey } from '../../src/lib/onboardingDraft';
 import { routes } from '../../src/navigation/routes';
 import { useOnboardingDraft } from '../../src/store/useOnboardingDraft';
 import { useTheme } from '../../src/theme';
+
+/** Botón principal en escritorio: ~220 px, no a todo el ancho. */
+const DESKTOP_BUTTON = { width: 220 } as const;
 
 const OPTIONS: readonly { key: WidgetKey; title: string; description: string }[] = [
   { key: 'cashflow', title: 'Índice de Flujo de Caja', description: 'Mide qué tanto de tus gastos ya cubre tu ingreso pasivo.' },
@@ -20,6 +24,7 @@ const OPTIONS: readonly { key: WidgetKey; title: string; description: string }[]
 export default function OnboardingWidgetsScreen() {
   const { colors, space } = useTheme();
   const router = useRouter();
+  const desktop = useIsDesktop();
   const widgets = useOnboardingDraft((s) => s.widgets);
   const setWidget = useOnboardingDraft((s) => s.setWidget);
   const clearWidgets = useOnboardingDraft((s) => s.clearWidgets);
@@ -45,7 +50,7 @@ export default function OnboardingWidgetsScreen() {
       onBack={() => router.back()}
       footer={
         <>
-          <Button label="Continuar" onPress={next} />
+          <Button label="Continuar" onPress={next} fullWidth={!desktop} style={desktop ? DESKTOP_BUTTON : undefined} />
           <TextLink label="Prefiero explorarlo yo mismo" onPress={skip}>
             <Text variant="bodySm" tone="secondary">
               Prefiero explorarlo yo mismo
@@ -62,16 +67,17 @@ export default function OnboardingWidgetsScreen() {
           Actívalo si te sirve ahora. Si no, lo encuentras después en tu panel — nunca se pierde nada de lo que ya cargaste.
         </Text>
       </View>
-      <View style={{ gap: space[3] }}>
+      <View style={desktop ? { flexDirection: 'row', alignItems: 'stretch', gap: space[4] } : { gap: space[3] }}>
         {OPTIONS.map((o) => (
-          <InviteCard
-            key={o.key}
-            title={o.title}
-            description={o.description}
-            identityColor={identity[o.key]}
-            selected={widgets[o.key]}
-            onPress={() => setWidget(o.key, !widgets[o.key])}
-          />
+          <View key={o.key} style={desktop ? { flex: 1, minWidth: 0 } : undefined}>
+            <InviteCard
+              title={o.title}
+              description={o.description}
+              identityColor={identity[o.key]}
+              selected={widgets[o.key]}
+              onPress={() => setWidget(o.key, !widgets[o.key])}
+            />
+          </View>
         ))}
       </View>
     </OnboardingScaffold>

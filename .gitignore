@@ -42,6 +42,11 @@ example
 /ios
 /android
 
+# Programa de escritorio: exportación web generada, dependencias y builds
+desktop/app/
+desktop/node_modules/
+desktop/dist/
+
 # AIEOS / herramientas locales
 .opencode/
 .claude/pipeline-state.json

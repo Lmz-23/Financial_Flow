@@ -11,7 +11,7 @@
  *   (sigue al sistema). Requiere `userInterfaceStyle: "automatic"` en app.json (ya está).
  */
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Appearance, useColorScheme } from 'react-native';
+import { Appearance, Platform, useColorScheme } from 'react-native';
 import { ThemeProvider as NavigationThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
@@ -48,6 +48,8 @@ export function ThemeProvider({ preference: preferenceProp = 'system', children 
   const scheme = resolveScheme(preference, systemScheme);
 
   useEffect(() => {
+    // react-native-web no implementa `setColorScheme`; en web no hay controles nativos que alinear.
+    if (Platform.OS === 'web') return;
     Appearance.setColorScheme(preference === 'system' ? 'unspecified' : preference);
   }, [preference]);
 

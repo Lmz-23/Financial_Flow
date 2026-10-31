@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AccountsSummaryWidget } from '../../src/components/dashboard/AccountsSummaryWidget';
 import { AddTransactionFab } from '../../src/components/dashboard/AddTransactionFab';
 import { CashflowIndexWidget } from '../../src/components/dashboard/CashflowIndexWidget';
+import { DesktopDashboard } from '../../src/components/dashboard/desktop/DesktopDashboard';
 import { DashboardHeader } from '../../src/components/dashboard/DashboardHeader';
 import { DebtsWidget } from '../../src/components/dashboard/DebtsWidget';
 import { GoalsWidget } from '../../src/components/dashboard/GoalsWidget';
@@ -22,10 +23,16 @@ import {
   useUpcoming,
 } from '../../src/hooks';
 import { useActivity } from '../../src/hooks/useActivity';
+import { useIsDesktop } from '../../src/hooks/useLayoutSize';
 import { useTheme } from '../../src/theme';
 
 /** Dashboard: 4 widgets fijos, los opcionales activados y las invitaciones a los inactivos. */
 export default function DashboardScreen() {
+  return useIsDesktop() ? <DesktopDashboard /> : <MobileDashboard />;
+}
+
+/** Versión del celular, sin cambios. */
+function MobileDashboard() {
   const { colors, space } = useTheme();
   const insets = useSafeAreaInsets();
   const { widgets } = useSettings();

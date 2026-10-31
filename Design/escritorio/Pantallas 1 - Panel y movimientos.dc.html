@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+  <head>
+
+
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <meta name="design_doc_mode" content="canvas" />
+        <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet" />
+        <link rel="stylesheet" href="./escritorio.css" />
+      </helmet>
+
+      <section class="dv-turn" id="t2" data-screen-label="Panel y movimientos">
+        <div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">Panel y movimientos</span></div>
+        <p class="dv-intro">Base elegida: menú compacto y tema oscuro de 1c, listas en tabla con panel lateral de 1e. Los formularios se abren en ventana centrada sobre la pantalla actual; Esc la cierra y Ctrl+Enter guarda.</p>
+        <div class="dv-opts">
+
+          <div class="dv-opt" id="2a">
+            <div class="dv-olabel"><a class="dv-oid" href="#2a">2a</a><b>Inicio</b> Panel con los 4 widgets fijos y los opcionales activos.</div>
+            <div class="dv-card">
+              <div class="app" data-screen-label="2a Inicio">
+                <aside class="side"><span class="logo"></span><sc-for list="{{ rInicio }}" as="n" hint-placeholder-count="8"><div class="{{ n.cls }}"><b>{{ n.short }}</b><span>{{ n.label }}</span></div></sc-for><span class="grow"></span><div class="ricon"><b>Aj</b><span>Ajustes</span></div></aside>
+                <main class="main">
+                  <div class="top">
+                    <div><div class="hello">Hola</div><h1 class="title">Tu panorama</h1></div>
+                    <div class="tools"><div class="search">Buscar movimientos<span style="flex:1"></span><span class="kbd">Ctrl K</span></div><button class="btn">+ Nueva transacción<span class="kbd">Ctrl N</span></button></div>
+                  </div>
+                  <div class="grid3">
+                    <div class="w hero">
+                      <div class="wh">Índice de Flujo de Caja<span class="x">×</span></div>
+                      <div class="amt-xl">20 %</div>
+                      <div class="sm">Tu ingreso pasivo cubre el 20 % de tus gastos del mes.</div>
+                      <span class="link">Ver detalle</span>
+                    </div>
+                    <div class="w">
+                      <div class="wh">Flujo del mes</div>
+                      <div class="bar"><span class="i" style="width:62%"></span><span class="o" style="width:38%"></span></div>
+                      <div class="fx jb ac"><div><div class="lab pos">Ingresos</div><div class="amt-md">$ 6.850.000</div></div><div class="r"><div class="lab neg">Gastos</div><div class="amt-md">$ 4.120.300</div></div></div>
+                      <span class="link">Ver detalles</span>
+                    </div>
+                    <div class="w">
+                      <div class="wh">Resumen de cuentas<span class="circ">+</span></div>
+                      <div class="amt-lg">$ 4.217.500</div>
+                      <div><sc-for list="{{ accounts }}" as="a" hint-placeholder-count="3"><div class="{{ a.rowCls }}"><span>{{ a.name }}</span><span class="amt-sm">{{ a.amt }}</span></div></sc-for></div>
+                    </div>
+                    <div class="w span2">
+                      <div class="wh">Movimientos recientes<span class="link">Ver todos</span></div>
+                      <div><sc-for list="{{ recent }}" as="t" hint-placeholder-count="6"><div class="{{ t.rowCls }}"><span class="mono sub" style="width:72px">{{ t.short }}</span><span style="flex:1">{{ t.name }}</span><span class="sub" style="width:150px">{{ t.cat }}</span><span class="sub" style="width:120px">{{ t.acc }}</span><span class="{{ t.cls }}" style="width:140px">{{ t.amt }}</span></div></sc-for></div>
+                    </div>
+                    <div class="stack">
+                      <div class="w">
+                        <div class="wh">Próximos pagos<span class="circ">+</span></div>
+                        <div><sc-for list="{{ upcoming }}" as="u" hint-placeholder-count="3"><div class="{{ u.rowCls }}"><div><div>{{ u.name }}</div><span class="{{ u.tagCls }}">{{ u.when }}</span></div><span class="amt-sm">{{ u.amt }}</span></div></sc-for></div>
+                        <span class="link">Ver todos</span>
+                      </div>
+                      <div class="fx gap24">
+                        <div class="w" style="flex:1"><div class="wh">Deudas<span class="x">×</span></div><div class="amt-md">$ 8.940.000</div><span class="link">Ver todas</span></div>
+                        <div class="w" style="flex:1"><div class="wh">Metas<span class="x">×</span></div><div class="sm">3 metas activas</div><span class="link">Ver todas</span></div>
+                      </div>
+                    </div>
+                  </div>
+                </main>
+              </div>
+            </div>
+          </div>
+
+          <div class="dv-opt" id="2b">
+            <div class="dv-olabel"><a class="dv-oid" href="#2b">2b</a><b>Movimientos</b> Tabla del mes con totales y filtros. Al tocar una fila se abre su detalle a la derecha. Las transferencias salen con su origen y destino.</div>
+            <div class="dv-card">
+              <div class="app" data-screen-label="2b Movimientos">
+                <aside class="side"><span class="logo"></span><sc-for list="{{ rMov }}" as="n" hint-placeholder-count="8"><div class="{{ n.cls }}"><b>{{ n.short }}</b><span>{{ n.label }}</span></div></sc-for><span class="grow"></span><div class="ricon"><b>Aj</b><span>Ajustes</span></div></aside>
+                <main class="main" style="padding-right:420px">
+                  <div class="top">
+                    <div><div class="hello">Octubre 2026</div><h1 class="title">Movimientos</h1></div>
+                    <div class="tools"><span class="pill">‹</span><span class="pill on">Octubre</span><span class="pill">›</span></div>
+                  </div>
+                  <div class="strip">
+                    <div><div class="lab pos">Ingresos</div><div class="amt-md">$ 6.850.000</div></div>
+                    <div><div class="lab neg">Gastos</div><div class="amt-md">$ 4.120.300</div></div>
+                    <span style="flex:1"></span>
+                    <div class="fx gap8"><span class="pill on">Todos</span><span class="pill">Ingresos</span><span class="pill">Gastos</span><span class="pill">Transferencias</span></div>
+                  </div>
+                  <div class="ledger" style="--cols:76px minmax(0,1.5fr) minmax(0,1fr) minmax(0,1fr) 130px">
+                    <div class="lrow head"><span>Fecha</span><span>Descripción</span><span>Categoría</span><span>Cuenta</span><span class="r">Monto</span></div>
+                    <sc-for list="{{ tx }}" as="t" hint-placeholder-count="12"><div class="{{ t.lrowCls }}"><span class="mono sub">{{ t.short }}</span><span>{{ t.name }}</span><span class="sub">{{ t.cat }}</span><span class="sub">{{ t.acc }}</span><span class="{{ t.rcls }}">{{ t.amt }}</span></div></sc-for>
+                  </div>
+                </main>
+                <div class="drawer">
+                  <div class="fx jb ac"><div class="fx gap8"><span class="tag">Ingreso</span><span class="tag pas">Ingreso pasivo</span></div><span class="x">×</span></div>
+                  <div><div class="h1">Arriendo local</div><div class="amt-lg pos" style="margin-top:8px">+ $ 750.000</div></div>
+                  <div class="dl">
+                    <div class="k">Categoría</div><div>Arriendos</div>
+                    <div class="k">Cuenta</div><div>Bancolombia</div>
+                    <div class="k">Fecha</div><div>27 oct 2026</div>
+                    <div class="k">Descripción</div><div>Local de la calle 45</div>
+                  </div>
+                  <div class="sm">Cuenta para tu Índice de Flujo de Caja.</div>
+                  <span class="grow" style="flex:1"></span>
+                  <div class="fx gap12"><button class="btn ghost" style="flex:1">Editar</button><button class="btn danger" style="flex:1">Eliminar transacción</button></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="dv-opt" id="2c">
+            <div class="dv-olabel"><a class="dv-oid" href="#2c">2c</a><b>Nueva transacción</b> Ventana centrada con Ctrl+N desde cualquier pantalla. Gasto, ingreso o transferencia en el mismo formulario.</div>
+            <div class="dv-card">
+              <div class="app" data-screen-label="2c Nueva transacción">
+                <aside class="side"><span class="logo"></span><sc-for list="{{ rMov }}" as="n" hint-placeholder-count="8"><div class="{{ n.cls }}"><b>{{ n.short }}</b><span>{{ n.label }}</span></div></sc-for><span class="grow"></span><div class="ricon"><b>Aj</b><span>Ajustes</span></div></aside>
+                <main class="main">
+                  <div class="top"><div><div class="hello">Octubre 2026</div><h1 class="title">Movimientos</h1></div></div>
+                  <div class="ledger" style="--cols:76px minmax(0,1.5fr) minmax(0,1fr) minmax(0,1fr) 130px">
+                    <sc-for list="{{ tx }}" as="t" hint-placeholder-count="12"><div class="lrow"><span class="mono sub">{{ t.short }}</span><span>{{ t.name }}</span><span class="sub">{{ t.cat }}</span><span class="sub">{{ t.acc }}</span><span class="{{ t.rcls }}">{{ t.amt }}</span></div></sc-for>
+                  </div>
+                </main>
+                <div class="scrim">
+                  <div class="modal">
+                    <div class="mh"><h2 class="h1">Nueva transacción</h2><span class="x">×</span></div>
+                    <div class="mb">
+                      <div class="seg"><span class="on">Gasto</span><span>Ingreso</span><span>Transferencia</span></div>
+                      <div class="field"><span class="lab">Monto</span><div class="inp big focus">$ 186.400</div></div>
+                      <div class="field"><span class="lab">Categoría</span>
+                        <div class="chips"><span class="chip on">Mercado</span><span class="chip">Comida</span><span class="chip">Transporte</span><span class="chip">Servicios</span><span class="chip">Salud</span><span class="chip">Suscripciones</span><span class="chip add">+ Nueva</span></div>
+                      </div>
+                      <div class="two">
+                        <div class="field"><span class="lab">Cuenta</span><div class="inp">Bancolombia<span class="mut">▾</span></div></div>
+                        <div class="field"><span class="lab">Fecha</span><div class="inp">30 oct 2026<span class="mut">▾</span></div></div>
+                      </div>
+                      <div class="field"><span class="lab">Descripción (opcional)</span><div class="inp ph">Ej.: suscripción de Amazon</div></div>
+                    </div>
+                    <div class="mf"><span class="hint"><span class="kbd">Esc</span>cerrar<span class="kbd">Ctrl Enter</span>guardar</span><button class="btn ghost">Cancelar</button><button class="btn">Guardar</button></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="dv-opt" id="2d">
+            <div class="dv-olabel"><a class="dv-oid" href="#2d">2d</a><b>Ingreso y transferencia</b> Izquierda: ingreso con la marca de pasivo. Derecha: transferencia entre cuentas, sin categoría; avisa si la cuenta de origen quedaría en negativo.</div>
+            <div class="fx gap24">
+              <div class="dv-card" style="width:560px;background:#0B1512;padding:24px 0;display:flex;justify-content:center">
+                <div class="app" style="width:auto;height:auto;display:block;background:transparent" data-screen-label="2d Ingreso">
+                  <div class="modal" style="width:520px">
+                    <div class="mh"><h2 class="h1">Nueva transacción</h2><span class="x">×</span></div>
+                    <div class="mb">
+                      <div class="seg"><span>Gasto</span><span class="on">Ingreso</span><span>Transferencia</span></div>
+                      <div class="field"><span class="lab">Monto</span><div class="inp big">$ 750.000</div></div>
+                      <div class="field"><span class="lab">Categoría</span><div class="chips"><span class="chip">Trabajo</span><span class="chip on">Arriendos</span><span class="chip">Inversiones</span><span class="chip">Ventas</span><span class="chip add">+ Nueva</span></div></div>
+                      <div class="switch"><div><div class="body">Ingreso pasivo</div><div class="sm">Llega sin que trabajes por él: arriendos, intereses, dividendos.</div></div><span class="tg on"></span></div>
+                      <div class="two">
+                        <div class="field"><span class="lab">Cuenta</span><div class="inp">Bancolombia<span class="mut">▾</span></div></div>
+                        <div class="field"><span class="lab">Fecha</span><div class="inp">27 oct 2026<span class="mut">▾</span></div></div>
+                      </div>
+                      <div class="field"><span class="lab">Descripción (opcional)</span><div class="inp ph">Ej.: prima de diciembre</div></div>
+                    </div>
+                    <div class="mf"><button class="btn ghost">Cancelar</button><button class="btn">Guardar</button></div>
+                  </div>
+                </div>
+              </div>
+              <div class="dv-card" style="width:560px;background:#0B1512;padding:24px 0;display:flex;justify-content:center;align-self:stretch">
+                <div class="app" style="width:auto;height:auto;display:block;background:transparent" data-screen-label="2d Transferencia">
+                  <div class="modal" style="width:520px">
+                    <div class="mh"><h2 class="h1">Nueva transacción</h2><span class="x">×</span></div>
+                    <div class="mb">
+                      <div class="seg"><span>Gasto</span><span>Ingreso</span><span class="on">Transferencia</span></div>
+                      <div class="field"><span class="lab">Monto</span><div class="inp big">$ 700.000</div></div>
+                      <div class="two">
+                        <div class="field"><span class="lab">Desde</span><div class="inp">Nequi<span class="mut">▾</span></div><span class="sm">Disponible: <span class="mono">$ 612.500</span></span></div>
+                        <div class="field"><span class="lab">Hacia</span><div class="inp">Bancolombia<span class="mut">▾</span></div></div>
+                      </div>
+                      <div class="sm neg">Nequi quedaría en negativo. El monto máximo es $ 612.500.</div>
+                      <div class="field"><span class="lab">Fecha</span><div class="inp">30 oct 2026<span class="mut">▾</span></div></div>
+                      <div class="field"><span class="lab">Nota (opcional)</span><div class="inp ph">Ej.: pasar para el arriendo</div></div>
+                    </div>
+                    <div class="mf"><button class="btn ghost">Cancelar</button><button class="btn" style="opacity:.45">Guardar</button></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+        <p class="dv-next">Sigue en: Pantallas 2 (cuentas y deudas), 3 (metas y recurrentes), 4 (flujo, cashflow y ajustes) y 5 (onboarding).</p>
+      </section>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script data-props='{}'>
+      class Component extends DCLogic {
+        renderVals() {
+          const NAV = [['In', 'Inicio'], ['Mo', 'Movimientos'], ['Cu', 'Cuentas'], ['De', 'Deudas'], ['Me', 'Metas'], ['Re', 'Recurrentes'], ['Fl', 'Flujo'], ['Ca', 'Cashflow']];
+          const rail = (on) => NAV.map(([short, label], i) => ({ short, label, cls: i === on ? 'ricon on' : 'ricon' }));
+          const accounts = [['Bancolombia', '$ 3.420.000'], ['Nequi', '$ 612.500'], ['Efectivo', '$ 185.000']]
+            .map(([name, amt], i) => ({ name, amt, rowCls: i ? 'row' : 'row first' }));
+          const upcoming = [
+            { name: 'Gimnasio', amt: '$ 120.000', when: 'Vencido', tagCls: 'tag late' },
+            { name: 'Arriendo', amt: '$ 1.450.000', when: '30 oct', tagCls: 'tag' },
+            { name: 'Internet', amt: '$ 95.000', when: '31 oct', tagCls: 'tag' },
+          ].map((u, i) => ({ ...u, rowCls: i ? 'row' : 'row first' }));
+          const raw = [
+            ['30 oct', 'Mercado Éxito', 'Mercado', 'Bancolombia', '− $ 186.400', 'out'],
+            ['30 oct', 'Uber', 'Transporte', 'Nequi', '− $ 18.900', 'out'],
+            ['29 oct', 'Pago cliente Andes', 'Trabajo', 'Bancolombia', '+ $ 2.300.000', 'in'],
+            ['29 oct', 'Spotify', 'Suscripciones', 'Nequi', '− $ 16.900', 'out'],
+            ['28 oct', 'Para el arriendo', 'Transferencia', 'Nequi → Bancolombia', '$ 300.000', 'tr'],
+            ['27 oct', 'Arriendo local', 'Arriendos', 'Bancolombia', '+ $ 750.000', 'in'],
+            ['27 oct', 'Almuerzo', 'Comida', 'Efectivo', '− $ 24.000', 'out'],
+            ['25 oct', 'Pago tarjeta Visa', 'Pagos de deuda', 'Bancolombia', '− $ 480.000', 'out'],
+            ['25 oct', 'Gasolina', 'Transporte', 'Bancolombia', '− $ 85.000', 'out'],
+            ['24 oct', 'Dividendos CDT', 'Inversiones', 'Bancolombia', '+ $ 92.300', 'in'],
+            ['24 oct', 'Farmacia', 'Salud', 'Nequi', '− $ 42.700', 'out'],
+            ['22 oct', 'Gas natural', 'Servicios', 'Bancolombia', '− $ 58.200', 'out'],
+          ];
+          const tx = raw.map(([short, name, cat, acc, amt, k], i) => ({
+            short, name, cat, acc, amt,
+            lrowCls: i === 5 ? 'lrow on' : 'lrow',
+            rcls: k === 'in' ? 'amt-sm r pos' : k === 'tr' ? 'amt-sm r mut' : 'amt-sm r',
+            cls: k === 'in' ? 'amt-sm r pos' : 'amt-sm r',
+          }));
+          return {
+            rInicio: rail(0), rMov: rail(1),
+            accounts, upcoming, tx,
+            recent: tx.slice(0, 6).map((t, i) => ({ ...t, rowCls: i ? 'row' : 'row first' })),
+          };
+        }
+      }
+    </script>
+  </body>
+</html>

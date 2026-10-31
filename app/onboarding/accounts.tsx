@@ -10,6 +10,7 @@ import { MIN_TOUCH } from '../../src/components/ui/ds/constants';
 import { Pill } from '../../src/components/ui/ds/Pill';
 import { Text } from '../../src/components/ui/ds/Text';
 import { formatCOP } from '../../src/domain/money';
+import { useIsDesktop } from '../../src/hooks/useLayoutSize';
 import {
   accountTypeLabel,
   MSG_NO_ACCOUNTS,
@@ -20,6 +21,9 @@ import {
 import { routes } from '../../src/navigation/routes';
 import { useOnboardingDraft } from '../../src/store/useOnboardingDraft';
 import { useTheme } from '../../src/theme';
+
+/** Botón principal en escritorio: ~220 px, no a todo el ancho. */
+const DESKTOP_BUTTON = { width: 220 } as const;
 
 type FormState = { mode: 'new'; initial: AccountFormValues } | { mode: 'edit'; account: DraftAccount };
 
@@ -40,6 +44,7 @@ function accountSubtitle(account: DraftAccount): string {
 export default function OnboardingAccountsScreen() {
   const { colors, radius, space } = useTheme();
   const router = useRouter();
+  const desktop = useIsDesktop();
   const accounts = useOnboardingDraft((s) => s.accounts);
   const addAccount = useOnboardingDraft((s) => s.addAccount);
   const updateAccount = useOnboardingDraft((s) => s.updateAccount);
@@ -80,7 +85,7 @@ export default function OnboardingAccountsScreen() {
   }
 
   return (
-    <OnboardingScaffold step={1} footer={<Button label="Continuar" onPress={next} />}>
+    <OnboardingScaffold step={1} footer={<Button label="Continuar" onPress={next} fullWidth={!desktop} style={desktop ? DESKTOP_BUTTON : undefined} />}>
       <View style={{ gap: space[2] }}>
         <Text variant="h1" accessibilityRole="header">
           ¿Dónde tienes tu dinero?

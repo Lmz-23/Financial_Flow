@@ -18,6 +18,8 @@
     "expo-env.d.ts"
   ],
   "exclude": [
-    "_parked"
+    "_parked",
+    "vendor",
+    "desktop"
   ]
 }

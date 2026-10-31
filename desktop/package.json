@@ -1,0 +1,59 @@
+{
+  "name": "financial-flow-desktop",
+  "productName": "Financial Flow",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Financial Flow para escritorio (Windows)",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "electron-builder --win nsis --publish never",
+    "dist:dir": "electron-builder --dir --publish never"
+  },
+  "devDependencies": {
+    "electron": "44.10.0",
+    "electron-builder": "26.17.0"
+  },
+  "author": "Lmz-23",
+  "build": {
+    "appId": "com.lmz23.financialflow",
+    "productName": "Financial Flow",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "app/**/*",
+      "build/icon.png",
+      "!node_modules/**/*"
+    ],
+    "asar": true,
+    "electronFuses": {
+      "runAsNode": false,
+      "enableCookieEncryption": true,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Financial Flow",
+      "artifactName": "Financial-Flow-Setup-${version}.${ext}",
+      "deleteAppDataOnUninstall": false
+    },
+    "linux": {
+      "target": "dir",
+      "icon": "build/icon.png"
+    }
+  }
+}

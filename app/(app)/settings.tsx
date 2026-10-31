@@ -12,6 +12,7 @@ import { SegmentedControl, type SegmentedOption } from '../../src/components/ui/
 import { Text } from '../../src/components/ui/ds/Text';
 import { Toggle } from '../../src/components/ui/ds/Toggle';
 import { Widget } from '../../src/components/ui/ds/Widget';
+import { useIsDesktop } from '../../src/hooks/useLayoutSize';
 import { useSettings } from '../../src/store/useSettingsStore';
 import { errorMessage } from '../../src/lib/screenErrors';
 import { useTheme } from '../../src/theme';
@@ -38,6 +39,19 @@ const THEME_OPTIONS: readonly SegmentedOption<ThemePreference>[] = [
   { value: 'system', label: 'Sistema' },
 ];
 
+const DESKTOP_THEME_OPTIONS: readonly SegmentedOption<ThemePreference>[] = [
+  { value: 'system', label: 'Sistema' },
+  { value: 'light', label: 'Claro' },
+  { value: 'dark', label: 'Oscuro' },
+];
+const SECTION_SHORTCUTS = 'Atajos de teclado';
+const SHORTCUTS: readonly { keys: string; action: string }[] = [
+  { keys: 'Ctrl N', action: 'Nueva transacción' },
+  { keys: 'Esc', action: 'Cerrar ventana o panel' },
+  { keys: 'F11', action: 'Pantalla completa' },
+];
+const DESKTOP_COLUMN_WIDTH = 760;
+
 function formatHour(hour: number): string {
   return `${String(hour).padStart(2, '0')}:00`;
 }
@@ -48,7 +62,7 @@ function formatHour(hour: number): string {
  * pide solo al encender un interruptor (§7), nunca al abrir la pantalla.
  */
 export default function SettingsScreen() {
-  const { colors, space } = useTheme();
+  const { colors, radius, space } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const settings = useSettings();
@@ -105,6 +119,8 @@ export default function SettingsScreen() {
     save(() => commands.settings.setNotifications({ reminderHour: next }));
   };
 
+  const desktop = useIsDesktop();
+
   const anyOn = settings.notifyPaymentReminders || settings.notifyWeeklySummary;
   const permissionHint =
     permission === null || permission.granted
@@ -114,6 +130,73 @@ export default function SettingsScreen() {
         : anyOn
           ? MSG_PERMISSION_NEEDED
           : null;
+
+  // En escritorio no hay notificaciones: columna centrada con apariencia y atajos.
+  if (desktop) {
+    return (
+      <ScrollView style={{ flex: 1, backgroundColor: colors.surfacePage }}>
+        <View
+          style={{
+            width: '100%',
+            maxWidth: DESKTOP_COLUMN_WIDTH,
+            alignSelf: 'center',
+            paddingHorizontal: space[5],
+            paddingBottom: space[6] + 8,
+            gap: space[5],
+          }}
+        >
+          <Text variant="displayMd" accessibilityRole="header" style={{ paddingTop: space[6] }}>
+            {TITLE}
+          </Text>
+          <Widget gap={space[4]}>
+            <Text variant="h3" accessibilityRole="header">
+              {SECTION_APPEARANCE}
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space[4] }}>
+              <Text variant="body">{LABEL_THEME}</Text>
+              <View style={{ width: 320 }}>
+                <SegmentedControl
+                  options={DESKTOP_THEME_OPTIONS}
+                  value={settings.themePreference}
+                  onChange={(next) => save(() => commands.settings.setTheme(next))}
+                  accessibilityLabel={LABEL_THEME}
+                />
+              </View>
+            </View>
+          </Widget>
+          <Widget gap={space[3]}>
+            <Text variant="h3" accessibilityRole="header">
+              {SECTION_SHORTCUTS}
+            </Text>
+            {SHORTCUTS.map((item) => (
+              <View key={item.keys} style={{ flexDirection: 'row', alignItems: 'center', gap: space[4] }}>
+                <View
+                  style={{
+                    minWidth: 96,
+                    alignItems: 'center',
+                    paddingVertical: 4,
+                    paddingHorizontal: space[3],
+                    borderRadius: radius.sm,
+                    borderWidth: 1,
+                    borderColor: colors.borderSubtle,
+                    backgroundColor: colors.surfaceRaised,
+                  }}
+                >
+                  <Text variant="label">{item.keys}</Text>
+                </View>
+                <Text variant="body">{item.action}</Text>
+              </View>
+            ))}
+          </Widget>
+          {error ? (
+            <Text variant="bodySm" tone="debt" accessibilityRole="alert">
+              {error}
+            </Text>
+          ) : null}
+        </View>
+      </ScrollView>
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.surfacePage }}>

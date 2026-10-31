@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { useRouter, type Href } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 
 import { commands, getDomain } from '../../../src/app-services';
+import { DebtsDesktop } from '../../../src/components/debt/desktop/DebtsDesktop';
 import { ScreenHeader } from '../../../src/components/screens/ScreenHeader';
 import { Amount } from '../../../src/components/ui/ds/Amount';
 import { Button } from '../../../src/components/ui/ds/Button';
@@ -17,11 +18,13 @@ import { Widget } from '../../../src/components/ui/ds/Widget';
 import type { Minor } from '../../../src/domain/money';
 import type { DebtView } from '../../../src/domain/services/DebtService';
 import { useDebts } from '../../../src/hooks';
+import { useIsDesktop } from '../../../src/hooks/useLayoutSize';
 import { MSG_BALANCE_REQUIRED } from '../../../src/lib/debtForm';
 import { debtDueLabel, debtProgress, debtProjection, debtRateLabel, debtsCountLabel } from '../../../src/lib/debtView';
 import { errorMessage } from '../../../src/lib/screenErrors';
 import { routes } from '../../../src/navigation/routes';
 import { fontFamilyFor, useTheme } from '../../../src/theme';
+import { confirmAction } from '../../../src/lib/confirmAction';
 
 /** Inferidos: espejo de los textos aprobados de cuentas (accounts/[id].tsx), cambiando «cuenta» por «deuda». */
 const MSG_DELETE_CONFIRM = '¿Eliminar esta deuda? Esta acción no se puede deshacer.';
@@ -32,8 +35,14 @@ const MSG_EMPTY = 'Aún no has agregado ninguna.';
 /** Pago de cuota desde la lista: sin ocurrencia, el dominio usa la próxima fecha (ruta de §6 fila 6). */
 const payHref = (debtId: string) => `/debts/${debtId}/pay?type=INSTALLMENT` as Href;
 
-/** Deudas (Dashboard.dc.html, onDeudas): total, lista expandible con tasa, progreso y proyección. */
+/** Deudas: en escritorio (web ≥ 600 px) tabla con panel de detalle; en el celular, la lista expandible. */
 export default function DebtsScreen() {
+  const desktop = useIsDesktop();
+  return desktop ? <DebtsDesktop /> : <DebtsMobile />;
+}
+
+/** Deudas (Dashboard.dc.html, onDeudas): total, lista expandible con tasa, progreso y proyección. */
+function DebtsMobile() {
   const { space } = useTheme();
   const router = useRouter();
   const { debts, totalMinor } = useDebts();
@@ -164,20 +173,18 @@ function DebtCard({
       setError(errorMessage(e));
       return;
     }
-    Alert.alert('Eliminar deuda', hasPayments ? MSG_ARCHIVE_CONFIRM : MSG_DELETE_CONFIRM, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: hasPayments ? 'Archivar' : 'Eliminar',
-        style: 'destructive',
-        onPress: () => {
-          try {
-            commands.debts.remove(debt.id);
-          } catch (e) {
-            setError(errorMessage(e));
-          }
-        },
+    confirmAction({
+      title: 'Eliminar deuda',
+      message: hasPayments ? MSG_ARCHIVE_CONFIRM : MSG_DELETE_CONFIRM,
+      confirmLabel: hasPayments ? 'Archivar' : 'Eliminar',
+      onConfirm: () => {
+        try {
+          commands.debts.remove(debt.id);
+        } catch (e) {
+          setError(errorMessage(e));
+        }
       },
-    ]);
+    });
   }
 
   return (
