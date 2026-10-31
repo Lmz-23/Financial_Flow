@@ -1,5 +1,5 @@
 import { usePathname, useRouter } from 'expo-router';
-import { Pressable, View, type PressableStateCallbackType } from 'react-native';
+import { Pressable, View, useWindowDimensions, type PressableStateCallbackType } from 'react-native';
 
 import { activeRailKey, RAIL_ITEMS, RAIL_SETTINGS, type RailItem } from '../../navigation/desktop';
 import { useTheme } from '../../theme';
@@ -7,10 +7,23 @@ import { Text } from '../ui/ds/Text';
 
 export const RAIL_WIDTH = 76;
 
+const BUTTON_MAX_HEIGHT = 54;
+const BUTTON_MIN_HEIGHT = 36;
+/** Por debajo de esta altura el botón muestra solo la abreviatura (ventanas bajas). */
+const LABEL_MIN_HEIGHT = 46;
+/** Lo que no son botones: logo con su margen, márgenes del menú y el hueco antes de Ajustes. */
+const RAIL_CHROME = 100;
+
+/** Alto de cada botón para que todo el menú, Ajustes incluido, quepa en la ventana. */
+export function railButtonHeight(windowHeight: number, buttons: number): number {
+  const fit = Math.floor((windowHeight - RAIL_CHROME) / buttons) - 2;
+  return Math.max(BUTTON_MIN_HEIGHT, Math.min(BUTTON_MAX_HEIGHT, fit));
+}
+
 /** react-native-web agrega `hovered` al estado de Pressable. */
 type WebPressableState = PressableStateCallbackType & { hovered?: boolean };
 
-function RailButton({ item, active }: { item: RailItem; active: boolean }) {
+function RailButton({ item, active, height }: { item: RailItem; active: boolean; height: number }) {
   const { colors, radius } = useTheme();
   const router = useRouter();
   const ink = active ? colors.inkOnBrand : colors.inkSecondary;
@@ -24,7 +37,7 @@ function RailButton({ item, active }: { item: RailItem; active: boolean }) {
         const { hovered, pressed } = state as WebPressableState;
         return {
           width: 60,
-          height: 54,
+          height,
           borderRadius: radius.sm + 2,
           alignItems: 'center',
           justifyContent: 'center',
@@ -37,9 +50,11 @@ function RailButton({ item, active }: { item: RailItem; active: boolean }) {
       <Text variant="label" style={{ color: ink, fontSize: 13, fontWeight: '600' }}>
         {item.short}
       </Text>
-      <Text variant="label" style={{ color: ink, fontSize: 10, lineHeight: 12 }} numberOfLines={1}>
-        {item.label}
-      </Text>
+      {height >= LABEL_MIN_HEIGHT ? (
+        <Text variant="label" style={{ color: ink, fontSize: 10, lineHeight: 12 }} numberOfLines={1}>
+          {item.label}
+        </Text>
+      ) : null}
     </Pressable>
   );
 }
@@ -48,6 +63,7 @@ function RailButton({ item, active }: { item: RailItem; active: boolean }) {
 export function DesktopRail() {
   const { colors, radius, space } = useTheme();
   const active = activeRailKey(usePathname());
+  const buttonHeight = railButtonHeight(useWindowDimensions().height, RAIL_ITEMS.length + 1);
   return (
     <View
       accessibilityRole="menu"
@@ -66,10 +82,10 @@ export function DesktopRail() {
         style={{ width: 32, height: 32, borderRadius: radius.sm + 1, backgroundColor: colors.brandPrimary, marginBottom: space[5] - 4 }}
       />
       {RAIL_ITEMS.map((item) => (
-        <RailButton key={item.key} item={item} active={active === item.key} />
+        <RailButton key={item.key} item={item} active={active === item.key} height={buttonHeight} />
       ))}
       <View style={{ flex: 1 }} />
-      <RailButton item={RAIL_SETTINGS} active={active === RAIL_SETTINGS.key} />
+      <RailButton item={RAIL_SETTINGS} active={active === RAIL_SETTINGS.key} height={buttonHeight} />
     </View>
   );
 }
