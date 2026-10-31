@@ -33,10 +33,10 @@ jobs:
   windows:
     runs-on: windows-latest
     timeout-minutes: 40
-    permissions:
-      contents: write # solo para crear la Release al subir una etiqueta
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
@@ -73,12 +73,24 @@ jobs:
           path: desktop/dist/*.exe
           retention-days: 30
 
+  # La compilación instala dependencias con permisos de solo lectura; publicar va aparte, con escritura.
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: windows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Financial-Flow-Setup
+          path: instalador
+
       - name: Publicar la Release
-        if: startsWith(github.ref, 'refs/tags/v')
-        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          gh release create "$GITHUB_REF_NAME" desktop/dist/*.exe \
+          gh release create "$GITHUB_REF_NAME" instalador/*.exe \
             --title "Financial Flow $GITHUB_REF_NAME" \
             --notes "Instalador de Windows. Como no va firmado, la primera vez Windows muestra «Windows protegió su PC»: toca «Más información» y luego «Ejecutar de todas formas». Los datos quedan en tu computador (%APPDATA%\\Financial Flow)."
