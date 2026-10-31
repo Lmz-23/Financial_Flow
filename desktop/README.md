@@ -18,3 +18,14 @@ npm start                      # abre la ventana
   en Windows). El origen `app://financial-flow` no debe cambiar: es la llave de esos datos.
 - Una sola instancia: abrirlo otra vez enfoca la ventana existente.
 - Recuerda tamaño, posición y si estaba maximizada. F11: pantalla completa. Alt muestra el menú.
+
+## Instalador de Windows
+
+Lo compila GitHub Actions (`.github/workflows/escritorio.yml`) en una máquina Windows:
+
+- En cada PR que toque la app o `desktop/`: el `.exe` queda como artefacto de la ejecución (30 días).
+- Al subir una etiqueta `vX.Y.Z` (`git tag v1.0.0 && git push origin v1.0.0`): se publica en Releases.
+
+En local: `npm run dist:dir` (en `desktop/`) arma la versión para este sistema sin instalador.
+El instalador no va firmado: la primera vez Windows muestra «Windows protegió su PC» → «Más
+información» → «Ejecutar de todas formas».
