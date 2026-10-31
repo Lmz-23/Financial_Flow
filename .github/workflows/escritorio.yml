@@ -40,7 +40,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 26 # la misma que en desarrollo: el lockfile lo genera npm 12
           cache: npm
           cache-dependency-path: |
             package-lock.json
