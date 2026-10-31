@@ -66,7 +66,9 @@
     "test:property": "FUZZ_FULL=1 vitest run test/property --reporter=verbose",
     "db:generate": "drizzle-kit generate",
     "db:check": "drizzle-kit check && node scripts/check-migrations.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "desktop:web": "expo export --platform web --clear --output-dir desktop/app",
+    "desktop:start": "npm --prefix desktop start"
   },
   "private": true
 }

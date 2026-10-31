@@ -1,0 +1,14 @@
+{
+  "name": "financial-flow-desktop",
+  "productName": "Financial Flow",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Financial Flow para escritorio (Windows)",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "44.10.0"
+  }
+}

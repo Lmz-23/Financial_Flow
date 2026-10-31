@@ -19,6 +19,7 @@
   ],
   "exclude": [
     "_parked",
-    "vendor"
+    "vendor",
+    "desktop"
   ]
 }
